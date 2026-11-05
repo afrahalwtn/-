@@ -435,12 +435,14 @@ async function handleForm(form) {
     }
   }
 }
-function printQuote(q) {
+async function printQuote(q) {
   if (!q) return;
   printRoot.innerHTML=`<div class="print-sheet"><header class="print-header"><div><h1>شركة أفراح الوطن للتجارة العامة</h1><p>عرض أسعار رقم ${number(q.id)} — ${new Date(q.date).toLocaleDateString('ar-IQ')}</p></div><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></header>
   <table><thead><tr><th>الصورة</th><th>اسم المنتج ووصفه</th><th>الصنع</th><th>العدد</th><th>سعر المنتج</th><th>المجموع</th></tr></thead><tbody>
-  ${q.items.map(row=>`<tr><td>${row.image_url?`<img class="print-photo" src="${safe(row.image_url)}">`:'—'}</td><td><strong>${safe(row.product_name)}</strong><small>${safe(row.description)}</small></td><td>${safe(row.manufacture)}</td><td>${number(row.quantity)}</td><td>${money(row.unit_price)}</td><td>${money(row.total)}</td></tr>`).join('')}
+  ${q.items.map(row=>`<tr><td>${row.image_url?`<img class="print-photo" data-private-image="${safe(row.image_url)}" alt="صورة المنتج">`:'—'}</td><td><strong>${safe(row.product_name)}</strong><small>${safe(row.description)}</small></td><td>${safe(row.manufacture)}</td><td>${number(row.quantity)}</td><td>${money(row.unit_price)}</td><td>${money(row.total)}</td></tr>`).join('')}
   </tbody></table><footer>المجموع الكلي: <strong>${money(q.total)}</strong></footer></div>`;
+  await hydrateImages(printRoot);
+  await Promise.all(Array.from(printRoot.querySelectorAll('img')).map(img=>img.decode?.().catch(()=>{})||Promise.resolve()));
   document.body.classList.add('printing');
   window.print();
   setTimeout(()=>document.body.classList.remove('printing'),1000);
@@ -522,7 +524,7 @@ async function handleAction(action, el) {
       try { state.selectedQuote=await api(`/quotes/${Number(el.dataset.id)}`);renderWorkspace();document.querySelector('.quote-preview')?.scrollIntoView({behavior:'smooth'});}
       catch(err){errorToast(err);}return;
     }
-    case 'quote-print': printQuote(state.selectedQuote);return;
+    case 'quote-print': await printQuote(state.selectedQuote);return;
   }
 }
 document.addEventListener('click',async(e)=>{
@@ -538,7 +540,7 @@ document.addEventListener('input',(e)=>{
   if (e.target.id==='home-search') {
     state.homeSearch=e.target.value;
     const results=document.getElementById('home-search-results');
-    if (results) results.innerHTML=searchableProductList(state.homeSearch,'home');
+    if (results) {results.innerHTML=searchableProductList(state.homeSearch,'home');void hydrateImages(results);}
     return;
   }
   if (e.target.id==='quote-search') {
@@ -547,6 +549,7 @@ document.addEventListener('input',(e)=>{
     if (results) results.innerHTML=state.quoteSearch.trim()?
       searchableProductList(state.quoteSearch,'quote'):
       '<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للوَصل».</p>';
+    if (results) void hydrateImages(results);
     return;
   }
   if(e.target.id==='global-search') {
