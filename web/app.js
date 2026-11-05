@@ -351,9 +351,9 @@ function renderModal() {
   if (type==='product') content=productModal(state.products.find(p=>p.id===id));
   if (type==='stock') content=stockModal(state.products.find(p=>p.id===id));
   if (type==='user') content=userModal(state.users.find(u=>u.id===id));
-  layer.innerHTML=`<div class="modal-backdrop" data-action="backdrop"><section class="modal" role="dialog" aria-modal="true">${content}</section></div>`;
+  layer.innerHTML=`<div class="af-modal-backdrop" data-action="backdrop"><section class="af-dialog" role="dialog" aria-modal="true">${content}</section></div>`;
   void hydrateImages(layer);
-  document.querySelector('.modal input:not([disabled])')?.focus();
+  document.querySelector('.af-dialog input:not([disabled])')?.focus();
 }
 function closeModal() {state.modal=null;renderModal();}
 async function syncAndShow(message) {
