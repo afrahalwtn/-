@@ -1,27 +1,21 @@
-# Open-source foundations and licenses
+# مصادر الواجهة والمكتبات — شركة أفراح الوطن
 
-- FastAPI — MIT — https://github.com/fastapi/fastapi
-- SQLAlchemy — MIT — https://github.com/sqlalchemy/sqlalchemy
-- Uvicorn — BSD-3-Clause — https://github.com/encode/uvicorn
-- Argon2-cffi — MIT — https://github.com/hynek/argon2-cffi
-- Pillow — HPND — https://github.com/python-pillow/Pillow
-- Pydantic — MIT — https://github.com/pydantic/pydantic
-- Lucide Icons (selected inline SVG icon geometries) — ISC — https://github.com/lucide-icons/lucide
+هذه النسخة تستخدم مكوّنات حقيقية من مشاريع مفتوحة المصدر. لا توجد نسخة بريميوم مدفوعة أو أصول بترخيص شراء.
 
-Lucide ISC License:
+| المكوّن | المصدر | الترخيص | طريقة الاستخدام |
+|---|---|---|---|
+| Tabler Dashboard / CSS RTL | https://github.com/tabler/tabler | MIT | `@tabler/core@1.7.1` عبر npm محلياً |
+| Tabler SVG Icons | https://github.com/tabler/tabler-icons | MIT | مسارات SVG المصدرية ضمن `web/icons.js` |
+| Tajawal Arabic Font | https://github.com/googlefonts/tajawal | SIL Open Font License 1.1 | `@fontsource/tajawal@5.3.0`، ملفات محلية |
+| Fontsource | https://github.com/fontsource/fontsource | MIT (الأدوات)، وترخيص الخط OFL | تعبئة ملفات Tajawal بطريقة ذاتية |
+| Express | https://github.com/expressjs/express | MIT | الخادم |
+| TypeScript | https://github.com/microsoft/TypeScript | Apache-2.0 | شيفرة الخادم |
+| cookie-parser | https://github.com/expressjs/cookie-parser | MIT | قراءة كوكيز الجلسات |
+| Multer | https://github.com/expressjs/multer | MIT | استلام الصور |
 
-Copyright (c) 2026 Lucide Icons and Contributors
+الهوية اللونية العربية وتخطيط الصفحات مخصصة لشركة أفراح الوطن على أساس مكوّنات Tabler.
+يجب الاحتفاظ بإشعارات التراخيص ذات الصلة عند إعادة التوزيع.
 
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
+**تشغيل أوفلاين:** ملفات CSS والخطوط والأيقونات لا تطلب أي CDN أو اتصال خارجي أثناء عمل النظام؛ يجب تثبيت اعتمادات npm مرة واحدة على الخادم عند إعداد الجهاز.
 
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
-SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-The Tapello logo in assets is user-provided and is not under the above license.
+**الحماية:** اختيار قالب وتغيير التصميم لا يغني عن معالجة مشكلات الحماية الأخرى في نسخة الخادم التجريبية.
