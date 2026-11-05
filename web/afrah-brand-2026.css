@@ -1,0 +1,153 @@
+/* Afrah Al Watan · dual-brand interface · Nov 2026
+   Corporate logo is primary; Tapello is the endorsed secondary product mark.
+   Loaded last, intentionally overriding the old centered Tapello-only header. */
+:root{--af-brand-navy:#202d63;--af-brand-indigo:#383589;--af-brand-red:#f63d48;--af-brand-bg:#f5f7fc}
+.shell.shell-v6.page .main-shell{background:#f5f7fc}
+.af-dual-header.topbar.navbar{
+  position:sticky;top:0;z-index:25;display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-rows:118px 62px;
+  grid-template-areas:"brands brands brands" "toggle intro actions";
+  align-items:center;column-gap:16px;row-gap:0;
+  min-height:180px!important;padding:0 clamp(16px,2.3vw,34px)!important;
+  background:#fff!important;border-bottom:1px solid #e8edf6;
+  box-shadow:0 8px 30px #1c2d6210;backdrop-filter:none;
+}
+.af-dual-header .af-brand-row{
+  grid-area:brands;display:flex;direction:rtl;align-items:center;justify-content:space-between;
+  width:100%;min-width:0;gap:clamp(14px,2.5vw,28px);
+  height:118px;border-bottom:1px solid #e8ecf4;padding:8px 0 10px;
+}
+.af-brand-primary{
+  display:flex;align-items:center;justify-content:center;flex:0 0 clamp(172px,23vw,252px);
+  height:99px;min-width:0;border-radius:14px;background:white;
+}
+.af-brand-primary img{display:block;width:100%;height:100%;object-fit:contain}
+.af-brand-secondary{
+  display:flex;align-items:center;justify-content:center;gap:clamp(8px,2vw,22px);
+  flex:1;min-width:0;position:relative;isolation:isolate;overflow:hidden;
+  min-height:92px;padding:13px clamp(18px,2.6vw,40px);
+  border-radius:22px;background:linear-gradient(115deg,#192b5e 0%,#293e82 60%,#122352 100%);
+  color:white;box-shadow:inset 0 1px #ffffff26;
+}
+.af-brand-secondary:before{
+  content:"";position:absolute;inset:0 auto 0 0;width:35%;
+  background:radial-gradient(ellipse at 0% 125%,#788ad753,transparent 74%);
+  pointer-events:none;z-index:-1;
+}
+.af-brand-secondary:after{
+  content:"";position:absolute;inset:0 0 0 auto;width:6px;background:var(--af-brand-red);
+  transform:skew(-25deg);transform-origin:top;pointer-events:none;
+}
+.af-brand-secondary img{
+  width:clamp(134px,17vw,212px);height:59px;object-fit:contain;
+  filter:brightness(0) invert(1);flex:0 0 auto;
+}
+.af-brand-secondary-copy{
+  direction:rtl;text-align:right;line-height:1.55;
+  font-size:clamp(11px,1.12vw,14px);font-weight:750;
+  color:#e7edff;border-inline-start:1px solid #ffffff65;
+  padding-inline-start:clamp(10px,1.8vw,22px);
+}
+.af-dual-header .topbar-start{grid-area:toggle;z-index:1;margin:0!important;gap:10px}
+.af-dual-header .af-utility-intro{grid-area:intro;min-width:0;direction:rtl;text-align:right}
+.af-utility-intro strong{display:block;font-size:15px;line-height:1.35;font-weight:900;color:#172c55}
+.af-utility-intro span{display:block;margin-top:4px;font-size:11px;color:#7284a3;font-weight:650}
+.af-dual-header .topbar-actions{grid-area:actions;z-index:3;margin:0!important;gap:12px;justify-content:flex-end}
+.af-dual-header .sidebar-toggle,.af-dual-header .top-alert,.af-dual-header .af-account-trigger{
+  width:43px;height:43px;min-width:43px;min-height:43px;border:1px solid #e3e9f4;
+  border-radius:12px;color:#2a4281;background:#f5f7fc;box-shadow:none
+}
+.af-dual-header .top-alert span{background:var(--af-brand-red)}
+.af-account-menu{position:relative;direction:rtl}
+.af-account-trigger{
+  list-style:none;display:flex;align-items:center;justify-content:center;gap:9px;
+  cursor:pointer;padding:0 12px;white-space:nowrap;font-weight:800;
+  width:auto!important;min-width:46px
+}
+.af-account-trigger::-webkit-details-marker{display:none}
+.af-account-trigger span{font-size:12px;color:#293964}
+.af-account-menu[open] .af-account-trigger{background:#eaeefd;border-color:#adb8df}
+.af-account-popover{
+  position:absolute;z-index:90;inset-inline-end:0;top:calc(100% + 13px);
+  width:245px;max-width:calc(100vw - 26px);
+  display:flex;flex-direction:column;gap:4px;padding:10px;
+  border:1px solid #dfe5f1;border-radius:15px;background:#fff;
+  box-shadow:0 17px 38px #12214e26;text-align:right
+}
+.af-account-popover:before{content:"";position:absolute;top:-7px;inset-inline-end:23px;width:12px;height:12px;background:#fff;border-top:1px solid #dfe5f1;border-inline-end:1px solid #dfe5f1;transform:rotate(-45deg)}
+.af-account-name{padding:10px 10px 12px;margin-bottom:4px;border-bottom:1px solid #edf0f6}
+.af-account-name strong{display:block;color:#172a57;font-size:13px}
+.af-account-name small{display:block;color:#7b88a1;font-size:11px;margin-top:3px}
+.af-account-popover .portal-switch-btn,.af-account-popover .logout{
+  width:100%!important;min-height:42px;height:auto;padding:10px 12px!important;
+  display:flex!important;justify-content:flex-start;align-items:center;gap:9px;
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  color:#243c71!important;border-radius:9px;font-size:12px;white-space:normal
+}
+.af-account-popover .portal-switch-btn:hover,.af-account-popover .logout:hover{background:#f0f4fc!important}
+.af-account-popover .logout{color:#c83947!important}
+.af-dual-header .header-centered-logo,.af-dual-header .user-badge{display:none!important}
+/* The central greeting keeps the familiar workflow, but uses a restrained corporate hero. */
+.af-home-v4{max-width:1120px}
+.af-home-v4 .af-greeting-card.card{
+  position:relative;isolation:isolate;min-height:208px;overflow:hidden;
+  border:1px solid #e0e6f3!important;border-radius:23px!important;
+  background:linear-gradient(115deg,#eef3ff 0%,#fff 62%,#fafbff 100%)!important;
+  box-shadow:0 16px 38px #1e2e630d!important
+}
+.af-home-v4 .af-greeting-card .card-status-top{display:none}
+.af-home-v4 .af-greeting-card:before{
+  content:"";position:absolute;top:-155px;left:-102px;width:360px;height:360px;border-radius:50%;
+  border:44px solid #35499113;box-shadow:0 0 0 17px #f63d4807;pointer-events:none
+}
+.af-home-v4 .af-greeting-card:after{
+  content:"";position:absolute;bottom:0;right:0;width:38%;height:5px;
+  background:linear-gradient(90deg,transparent,#f63d48);pointer-events:none
+}
+.af-home-v4 .af-greeting-body.card-body{
+  position:relative;z-index:1;align-items:flex-start!important;text-align:right!important;
+  padding:32px clamp(24px,4vw,52px)!important;min-height:208px;justify-content:center
+}
+.af-home-v4 .af-greeting-tag{
+  color:#a93648;font-weight:850;font-size:12px;letter-spacing:0;
+  background:#fff1f2;border:1px solid #ffdce0;border-radius:999px;
+  padding:7px 15px;line-height:1.6
+}
+.af-home-v4 .af-greeting-body h1{
+  font-size:clamp(28px,3.3vw,43px)!important;color:#202f65!important;
+  margin:15px 0 7px!important;line-height:1.32!important;font-weight:900
+}
+.af-home-v4 .af-greeting-body p{color:#5a6785!important;font-size:clamp(12px,1.15vw,15px)!important;line-height:1.8}
+.af-home-v4 .af-home-search,.af-home-v4 .af-home-alerts{border-radius:19px;border:1px solid #e1e6f0;box-shadow:0 12px 30px #1f2c6208}
+.af-home-v4 .af-search-input:focus-within{border-color:#6277b9!important;box-shadow:0 0 0 3px #405cad16}
+.af-dual-header button:focus-visible,.af-dual-header summary:focus-visible{outline:3px solid #7481d1;outline-offset:3px}
+@media(max-width:970px){
+ .af-dual-header.topbar.navbar{grid-template-rows:101px 58px;min-height:159px!important}
+ .af-dual-header .af-brand-row{height:101px}
+ .af-brand-primary{flex-basis:195px;height:81px}
+ .af-brand-secondary{min-height:74px;padding:8px 17px}
+ .af-brand-secondary img{width:150px;height:54px}
+ .af-brand-secondary-copy{font-size:11px}
+}
+@media(max-width:700px){
+ .af-dual-header.topbar.navbar{
+  grid-template-columns:auto 1fr auto;grid-template-rows:83px 54px;
+  min-height:137px!important;padding:0 12px!important;column-gap:8px
+ }
+ .af-dual-header .af-brand-row{height:83px;gap:10px;padding:6px 0 7px}
+ .af-brand-primary{flex:0 0 clamp(121px,38%,167px);height:68px}
+ .af-brand-secondary{min-height:61px;border-radius:15px;padding:6px 10px}
+ .af-brand-secondary img{width:min(100%,145px);height:44px}
+ .af-brand-secondary-copy{display:none}
+ .af-utility-intro strong{font-size:12px}
+ .af-utility-intro span{display:none}
+ .af-dual-header .topbar-actions{gap:6px}
+ .af-dual-header .sidebar-toggle,.af-dual-header .top-alert,.af-dual-header .af-account-trigger{width:38px!important;min-width:38px;height:38px;min-height:38px;padding:0 7px}
+ .af-account-trigger span{display:none}
+ .af-home-v4 .af-greeting-card.card{min-height:178px}
+ .af-home-v4 .af-greeting-body.card-body{min-height:178px;padding:25px 20px!important}
+ .af-home-v4 .af-greeting-body h1{font-size:27px!important}
+}
+@media(max-width:375px){.af-brand-primary{flex-basis:116px}.af-brand-secondary img{width:105px}.af-utility-intro strong{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.af-dual-header *, .af-home-v4 .af-greeting-card{animation:none!important;transition:none!important}}
