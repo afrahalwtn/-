@@ -180,6 +180,27 @@ try {
   await staff.locator('.sidebar-toggle').click();
   assert.equal(await staff.locator('[data-nav="users"],[data-nav="quotes"],[data-action="edit-product"]').count(),0,'Staff site cannot reveal management UI');
 
+  // Admin switches to staff SPA and back with a one-use session handoff.
+  await desktop.locator('.portal-switch-btn[data-action="switch-staff"]').click();
+  await desktop.waitForURL(base+'/',{timeout:15000});
+  await desktop.locator('.portal-switch-btn[data-switch="admin"]').waitFor({timeout:15000});
+  assert.equal(await desktop.locator('[data-nav="prepare"]').count(),1);
+  assert.equal(await desktop.locator('[data-nav="users"]').count(),0);
+  await desktop.screenshot({path:'screenshots/admin-viewing-staff.png',fullPage:true});
+  await desktop.locator('.portal-switch-btn[data-switch="admin"]').click();
+  await desktop.waitForURL(base+'/admin',{timeout:15000});
+  await desktop.locator('.nav-link[data-section="users"]').waitFor({timeout:15000});
+  await desktop.locator('.nav-link[data-section="account"]').click();
+  await desktop.locator('form[data-form="account"]').waitFor();
+  assert.equal(await desktop.locator('form[data-form="account"] input[name="current_password"]').count(),1);
+  await desktop.screenshot({path:'screenshots/admin-account-settings.png',fullPage:true});
+
+  const recoveryPage=await browser.newPage({viewport:{width:390,height:844}});
+  await recoveryPage.goto(base+'/admin',{waitUntil:'domcontentloaded'});
+  await recoveryPage.locator('[data-action="recovery-toggle"]').click();
+  await recoveryPage.locator('form[data-form="recovery"]').waitFor();
+  await recoveryPage.screenshot({path:'screenshots/admin-account-recovery.png',fullPage:true});
+
   assert.equal(errors.length,0,'JavaScript runtime errors: '+errors.join('; '));
   console.log('PASS: separated admin/staff portals, shared Prepare List, role-safe price columns, and responsive mobile/iPad/desktop');
 } finally {
