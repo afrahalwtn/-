@@ -62,18 +62,29 @@ try {
   assert.equal(appSource.status, 200);
   const homepageCode = await appSource.text();
   assert(homepageCode.includes('af-home-search') && homepageCode.includes('af-home-alerts'));
-  assert(homepageCode.includes('safe(a.name)'), 'Alert names must be escaped in homepage');
-  assert(homepageCode.includes('id="quote-search"'), 'Offers must have product search');
-  assert(homepageCode.includes('case \'quote-add-item\''), 'Search must add a new item to the same draft');
-  assert(homepageCode.includes('af-receipt-item'), 'Receipt rows must contain product details');
-  assert(homepageCode.includes('af-qty-input'), 'Receipt quantities must be editable');
-  assert(homepageCode.includes('case \'quote-create\''), 'Quote save must remain operational');
-  assert(html.includes('/web/afrah-clean.css?v=20261105-dialogs-v2'), 'New minimal UI stylesheet must be active');
-  const cleanTheme = await fetch(origin + '/web/afrah-clean.css');
-  assert.equal(cleanTheme.status,200,'Responsive clean UI must be served locally');
-  const cleanCss = await cleanTheme.text();
-  for(const marker of ['.af-home{','.af-home-search{','.af-home-alerts{','.af-quote-workspace{','.af-receipt-item{','@media(max-width:700px)']) {
-    assert(cleanCss.includes(marker),'Missing actual home/receipt styling: '+marker);
+  assert(homepageCode.includes('af-greeting-card'), 'Welcome must use a Tabler card');
+  assert(homepageCode.includes('header-centered-logo'), 'Tapello must be centered in header');
+  assert(homepageCode.includes("['prepare','جهّز قائمة','table']"), 'Prepare List nav must exist');
+  assert(homepageCode.includes('function prepareView()'), 'Dedicated list preparation view must exist');
+  assert(homepageCode.includes('id="quote-search"'), 'Prepare List must have product search');
+  assert(homepageCode.includes("case 'quote-add-item'"), 'Search must append to draft');
+  assert(homepageCode.includes('new window.Tabulator'), 'Grid must use a real MIT-licensed Tabulator engine');
+  assert(homepageCode.includes('cellEdited') && homepageCode.includes("bottomCalc:'sum'"), 'Grid must support editable quantities and Excel-like sums');
+  assert(homepageCode.includes("case 'quote-create'"), 'Existing quotation save must remain operational');
+  assert(homepageCode.includes('safe(a.name)'), 'Alert names must be escaped');
+  assert(html.includes('/web/afrah-layout-v5.css?v=20261105-v5'), 'New welcome/header/grid layout must be active');
+  assert(html.includes('/vendor/tabulator.min.css') && html.includes('/vendor/tabulator.min.js'), 'Spreadsheet assets must be linked locally');
+  const gridCss = await fetch(origin + '/vendor/tabulator.min.css');
+  assert.equal(gridCss.status,200,'Tabulator CSS must be served offline');
+  assert((await gridCss.text()).length>20000,'Tabulator CSS must not be empty');
+  const gridJs = await fetch(origin + '/vendor/tabulator.min.js');
+  assert.equal(gridJs.status,200,'Tabulator JS must be served offline');
+  assert((await gridJs.text()).length>100000,'Real Tabulator JavaScript must not be empty');
+  const newTheme = await fetch(origin + '/web/afrah-layout-v5.css');
+  assert.equal(newTheme.status,200);
+  const newCss = await newTheme.text();
+  for(const marker of ['.header-centered-logo','.af-greeting-card','.af-prep-sheet','#prepare-grid.tabulator','@media(max-width:700px)']){
+    assert(newCss.includes(marker),'Missing new free UI styles: '+marker);
   }
   const realIcons = await fetch(origin + '/web/icons.js');
   const iconCode=await realIcons.text();
@@ -166,7 +177,7 @@ try {
   const revoked = await request('/me',{headers:auth});
   assert.equal(revoked.status,401,'Revoked token must no longer work');
 
-  console.log('PASS: clean home, searchable receipt assets, saved multi-item quote, Tajawal, auth, CSRF, logout');
+  console.log('PASS: centered logo, Tabler welcome, offline Tabulator, editable list, quote persistence, auth, CSRF');
 } finally {
   server.kill('SIGTERM');
 }
