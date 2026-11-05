@@ -319,9 +319,21 @@ interface AuthContext {
   rawToken: string;
 }
 
+// Accept an explicit in-memory bearer token for embedded previews where
+// third-party cookies are blocked. Existing HttpOnly cookies still work.
+function sessionTokenFromRequest(req: Request): string | null {
+  const authorization = req.get('authorization');
+  if (authorization?.startsWith('Bearer ')) {
+    const token = authorization.slice(7).trim();
+    return /^[A-Za-z0-9_-]{48}$/.test(token) ? token : null;
+  }
+  const cookieToken = req.cookies?.afrah_session;
+  return typeof cookieToken === 'string' && cookieToken.length <= 256 ? cookieToken : null;
+}
+
 function getSessionContext(req: Request): AuthContext | null {
-  const raw = req.cookies.afrah_session;
-  if (!raw || typeof raw !== 'string' || raw.length > 256) return null;
+  const raw = sessionTokenFromRequest(req);
+  if (!raw) return null;
   const hash = tokenDigest(raw);
   const sess = sessions.get(hash);
   if (!sess) return null;
@@ -413,7 +425,11 @@ app.post('/api/auth/login', (req, res) => {
     maxAge: 12 * 3600 * 1000,
   });
 
-  res.json({ user: userDict(u), csrf });
+  // The optional token is kept in JavaScript memory only (never localStorage).
+  // It permits embedded cross-site previews to authorize API requests even
+  // when browsers reject the session cookie.
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ user: userDict(u), csrf, access_token: rawToken });
 });
 
 app.get('/api/me', (req, res) => {
@@ -426,7 +442,7 @@ app.get('/api/me', (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  const raw = req.cookies.afrah_session;
+  const raw = sessionTokenFromRequest(req);
   if (raw) {
     sessions.delete(tokenDigest(raw));
   }
