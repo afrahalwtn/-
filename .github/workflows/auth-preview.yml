@@ -6,6 +6,7 @@ on:
       - "server.ts"
       - "web/api.js"
       - "web/app.js"
+      - "web/arabic-search.js"
       - "web/index.html"
       - "web/tabler-afrah.css"
       - "web/koa-theme.css"
@@ -14,6 +15,7 @@ on:
       - "web/icons.js"
       - "package.json"
       - "tests/auth-preview-smoke.mjs"
+      - "tests/arabic-search.mjs"
       - "tests/ui-browser-smoke.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
@@ -32,6 +34,8 @@ jobs:
           node-version: "22"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Test Arabic letter variations on 10000 simulated products
+        run: node tests/arabic-search.mjs
       - name: Check frontend syntax
         run: |
           node --check web/app.js
