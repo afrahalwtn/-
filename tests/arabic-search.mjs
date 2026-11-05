@@ -19,7 +19,7 @@ assert.deepEqual(filterArabicProducts(products,'ورقيه اقداح'),[product
 assert.deepEqual(filterArabicProducts(products,'علبه'),[products[1]]);
 assert.deepEqual(filterArabicProducts(products,'نايلون رول'),[products[1]]);
 assert.deepEqual(filterArabicProducts(products,'2027'),[products[0]]);
-assert.deepEqual(filterArabicProducts(products,'کرفت'),[products[2]]);
+assert.deepEqual(filterArabicProducts(products,'کرافت'),[products[2]]);
 assert.equal(matchesArabicSearch('أكْوَاب ورقية',products[2].name,products[2].description),true);
 assert.equal(matchesArabicSearch('اجهزة',products[0].name,products[0].description),false);
 assert.equal(matchesArabicSearch('   ',products[0].name),true);
