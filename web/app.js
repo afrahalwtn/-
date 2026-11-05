@@ -312,7 +312,7 @@ function drawPreparedGrid() {
     return;
   }
   prepareTable=new window.Tabulator(host,{
-    data:entries,index:'id',layout:'fitDataStretch',textDirection:'rtl',
+    data:entries,index:'id',layout:'fitDataStretch',textDirection:'rtl',editTriggerEvent:'click',
     placeholder:'ماكو مواد بالقائمة. ابحث عن مادة وأضفها للجدول.',
     rowFormatter:()=>{queueMicrotask(()=>{void hydrateImages(host);});},
     columns:[
