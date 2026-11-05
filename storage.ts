@@ -80,6 +80,55 @@ export class PersistentMap<T> extends Map<number,T> {
 }
 
 // IDs are never reused after an item is deleted or the server restarts.
+// Staff execution lists are stored separately from quotations and inventory.
+// They never change product quantities and never contain purchase/sale prices.
+db.exec(`
+CREATE TABLE IF NOT EXISTS execution_lists(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ created_by_id INTEGER NOT NULL,
+ created_at TEXT NOT NULL,
+ payload TEXT NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS execution_lists_by_user ON execution_lists(created_by_id,id);
+`);
+const saveExecution=db.prepare(
+ 'INSERT INTO execution_lists(created_by_id,created_at,payload) VALUES(?,?,?)'
+);
+const ownExecutions=db.prepare(
+ 'SELECT id,created_by_id,created_at,payload FROM execution_lists WHERE created_by_id=? ORDER BY id DESC'
+);
+const allExecutions=db.prepare(
+ 'SELECT id,created_by_id,created_at,payload FROM execution_lists ORDER BY id DESC'
+);
+export interface ExecutionLine {
+ product_id:number;
+ name:string;
+ description:string;
+ manufacture:string;
+ image_url:string|null;
+ quantity:number;
+}
+export interface ExecutionList {
+ id:number;
+ created_by_id:number;
+ created_at:string;
+ items:ExecutionLine[];
+}
+function shapeExecution(row:any):ExecutionList {
+ return {
+  id:Number(row.id),created_by_id:Number(row.created_by_id),created_at:String(row.created_at),
+  items:JSON.parse(String(row.payload)) as ExecutionLine[],
+ };
+}
+export function createExecutionList(createdById:number,items:ExecutionLine[]):ExecutionList {
+ const createdAt=new Date().toISOString();
+ const inserted=saveExecution.run(createdById,createdAt,JSON.stringify(items));
+ return {id:Number(inserted.lastInsertRowid),created_by_id:createdById,created_at:createdAt,items};
+}
+export function listExecutionLists(userId:number|null):ExecutionList[] {
+ return (userId===null?allExecutions.all():ownExecutions.all(userId)).map(shapeExecution);
+}
+
 export function allocateRecordId(kind:RecordKind):number {
   const key='last-id:'+kind;
   const last=Number((metaGet.get(key) as {value?:string}|undefined)?.value||0);
