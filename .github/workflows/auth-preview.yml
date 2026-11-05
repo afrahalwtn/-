@@ -10,6 +10,7 @@ on:
       - "web/tabler-afrah.css"
       - "web/koa-theme.css"
       - "web/afrah-clean.css"
+      - "web/afrah-layout-v5.css"
       - "web/icons.js"
       - "package.json"
       - "tests/auth-preview-smoke.mjs"
