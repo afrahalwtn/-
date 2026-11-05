@@ -4,6 +4,7 @@
 import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261106-staff';
 import {icon} from './icons.js?v=20261105-price-tag';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
+import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
 const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950};
@@ -56,7 +57,7 @@ function loginView(){
       '<p id="staff-login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>'+
       '</form></div></section></div><div id="staff-toast" class="toast" role="status"></div>';
 }
-const sections=[['home','الرئيسية','home'],['products','المواد','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell'],['prepare','جهّز قائمة','table']];
+const sections=[['home','الرئيسية','home'],['products','المواد','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell'],['prepare','جهّز قائمة','table'],['account','بيانات الدخول','shield']];
 function shell(){
  return '<div class="shell shell-v6 page '+(state.sidebarOpen?'':'sidebar-narrow')+'">'+
    '<aside id="sidebar" class="sidebar navbar navbar-vertical '+(state.sidebarOpen?'':'collapsed')+'">'+
@@ -69,10 +70,11 @@ function shell(){
    '<div class="main-shell"><header class="topbar navbar">'+
      '<div class="topbar-start"><button class="icon-btn sidebar-toggle" type="button" data-toggle="menu" aria-label="فتح القائمة">'+icon('menu',22)+'</button></div>'+
      '<div class="header-centered-logo"><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></div>'+
-     '<div class="topbar-actions"><button type="button" class="top-alert" data-nav="alerts" aria-label="التنبيهات">'+icon('bell',20)+
+     '<div class="topbar-actions">'+(state.user.role==='admin'?'<button type="button" class="portal-switch-btn" data-switch="admin">'+icon('shield',16)+' العودة للإدارة</button>':'')+
+     '<button type="button" class="top-alert" data-nav="alerts" aria-label="التنبيهات">'+icon('bell',20)+
        (state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':'')+'</button>'+
        '<div class="user-badge"><div class="user-circle avatar">'+icon('users',18)+'</div>'+
-       '<div class="user-detail"><strong>'+safe(state.user.full_name)+'</strong><small>الموظف</small></div></div>'+
+       '<div class="user-detail"><strong>'+safe(state.user.full_name)+'</strong><small>'+(state.user.role==='admin'?'الإدارة — عرض الموظفين':'الموظف')+'</small></div></div>'+
        '<button type="button" class="icon-btn logout" data-logout="1" aria-label="تسجيل الخروج">'+icon('logout',20)+'</button></div></header>'+
      '<main class="workspace" id="staff-workspace"></main></div>'+
    '</div><div class="toast" id="staff-toast" role="status"></div>';
@@ -158,7 +160,7 @@ function prepare(){
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
   '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
-  '<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+' حفظ قائمة التنفيذ</button></div></footer></section>'+
+  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+' حفظ قائمة التنفيذ</button>':'')+'</div></footer></section>'+
   '<section class="card staff-execution-history"><div class="staff-history-heading"><h2>قوائم التنفيذ المحفوظة</h2><span>'+number(state.executionLists.length)+' قائمة</span></div>'+
   '<div class="staff-history-body">'+(state.executionLists.length?state.executionLists.map(record=>
    '<details class="staff-history-entry"><summary><span>قائمة رقم '+number(record.id)+'</span><small>'+
@@ -244,11 +246,23 @@ async function printPreparedList(){
 }
 window.addEventListener('afterprint',()=>document.body.classList.remove('printing'));
 
+function account(){
+ return pageHeading('بيانات الدخول','غيّر اسم الدخول أو كلمة المرور الخاصة بحسابك.')+
+ '<section class="panel card account-form-card"><div class="panel-head"><h2>إعدادات الحساب</h2></div>'+
+ '<form id="staff-account-form" class="account-form">'+
+ '<label>اسم الدخول<input class="form-control" name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" value="'+safe(state.user.username)+'" autocomplete="username" dir="ltr"></label>'+
+ '<label>كلمة المرور الحالية<input class="form-control" name="current_password" type="password" required autocomplete="current-password" dir="ltr"></label>'+
+ '<label>كلمة مرور جديدة (اختياري)<input class="form-control" name="new_password" type="password" minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>'+
+ '<label>تأكيد كلمة المرور الجديدة<input class="form-control" name="confirm_password" type="password" autocomplete="new-password" dir="ltr"></label>'+
+ '<p class="account-hint">إذا تريد تغير اسم الدخول فقط، اترك خانة كلمة المرور الجديدة فارغة.</p>'+
+ '<p id="staff-account-feedback" class="login-feedback" role="alert" hidden></p>'+
+ '<button class="btn primary" type="submit">'+icon('save',18)+' حفظ بيانات الدخول</button></form></section>';
+}
 function workspace(){
  const root=document.getElementById('staff-workspace');
  if(!root)return;
  if(prepareGrid){prepareGrid.destroy();prepareGrid=null;}
- root.innerHTML=({home,products,inventory,alerts,prepare}[state.section]||home)();
+ root.innerHTML=({home,products,inventory,alerts,prepare,account}[state.section]||home)();
  void paintPhotos(root);
  if(state.section==='prepare')renderPreparedGrid();
 }
@@ -268,14 +282,34 @@ function reset(){
 }
 async function boot(){
  try {
+  await resumePortal(api,setAccessToken,setCsrf);
   const self=await api('/me');
-  if(self.user?.role==='admin'){location.replace('/admin');return;}
-  if(self.user?.role!=='staff')throw Error('Invalid role');
+  if(!['staff','admin'].includes(self.user?.role))throw Error('Invalid role');
   state.user=self.user;setCsrf(self.csrf);await refresh();
  } catch {setAccessToken(null);setCsrf(null);state.user=null;}
  render();
 }
 document.addEventListener('submit',async e=>{
+ if(e.target.id==='staff-account-form'){
+  e.preventDefault();
+  const form=e.target;
+  const data=new FormData(form);
+  const feedback=document.getElementById('staff-account-feedback');
+  if(feedback)feedback.hidden=true;
+  const newPassword=String(data.get('new_password')||'');
+  const confirmPassword=String(data.get('confirm_password')||'');
+  try{
+   if(newPassword!==confirmPassword)throw Error('تأكيد كلمة المرور الجديدة مختلف');
+   const body={username:String(data.get('username')||'').trim(),current_password:String(data.get('current_password')||'')};
+   if(newPassword)body.new_password=newPassword;
+   const result=await api('/auth/change-credentials',{method:'POST',data:body});
+   state.user=result.user;
+   workspace();message('تم حفظ بيانات الدخول الجديدة',false);
+  }catch(err){
+   if(feedback){feedback.textContent=err?.message||'تعذر حفظ البيانات';feedback.hidden=false;}
+  }
+  return;
+ }
  const form=e.target.closest('#staff-login');if(!form)return;
  e.preventDefault();
  const submit=form.querySelector('button[type=submit]');
@@ -285,9 +319,8 @@ document.addEventListener('submit',async e=>{
  try{
   const data=new FormData(form);
   const result=await api('/staff/auth/login',{method:'POST',data:{username:String(data.get('username')||'').trim(),password:String(data.get('password')||'')}});
-  if(result.user?.role!=='staff'){
-   await api('/auth/logout',{method:'POST'}).catch(()=>{});
-   throw Error('هذا حساب الإدارة. استخدم بوابة الإدارة المنفصلة.');
+  if(!['staff','admin'].includes(result.user?.role)){
+   throw Error('حساب غير مسموح');
   }
   setAccessToken(result.access_token);setCsrf(result.csrf);
   state.user=result.user;state.section='home';state.query='';
@@ -300,7 +333,11 @@ document.addEventListener('submit',async e=>{
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
 document.addEventListener('click',async e=>{
- const el=e.target.closest('[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],#staff-print-list,#staff-save-list');
+ const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],#staff-print-list,#staff-save-list');
+ if(el?.dataset.switch==='admin'&&state.user?.role==='admin'){
+   try{await switchPortal(api,'/admin');}catch(err){message(err?.message||'تعذر الانتقال للإدارة');}
+   return;
+ }
  if(el?.hasAttribute('data-add') && state.user){
   const id=Number(el.dataset.add);
   if(!state.products.some(p=>p.id===id))return;
