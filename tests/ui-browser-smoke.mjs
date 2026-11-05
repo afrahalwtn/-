@@ -111,7 +111,8 @@ try {
   await desktop.locator('.af-home').waitFor({timeout:15000});
   await desktop.screenshot({path:'screenshots/desktop-home.png',fullPage:true});
   const desktopCenter=await desktop.locator('.header-centered-logo').boundingBox();
-  assert(desktopCenter && Math.abs(desktopCenter.x+desktopCenter.width/2-((1366-desktopCenter.width)/2+desktopCenter.width/2))<4,'Header center requires review');
+  const desktopHeader=await desktop.locator('.topbar').boundingBox();
+  assert(desktopCenter && desktopHeader && Math.abs(desktopCenter.x+desktopCenter.width/2-(desktopHeader.x+desktopHeader.width/2))<4,'Header logo must be centered relative to main area');
   await desktop.locator('.nav-link[data-section="prepare"]').click();
   await desktop.locator('#prepare-grid').waitFor({timeout:8000});
   await desktop.screenshot({path:'screenshots/desktop-prepare.png',fullPage:true});
