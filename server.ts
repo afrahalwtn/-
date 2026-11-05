@@ -525,6 +525,7 @@ app.patch('/api/products/:id/stock', requireAuth, requireCsrf, requireAdmin, (re
   const { quantity } = req.body;
   p.quantity = Math.max(0, Number(quantity) || 0);
   p.updated_at = new Date().toISOString();
+  products.set(p.id,p);
   res.json(productDict(p, ctx.user));
 });
 
