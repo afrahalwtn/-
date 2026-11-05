@@ -86,7 +86,8 @@ try {
 
   // Edit quantity in a native Tabulator cell like Excel.
   const quantityCell=page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell[tabulator-field="quantity"]').first();
-  await quantityCell.dblclick();
+  await quantityCell.click();
+  await page.locator('#prepare-grid input[type="number"]').waitFor({state:'visible',timeout:6500});
   await page.locator('#prepare-grid input[type="number"]').fill('2');
   await page.locator('#prepare-grid input[type="number"]').press('Enter');
   await page.waitForFunction(()=>document.querySelector('.af-grid-editable')?.textContent?.includes('2'),null,{timeout:7000});
