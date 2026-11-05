@@ -79,6 +79,11 @@ try {
   const iconCode=await realIcons.text();
   assert(iconCode.includes('"receipt"') && iconCode.includes('"tag"'),'Tabler quote and price icons are required');
   assert(homepageCode.includes('setAccessToken(result.access_token)'), 'Working embedded login path must remain intact');
+  const mediaClient=await fetch(origin+'/web/api.js');
+  assert.equal(mediaClient.status,200);
+  assert((await mediaClient.text()).includes('export async function apiMedia(path)'),'Secure media client must exist');
+  assert(homepageCode.includes('data-private-image'),'Product photos must request via protected image hydration');
+  assert(homepageCode.includes('await hydrateImages(printRoot)'),'Photos must load before quote printing');
   const icons = await fetch(origin + '/web/icons.js');
   assert.equal(icons.status, 200);
   assert((await icons.text()).includes('Official Tabler SVG icons'));
@@ -110,6 +115,23 @@ try {
   });
   assert.equal(missingCsrf.status,403,'CSRF check must remain enabled');
 
+  // Product images must work with bearer authentication in cookie-blocking previews.
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==','base64');
+  const imageForm=new FormData();
+  imageForm.set('file',new Blob([png],{type:'image/png'}),'sample.png');
+  const uploaded=await request('/products/1/image',{
+    method:'POST',headers:{...auth,'X-CSRF-Token':session.csrf},body:imageForm,
+  });
+  assert.equal(uploaded.status,200,'Uploading a real PNG must work');
+  const uploadedImage=(await uploaded.json()).image_url;
+  assert.match(uploadedImage,/^\/api\/images\/[0-9a-f]{32}\.png$/,'PNG must keep its real file type');
+  const notAuthorized=await fetch(origin+uploadedImage);
+  assert.equal(notAuthorized.status,401,'Private product images require login');
+  const authorized=await fetch(origin+uploadedImage,{headers:auth});
+  assert.equal(authorized.status,200,'Product images must load using bearer session without cookies');
+  assert((authorized.headers.get('content-type')||'').includes('image/png'),'Image MIME type must be correct');
+  assert.equal((await authorized.arrayBuffer()).byteLength,png.length);
+
   // Multiple searched materials must be printable in a single saved quote.
   const savedQuoteResponse=await request('/quotes',{
     method:'POST',
@@ -125,6 +147,7 @@ try {
   assert.equal(savedQuote.items[1].manufacture,'إماراتي');
   assert.equal(savedQuote.total,127000,'Quote total must multiply price by each quantity');
   assert('image_url' in savedQuote.items[0],'Receipt must preserve image field');
+  assert.equal(savedQuote.items[0].image_url,uploadedImage,'Saved quote must retain the uploaded product photo');
   const storedQuote=await request('/quotes/'+savedQuote.id,{headers:auth});
   assert.equal(storedQuote.status,200,'Saved multi-item quote must be retrievable');
   assert.equal((await storedQuote.json()).total,127000);
