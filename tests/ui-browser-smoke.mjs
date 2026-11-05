@@ -45,12 +45,14 @@ try {
   await page.locator('.af-home').waitFor({timeout:15000});
   assert.equal(await page.locator('.af-greeting-card.card').count(),1,'Welcome must use the real Tabler card layout');
   assert.equal(await page.locator('.af-welcome-brand').count(),0,'Logo must not be repeated in a large home panel');
-  assert.equal(await page.locator('.header-centered-logo img').count(),1,'The official logo belongs in the header');
+  assert.equal(await page.locator('.af-brand-primary img').count(),1,'Primary Afrah logo belongs in header');
+  assert.equal(await page.locator('.af-brand-secondary img').count(),1,'Secondary Tapello logo belongs in header');
   assert.equal(await page.locator('.af-home-search').count(),1);
   assert.equal(await page.locator('.af-home-alerts').count(),1);
   assert.equal(await page.locator('.koa-stats').count(),0,'Home must not contain dashboard stat cards');
-  const headerCenter=await page.locator('.header-centered-logo').boundingBox();
-  assert(headerCenter && Math.abs(headerCenter.x+headerCenter.width/2-195)<3,'Logo must be at precise mobile header center');
+  const mainLogoMobile=await page.locator('.af-brand-primary').boundingBox();
+  const tapelloMobile=await page.locator('.af-brand-secondary').boundingBox();
+  assert(mainLogoMobile && tapelloMobile && mainLogoMobile.x>=tapelloMobile.x+tapelloMobile.width-2,'RTL mobile logo placement must not overlap');
   await page.screenshot({path:'screenshots/mobile-home.png',fullPage:true});
 
   // Upload a genuine image, check it appears securely when the product is searched.
@@ -112,9 +114,9 @@ try {
   await desktop.locator('button[type="submit"]').click();
   await desktop.locator('.af-home').waitFor({timeout:15000});
   await desktop.screenshot({path:'screenshots/desktop-home.png',fullPage:true});
-  const desktopCenter=await desktop.locator('.header-centered-logo').boundingBox();
-  const desktopHeader=await desktop.locator('.topbar').boundingBox();
-  assert(desktopCenter && desktopHeader && Math.abs(desktopCenter.x+desktopCenter.width/2-(desktopHeader.x+desktopHeader.width/2))<4,'Header logo must be centered relative to main area');
+  const mainLogoDesktop=await desktop.locator('.af-brand-primary').boundingBox();
+  const tapelloDesktop=await desktop.locator('.af-brand-secondary').boundingBox();
+  assert(mainLogoDesktop && tapelloDesktop && mainLogoDesktop.x>=tapelloDesktop.x+tapelloDesktop.width-2,'RTL desktop logos must not overlap');
   await desktop.locator('.nav-link[data-section="prepare"]').click();
   await desktop.locator('#prepare-grid').waitFor({timeout:8000});
   await desktop.screenshot({path:'screenshots/desktop-prepare.png',fullPage:true});
@@ -181,12 +183,14 @@ try {
   assert.equal(await staff.locator('[data-nav="users"],[data-nav="quotes"],[data-action="edit-product"]').count(),0,'Staff site cannot reveal management UI');
 
   // Admin switches to staff SPA and back with a one-use session handoff.
+  await desktop.locator('.af-account-trigger').click();
   await desktop.locator('.portal-switch-btn[data-action="switch-staff"]').click();
   await desktop.waitForURL(base+'/',{timeout:15000});
   await desktop.locator('.portal-switch-btn[data-switch="admin"]').waitFor({timeout:15000});
   assert.equal(await desktop.locator('[data-nav="prepare"]').count(),1);
   assert.equal(await desktop.locator('[data-nav="users"]').count(),0);
   await desktop.screenshot({path:'screenshots/admin-viewing-staff.png',fullPage:true});
+  await desktop.locator('.af-account-trigger').click();
   await desktop.locator('.portal-switch-btn[data-switch="admin"]').click();
   await desktop.waitForURL(base+'/admin',{timeout:15000});
   await desktop.locator('.nav-link[data-section="users"]').waitFor({timeout:15000});
