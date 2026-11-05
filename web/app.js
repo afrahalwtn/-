@@ -1,4 +1,4 @@
-import {api, setCsrf, money, number, safe} from './api.js';
+import {api, setCsrf, setAccessToken, money, number, safe} from './api.js';
 import {icon} from './icons.js?v=20261105-ui3';
 
 const state = {
@@ -29,7 +29,7 @@ function showToast(message, error=false) {
   showToast.timer = setTimeout(()=>toast.classList.remove('visible'), 4000);
 }
 function errorToast(err) {
-  if (err?.status === 401 && state.user) { state.user=null; setCsrf(null); render(); }
+  if (err?.status === 401 && state.user) { state.user=null; setCsrf(null); setAccessToken(null); render(); }
   showToast(err?.message || 'تعذر تنفيذ الطلب', true);
 }
 function showLoginError(message) {
@@ -53,7 +53,7 @@ async function boot() {
     state.sidebarOpen = window.innerWidth >= 950;
     setCsrf(res.csrf);
     await refresh();
-  } catch { state.user=null; setCsrf(null); }
+  } catch { state.user=null; setCsrf(null); setAccessToken(null); }
   render();
 }
 function loginView() {
@@ -261,7 +261,14 @@ async function handleForm(form) {
       }
       const result=await api('/auth/login',{method:'POST',data:{username:String(fields.get('username')).trim(),password:String(fields.get('password'))}});
       if (!result?.user || !result?.csrf) throw new Error('الخادم لم يرجع بيانات دخول صالحة. تأكد من تشغيل خادم النظام، وليس صفحة المعاينة وحدها.');
-      state.user=result.user;setCsrf(result.csrf);state.section='home';state.sidebarOpen=window.innerWidth >= 950;await refresh();render();return;
+      setAccessToken(result.access_token);
+      state.user=result.user;setCsrf(result.csrf);state.section='home';state.sidebarOpen=window.innerWidth >= 950;
+      try {await refresh();}
+      catch (loadError) {
+        if (loadError?.status===401) throw new Error('تم قبول بيانات الدخول لكن تعذّر تثبيت الجلسة في المعاينة. تأكد من تحديث الخادم مع ملفات الواجهة.');
+        throw loadError;
+      }
+      render();return;
     }
     if (type==='product') {
       const values={name:String(fields.get('name')||''),description:String(fields.get('description')||''),manufacture:String(fields.get('manufacture')||'')};
@@ -330,7 +337,7 @@ async function handleAction(action, el) {
       document.querySelector('.mobile-scrim')?.classList.toggle('show',state.sidebarOpen);return;
     case 'logout':
       try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);}
-      state.user=null;setCsrf(null);state.draft=[];render();return;
+      state.user=null;setCsrf(null);setAccessToken(null);state.draft=[];render();return;
     case 'new-product': state.modal={type:'product',id:0};renderModal();return;
     case 'edit-product': state.modal={type:'product',id:Number(el.dataset.id)};renderModal();return;
     case 'count': state.modal={type:'stock',id:Number(el.dataset.id)};renderModal();return;
