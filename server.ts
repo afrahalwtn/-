@@ -697,6 +697,12 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
 });
 
 // Static assets
+// Serve the official Tabler open-source CSS from the installed package.
+// Only this fixed CSS asset is exposed; never publish node_modules broadly.
+app.get('/vendor/tabler.rtl.min.css', (_req, res) => {
+  const cssFile = path.join(__dirname, 'node_modules', '@tabler', 'core', 'dist', 'css', 'tabler.rtl.min.css');
+  res.type('text/css').sendFile(cssFile);
+});
 app.use('/assets', express.static(path.join(__dirname, 'web', 'assets')));
 app.use('/web', express.static(path.join(__dirname, 'web')));
 
