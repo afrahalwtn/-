@@ -1,5 +1,5 @@
 import {api, setCsrf, money, number, safe} from './api.js';
-import {icon} from './icons.js';
+import {icon} from './icons.js?v=20261105-ui3';
 
 const state = {
   user:null, section:'home', products:[], alerts:[], users:[], quotes:[],
@@ -74,7 +74,7 @@ function renderShell() {
     <aside class="sidebar ${state.sidebarOpen?'':'collapsed'}" id="sidebar">
       <div class="sidebar-head"><span class="brand-square">${icon('package',25)}</span><span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span></div>
       <div class="sidebar-divider"></div><p class="menu-caption">القائمة الرئيسية</p>
-      <nav aria-label="التنقل الرئيسي">${nav.map(([key,title,glyph])=>`<button type="button" class="nav-link ${state.section===key?'active':''}" data-action="nav" data-section="${key}" title="${title}">${icon(glyph,20)}<span>${title}</span>${key==='alerts'&&state.alerts.length?`<b class="nav-count">${state.alerts.length}</b>`:''}</button>`).join('')}</nav>
+      <nav aria-label="التنقل الرئيسي">${nav.map(([key,title,glyph])=>`<button type="button" class="nav-link ${state.section===key?'active':''}" data-action="nav" data-section="${key}" title="${title}"><span class="nav-icon nav-icon-${key}">${icon(glyph,20)}</span><span>${title}</span>${key==='alerts'&&state.alerts.length?`<b class="nav-count">${state.alerts.length}</b>`:''}</button>`).join('')}</nav>
       <div class="sidebar-bottom"><span>شركة أفراح الوطن للتجارة العامة</span></div>
     </aside>
     <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-action="toggle-sidebar"></div>
@@ -146,7 +146,7 @@ function emptyState(head,sub,glyph) { return `<div class="empty">${icon(glyph,32
 function usersView() {
   if (!isAdmin()) return '';
   return `${pageTitle('المستخدمون','حساب الإدارة والتحكم بصلاحيات الاطلاع على الأسعار.',primaryButton('new-user','إضافة مستخدم'))}
-    <div class="user-cards">${state.users.map(u=>`<section class="user-card panel"><div class="user-avatar">${icon(u.role==='admin'?'shield':'users',26)}</div><div class="user-info"><h3>${safe(u.full_name)}</h3><p dir="ltr">${safe(u.username)}</p><span class="chip ${u.is_active?'success':'danger'}">${u.role==='admin'?'الإدارة':u.is_active?'مستخدم مفعّل':'الحساب معطّل'}</span></div>
+    <div class="user-cards">${state.users.map(u=>`<section class="user-card panel"><div class="user-avatar">${icon(u.role==='admin'?'user-check':'users',26)}</div><div class="user-info"><h3>${safe(u.full_name)}</h3><p dir="ltr">${safe(u.username)}</p><span class="chip ${u.is_active?'success':'danger'}">${u.role==='admin'?'الإدارة':u.is_active?'مستخدم مفعّل':'الحساب معطّل'}</span></div>
       <div class="permission-list"><div>عرض سعر الشراء <b class="${u.can_view_purchase?'allowed':'forbidden'}">${u.can_view_purchase?'مسموح':'ممنوع'}</b></div><div>عرض سعر البيع <b class="${u.can_view_sale?'allowed':'forbidden'}">${u.can_view_sale?'مسموح':'ممنوع'}</b></div></div>
       ${u.role==='staff'?`<button type="button" class="btn quiet small" data-action="edit-user" data-id="${u.id}">${icon('edit',16)} ضبط الصلاحيات</button>`:''}</section>`).join('')}</div>`;
 }
