@@ -53,7 +53,7 @@ async function boot() {
 }
 function loginView() {
   return `<div class="auth-page">
-    <section class="auth-visual" aria-hidden="true"><div class="auth-halo"></div><div class="auth-brand">أفراح الوطن<small>للتجارة العامة</small></div><img src="/assets/tapello.svg" alt="" class="auth-logo"><div class="auth-caption">نظام المواد والجرد وعروض الأسعار</div></section>
+    <section class="auth-visual" aria-hidden="true"><div class="auth-halo"></div><div class="auth-brand">أفراح الوطن<small>للتجارة العامة</small></div><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="" class="auth-logo"><div class="auth-caption">نظام المواد والجرد وعروض الأسعار</div></section>
     <section class="auth-content"><div class="auth-box">
       <div class="auth-emblem">${icon('shield',27)}</div>
       <p class="eyebrow">مساحة عمل الشركة</p><h1>يا هلا ومرحبا</h1><p class="muted">سجّل دخولك للوصول إلى نظام أفراح الوطن</p>
@@ -103,7 +103,7 @@ function homeView() {
     <div class="hero-ring one"></div><div class="hero-ring two"></div>
     <span class="hero-kicker">أهلاً بك في نظام شركتنا</span>
     <h2>يــا هـلا و مـرحـبـا</h2><div class="hero-divider"><i></i></div>
-    <p>شركة أفراح الوطن للتجارة العامة</p><img src="/assets/tapello.svg" alt="Tapello" class="hero-logo">
+    <p>شركة أفراح الوطن للتجارة العامة</p><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" class="hero-logo">
   </section>
   <div class="stat-grid">
     <button type="button" class="stat-card" data-action="nav" data-section="products"><span class="stat-icon blue">${icon('package',24)}</span><div><small>المواد المسجّلة</small><strong>${number(state.products.length)}</strong></div>${icon('arrow',18)}</button>
@@ -269,7 +269,7 @@ async function handleForm(form) {
 }
 function printQuote(q) {
   if (!q) return;
-  printRoot.innerHTML=`<div class="print-sheet"><header class="print-header"><div><h1>شركة أفراح الوطن للتجارة العامة</h1><p>عرض أسعار رقم ${number(q.id)} — ${new Date(q.date).toLocaleDateString('ar-IQ')}</p></div><img src="/assets/tapello.svg" alt="Tapello"></header>
+  printRoot.innerHTML=`<div class="print-sheet"><header class="print-header"><div><h1>شركة أفراح الوطن للتجارة العامة</h1><p>عرض أسعار رقم ${number(q.id)} — ${new Date(q.date).toLocaleDateString('ar-IQ')}</p></div><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></header>
   <table><thead><tr><th>الصورة</th><th>اسم المنتج ووصفه</th><th>الصنع</th><th>العدد</th><th>سعر المنتج</th><th>المجموع</th></tr></thead><tbody>
   ${q.items.map(row=>`<tr><td>${row.image_url?`<img class="print-photo" src="${safe(row.image_url)}">`:'—'}</td><td><strong>${safe(row.product_name)}</strong><small>${safe(row.description)}</small></td><td>${safe(row.manufacture)}</td><td>${number(row.quantity)}</td><td>${money(row.unit_price)}</td><td>${money(row.total)}</td></tr>`).join('')}
   </tbody></table><footer>المجموع الكلي: <strong>${money(q.total)}</strong></footer></div>`;
