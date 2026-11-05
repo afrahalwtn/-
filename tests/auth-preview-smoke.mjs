@@ -68,7 +68,7 @@ try {
   assert(homepageCode.includes('af-receipt-item'), 'Receipt rows must contain product details');
   assert(homepageCode.includes('af-qty-input'), 'Receipt quantities must be editable');
   assert(homepageCode.includes('case \'quote-create\''), 'Quote save must remain operational');
-  assert(html.includes('/web/afrah-clean.css?v=20261105-clean-receipts-v1'), 'New minimal UI stylesheet must be active');
+  assert(html.includes('/web/afrah-clean.css?v=20261105-dialogs-v2'), 'New minimal UI stylesheet must be active');
   const cleanTheme = await fetch(origin + '/web/afrah-clean.css');
   assert.equal(cleanTheme.status,200,'Responsive clean UI must be served locally');
   const cleanCss = await cleanTheme.text();
