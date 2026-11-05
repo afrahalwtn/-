@@ -714,6 +714,13 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
 // Static assets
 // Serve the official Tabler open-source CSS from the installed package.
 // Only this fixed CSS asset is exposed; never publish node_modules broadly.
+// Offline, pinned Tabulator spreadsheet resources. MIT licensed, no public node_modules mount.
+app.get('/vendor/tabulator.min.css', (_req, res) => {
+  res.type('text/css').sendFile(path.join(__dirname,'node_modules','tabulator-tables','dist','css','tabulator.min.css'));
+});
+app.get('/vendor/tabulator.min.js', (_req, res) => {
+  res.type('application/javascript').sendFile(path.join(__dirname,'node_modules','tabulator-tables','dist','js','tabulator.min.js'));
+});
 app.get('/vendor/tabler.rtl.min.css', (_req, res) => {
   const cssFile = path.join(__dirname, 'node_modules', '@tabler', 'core', 'dist', 'css', 'tabler.rtl.min.css');
   res.type('text/css').sendFile(cssFile);
