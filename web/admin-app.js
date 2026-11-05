@@ -144,7 +144,7 @@ function renderShell() {
     <div class="main-shell">
       <header class="topbar navbar af-dual-header">
         <div class="af-brand-row" aria-label="الهوية الرسمية للشركة">
-          <a class="af-brand-primary" href="/" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261106" alt="Afrah Al Watan — أفراح الوطن"></a>
+          <a class="af-brand-primary" href="/admin" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261106" alt="Afrah Al Watan — أفراح الوطن"></a>
           <div class="af-brand-secondary" aria-label="العلامة التجارية Tapello">
             <span class="af-brand-secondary-copy">علامتنا التجارية للمنتجات اللاصقة</span>
             <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello">
@@ -157,7 +157,7 @@ function renderShell() {
         <div class="topbar-actions">
           <button type="button" class="top-alert" data-action="nav" data-section="alerts" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':''}</button>
           <details class="af-account-menu">
-            <summary class="af-account-trigger" aria-label="فتح قائمة الحساب">${icon('users',19)}<span>الحساب</span>${icon('chevron-down',14)}</summary>
+            <summary class="af-account-trigger" aria-label="فتح قائمة الحساب">${icon('users',19)}<span>الحساب</span>${icon('arrow',14)}</summary>
             <div class="af-account-popover">
               <div class="af-account-name"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div>
               <button type="button" class="portal-switch-btn" data-action="switch-staff" title="فتح بوابة الموظفين بدون تسجيل ثانٍ">${icon('shield',17)} بوابة الموظفين</button>
