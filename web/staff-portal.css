@@ -41,3 +41,32 @@
  .staff-prep-footer .btn{width:100%}
  .staff-prep-total{justify-content:space-between}
 }
+
+/* Employee's completed execution lists, distinct from admin quotations. */
+.staff-prep-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:9px}
+.staff-prep-actions button{min-height:43px}
+.staff-execution-history.card{margin-top:18px;background:#fff;border:1px solid #dfe8f2;border-radius:14px;overflow:hidden}
+.staff-history-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:19px 22px;border-bottom:1px solid #e6edf5}
+.staff-history-heading h2{font-size:17px;font-weight:900;color:#153b5e;margin:0}
+.staff-history-heading span{font-size:12px;color:#527595}
+.staff-history-body{padding:6px 19px 13px}
+.staff-history-entry{border-bottom:1px solid #e8eff5}
+.staff-history-entry:last-child{border-bottom:0}
+.staff-history-entry summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 2px;cursor:pointer;color:#174c80;font-size:14px;font-weight:850}
+.staff-history-entry summary small{color:#758aa1;font-size:12px}
+.staff-history-items{padding:3px 6px 12px}
+.staff-history-item{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid #edf2f7}
+.staff-history-item img{width:48px;height:48px;object-fit:contain;border:1px solid #dce7f2;border-radius:8px;background:#f8fbff}
+.staff-history-item>div{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.staff-history-item strong{font-size:13px;color:#163858}
+.staff-history-item small{font-size:11px;color:#6c849a;overflow-wrap:anywhere}
+.staff-history-item b{color:#174d86;font-size:12px;white-space:nowrap}
+.staff-history-empty{padding:15px 3px;margin:0;color:#8294a8;font-size:13px}
+@media(max-width:700px){
+ .staff-prep-actions{width:100%;justify-content:stretch}
+ .staff-prep-actions button{flex:1 1 auto}
+ .staff-history-heading{padding:17px 15px}
+ .staff-history-body{padding:5px 14px 12px}
+ .staff-history-entry summary{align-items:flex-start;flex-direction:column;gap:4px}
+ .staff-history-item{flex-wrap:wrap}
+}
