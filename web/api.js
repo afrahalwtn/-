@@ -1,9 +1,15 @@
 // Access to protected resources goes through this single same-origin API client.
 // Session cookies are HttpOnly and never read or stored in JavaScript.
 let csrfToken = null;
+let accessToken = null;
 export function setCsrf(token) { csrfToken = token || null; }
+// Ephemeral session token: never store it in localStorage, sessionStorage or URL.
+export function setAccessToken(token) {
+  accessToken = typeof token === 'string' && /^[A-Za-z0-9_-]{48}$/.test(token) ? token : null;
+}
 export async function api(path, {method='GET', data, file} = {}) {
   const headers = {};
+  if (accessToken && path !== '/auth/login') headers['Authorization'] = 'Bearer ' + accessToken;
   const options = {method, credentials:'same-origin', cache:'no-store', headers};
   if (method !== 'GET') {
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
