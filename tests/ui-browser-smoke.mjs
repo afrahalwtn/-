@@ -50,11 +50,30 @@ try {
   assert.equal(await page.locator('.koa-stats').count(),0,'Home must not include dashboard stat cards');
   assert.equal(await page.locator('.nav-link[data-section="quotes"]').count(),1);
 
+  // Upload a real product photo through the working UI and verify its protected blob renders.
+  await page.locator('.sidebar-toggle').click();
+  await page.locator('.nav-link[data-section="products"]').click();
+  await page.locator('[data-action="edit-product"][data-id="1"]').click();
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPUqDjBwMDAxMDAwMDAAAAQagFs+4JkhgAAAABJRU5ErkJggg==','base64');
+  await page.locator('.modal input[name="image"]').setInputFiles({name:'test-product.png',mimeType:'image/png',buffer:png});
+  await page.locator('.modal button[type="submit"]').click();
+  await page.waitForFunction(
+    ()=>Array.from(document.querySelectorAll('img.product-thumb[data-private-image]')).some(img=>img.src.startsWith('blob:') && img.naturalWidth>0),
+    null,{timeout:15000},
+  );
+  await page.locator('.sidebar-toggle').click();
+  await page.locator('.nav-link[data-section="home"]').click();
+  await page.locator('.af-home').waitFor();
+
   await page.locator('#home-search').fill('رول');
   await page.locator('.search-product').first().waitFor();
   await page.locator('.quote-add-result').first().click();
   await page.locator('#quote-search').waitFor();
   assert.equal(await page.locator('.af-receipt-item').count(),1,'First material should be on receipt');
+  await page.waitForFunction(
+    ()=>Array.from(document.querySelectorAll('img.af-receipt-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),
+    null,{timeout:15000},
+  );
 
   await page.locator('#quote-search').fill('علب');
   await page.locator('.quote-add-result').first().waitFor();
