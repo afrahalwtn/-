@@ -19,6 +19,7 @@ on:
       - "storage.ts"
       - "passwords.ts"
       - "tests/sqlite-persistence.mjs"
+      - "tests/sqlite-server-restart.mjs"
       - "tests/ui-browser-smoke.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
@@ -41,6 +42,8 @@ jobs:
         run: node tests/arabic-search.mjs
       - name: Test persistent SQLite database with 4200 product records
         run: node --import tsx tests/sqlite-persistence.mjs
+      - name: Test real server restart with SQLite file
+        run: node tests/sqlite-server-restart.mjs
       - name: Compile TypeScript server
         run: npm run build
       - name: Check frontend syntax
