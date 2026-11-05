@@ -29,8 +29,13 @@ function showToast(message, error=false) {
   showToast.timer = setTimeout(()=>toast.classList.remove('visible'), 4000);
 }
 function errorToast(err) {
-  if (err?.status === 401) { state.user=null; setCsrf(null); render(); return; }
+  if (err?.status === 401 && state.user) { state.user=null; setCsrf(null); render(); }
   showToast(err?.message || 'تعذر تنفيذ الطلب', true);
+}
+function showLoginError(message) {
+  const target=document.getElementById('login-feedback');
+  if (target) { target.textContent=message; target.hidden=false; }
+  else showToast(message,true);
 }
 async function refresh() {
   const [products, alerts] = await Promise.all([api('/products'), api('/alerts')]);
@@ -61,6 +66,7 @@ function loginView() {
         <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
         <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
         <button type="submit" class="btn primary full">${icon('arrow',18)} تسجيل الدخول</button>
+        <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
       </form>
     </div></section></div><div id="toast" class="toast" role="status"></div>`;
 }
@@ -228,24 +234,33 @@ async function syncAndShow(message) {
   await refresh(); closeModal(); renderWorkspace(); showToast(message);
 }
 async function backendAvailable() {
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),8000);
   try {
-    const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store'});
+    const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
     if (!response.ok) return false;
     const data=await response.json();
     return data?.status==='ok';
   } catch {return false;}
+  finally {clearTimeout(timeout);}
 }
 async function handleForm(form) {
   const type=form.dataset.form;
   const fields=new FormData(form);
   const submit=form.querySelector('button[type="submit"]');
   if (submit) submit.disabled=true;
+  if (type==='login') {
+    const feedback=form.querySelector('#login-feedback');
+    if (feedback) { feedback.hidden=true; feedback.textContent=''; }
+    if (submit) { submit.dataset.originalLabel=submit.innerHTML; submit.textContent='جارٍ التحقق من الدخول...'; submit.setAttribute('aria-busy','true'); }
+  }
   try {
     if (type==='login') {
       if (!(await backendAvailable())) {
         throw new Error('الخادم غير متصل. إذا فتحت الواجهة من Google AI Studio، تأكد من تشغيل Backend ومزامنة ملفات GitHub. المشكلة ليست بالضرورة في كلمة المرور.');
       }
       const result=await api('/auth/login',{method:'POST',data:{username:String(fields.get('username')).trim(),password:String(fields.get('password'))}});
+      if (!result?.user || !result?.csrf) throw new Error('الخادم لم يرجع بيانات دخول صالحة. تأكد من تشغيل خادم النظام، وليس صفحة المعاينة وحدها.');
       state.user=result.user;setCsrf(result.csrf);state.section='home';state.sidebarOpen=window.innerWidth >= 950;await refresh();render();return;
     }
     if (type==='product') {
@@ -276,7 +291,16 @@ async function handleForm(form) {
       await api(id?`/users/${id}`:'/users',{method:id?'PATCH':'POST',data});
       await syncAndShow('تم حفظ المستخدم والصلاحيات');
     }
-  } catch(err) {errorToast(err);} finally { if (submit) submit.disabled=false; }
+  } catch(err) {
+    if (type==='login') {
+      showLoginError(err instanceof TypeError ? 'تعذّر الاتصال بخادم النظام. تأكد من أن الخادم شغّال وأن المعاينة مرتبطة به.' : (err?.message || 'تعذّر تسجيل الدخول، حاول مرة ثانية.'));
+    } else errorToast(err);
+  } finally {
+    if (submit) {
+      submit.disabled=false;
+      if (type==='login') {submit.innerHTML=submit.dataset.originalLabel||'تسجيل الدخول';submit.removeAttribute('aria-busy');}
+    }
+  }
 }
 function printQuote(q) {
   if (!q) return;
