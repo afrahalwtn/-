@@ -6,6 +6,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind } from './storage.js';
+import { hashPassword, verifyPassword } from './passwords.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,7 +16,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 // Ensure data and images directory
-const dataDir = path.join(__dirname, 'data');
+const dataDir = storageDirectory;
 const imagesDir = path.join(dataDir, 'images');
 if (!fs.existsSync(imagesDir)) {
   fs.mkdirSync(imagesDir, { recursive: true });
@@ -82,15 +84,21 @@ interface Quote {
   items: QuoteLine[];
 }
 
+// First-run demo data. In production, provide two strong passwords via environment
+// before the first database creation. Do not reset existing stored users on restart.
+if (!hasStoredKind('users') && process.env.NODE_ENV === 'production' &&
+   (!process.env.AFRAH_ADMIN_PASSWORD || !process.env.AFRAH_STAFF_PASSWORD)) {
+  throw new Error('Set AFRAH_ADMIN_PASSWORD and AFRAH_STAFF_PASSWORD before the first production startup');
+}
 // Initial Data Seed
-const users: Map<number, User> = new Map([
+const users: Map<number, User> = new PersistentMap<User>('users', new Map([
   [
     1,
     {
       id: 1,
       username: 'admin',
       full_name: 'المسؤول العام',
-      password: 'admin123456',
+      password: hashPassword(process.env.AFRAH_ADMIN_PASSWORD || 'admin123456'),
       role: 'admin',
       can_view_purchase: true,
       can_view_sale: true,
@@ -104,7 +112,7 @@ const users: Map<number, User> = new Map([
       id: 2,
       username: 'staff',
       full_name: 'أحمد العراقي',
-      password: 'staff123456',
+      password: hashPassword(process.env.AFRAH_STAFF_PASSWORD || 'staff123456'),
       role: 'staff',
       can_view_purchase: false,
       can_view_sale: true,
@@ -112,9 +120,9 @@ const users: Map<number, User> = new Map([
       created_at: new Date().toISOString(),
     },
   ],
-]);
+]));
 
-const products: Map<number, Product> = new Map([
+const products: Map<number, Product> = new PersistentMap<Product>('products', new Map([
   [
     1,
     {
@@ -190,9 +198,9 @@ const products: Map<number, Product> = new Map([
       updated_at: new Date().toISOString(),
     },
   ],
-]);
+]));
 
-const quotes: Map<number, Quote> = new Map([
+const quotes: Map<number, Quote> = new PersistentMap<Quote>('quotes', new Map([
   [
     1,
     {
@@ -221,11 +229,8 @@ const quotes: Map<number, Quote> = new Map([
       ],
     },
   ],
-]);
+]));
 
-let nextProductId = 6;
-let nextUserId = 3;
-let nextQuoteId = 2;
 
 const sessions: Map<string, Session> = new Map();
 
@@ -401,7 +406,7 @@ app.post('/api/auth/login', (req, res) => {
   }
   const uname = String(username).toLowerCase().trim();
   const u = Array.from(users.values()).find((user) => user.username.toLowerCase() === uname);
-  if (!u || !u.is_active || u.password !== String(password)) {
+  if (!u || !u.is_active || !verifyPassword(String(password),u.password)) {
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     return;
   }
@@ -471,7 +476,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
     res.status(422).json({ detail: 'اسم المادة مطلوب' });
     return;
   }
-  const id = nextProductId++;
+  const id = allocateRecordId('products');
   const p: Product = {
     id,
     name: name.trim(),
@@ -505,6 +510,7 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
   if (purchase_price !== undefined) p.purchase_price = Math.max(0, Number(purchase_price) || 0);
   if (sale_price !== undefined) p.sale_price = Math.max(0, Number(sale_price) || 0);
   p.updated_at = new Date().toISOString();
+  products.set(p.id,p);
   res.json(productDict(p, ctx.user));
 });
 
@@ -558,6 +564,7 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
   }
   p.image_name = req.file.filename;
   p.updated_at = new Date().toISOString();
+  products.set(p.id,p);
   res.json({ image_url: `/api/images/${req.file.filename}` });
 });
 
@@ -610,12 +617,12 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     res.status(409).json({ detail: 'اسم المستخدم موجود' });
     return;
   }
-  const id = nextUserId++;
+  const id = allocateRecordId('users');
   const u: User = {
     id,
     username: uname,
     full_name: String(full_name).trim(),
-    password: String(password),
+    password: hashPassword(String(password)),
     role: 'staff',
     can_view_purchase: Boolean(can_view_purchase),
     can_view_sale: Boolean(can_view_sale),
@@ -636,7 +643,7 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
   const { full_name, password, can_view_purchase, can_view_sale, is_active } = req.body;
   if (full_name !== undefined) u.full_name = String(full_name).trim();
   if (password !== undefined && password !== '') {
-    u.password = String(password);
+    u.password = hashPassword(String(password));
     // Invalidate sessions for this user
     for (const [hash, sess] of Array.from(sessions.entries())) {
       if (sess.user_id === u.id) sessions.delete(hash);
@@ -652,6 +659,7 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
       }
     }
   }
+  users.set(u.id,u);
   res.json(userDict(u));
 });
 
@@ -685,7 +693,7 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     }
   }
 
-  const id = nextQuoteId++;
+  const id = allocateRecordId('quotes');
   const q: Quote = {
     id,
     created_at: new Date().toISOString(),
