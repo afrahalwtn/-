@@ -1,9 +1,10 @@
 import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-secure-images';
 import {icon} from './icons.js?v=20261105-price-tag';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
+import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const state = {
-  user:null, section:'home', products:[], alerts:[], users:[], quotes:[],
+  user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[],
   search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false,
 };
 const app = document.getElementById('app');
@@ -77,6 +78,7 @@ async function refresh() {
 }
 async function boot() {
   try {
+    await resumePortal(api,setAccessToken,setCsrf);
     const res = await api('/admin/me');
     if (res.user?.role !== 'admin') throw new Error('هذه الصفحة للإدارة فقط');
     state.user = res.user;
@@ -103,19 +105,28 @@ function loginView() {
         <span class="auth-kicker">أفراح الوطن للتجارة العامة</span>
         <h1>يــا هـلا و مـرحـبـا</h1>
         <p class="muted">سجّل دخول الإدارة للوصول إلى المواد والجرد والصلاحيات وعروض الأسعار.</p>
-        <form data-form="login" class="stack-form card-body">
+        ${state.showRecovery? `<form data-form="recovery" class="stack-form card-body">
+          <p class="auth-help">إذا فقدت رمز الإدارة، فعّل وضع الاستعادة على خادم الشركة وخذ الرمز المؤقت من شاشة الخادم. الاستعادة موقوفة افتراضياً.</p>
+          <label>رمز الاستعادة من شاشة الخادم<input class="form-control" name="recovery_code" required autocomplete="off" maxlength="24" dir="ltr"></label>
+          <label>اسم الدخول الجديد<input class="form-control" name="username" required autocomplete="username" pattern="[a-zA-Z0-9_.-]{3,60}" dir="ltr"></label>
+          <label>كلمة المرور الجديدة<input class="form-control" name="new_password" type="password" required minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>
+          <label>تأكيد كلمة المرور<input class="form-control" name="confirm_password" type="password" required minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>
+          <button type="submit" class="btn primary btn-primary full">استعادة حساب الإدارة</button>
+          <p id="recovery-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
+        </form>`:`<form data-form="login" class="stack-form card-body">
           <label>اسم المستخدم<input class="form-control" name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
           <label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
           <button type="submit" class="btn primary btn-primary full">تسجيل الدخول ${icon('arrow',18)}</button>
           <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
-        </form>
+        </form>`}
+        <button class="auth-recovery-toggle" type="button" data-action="recovery-toggle">${state.showRecovery?'الرجوع لتسجيل الدخول':'رمز الإدارة ما يشتغل؟ استعادة الحساب'}</button>
       </div>
     </section>
   </div><div id="toast" class="toast" role="status"></div>`;
 }
 const navItems = [
   ['home','الرئيسية','home'], ['products','المواد','package'], ['inventory','الجرد','clipboard'],
-  ['alerts','التنبيهات','bell'], ['prepare','جهّز قائمة','table'], ['quotes','عروض الأسعار','tag'], ['users','المستخدمون','users'],
+  ['alerts','التنبيهات','bell'], ['prepare','جهّز قائمة','table'], ['quotes','عروض الأسعار','tag'], ['users','المستخدمون','users'], ['account','بيانات الدخول','shield'],
 ];
 function renderShell() {
   const nav = navItems.filter(([key])=> isAdmin() || !['prepare','quotes','users'].includes(key));
@@ -138,6 +149,7 @@ function renderShell() {
         </div>
         <div class="header-centered-logo"><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" /></div>
         <div class="topbar-actions">
+          <button type="button" class="portal-switch-btn" data-action="switch-staff" title="فتح بوابة الموظفين بدون تسجيل ثانٍ">بوابة الموظفين ${icon('arrow',16)}</button>
           <button type="button" data-action="nav" data-section="alerts" class="top-alert" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?`<span>${number(state.alerts.length)}</span>`:''}</button>
           <div class="user-badge"><div class="user-circle avatar">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
           <button type="button" class="icon-btn logout" data-action="logout" title="تسجيل خروج">${icon('logout',20)}</button>
@@ -232,6 +244,20 @@ function alertsView() {
     </section>`;
 }
 function emptyState(head,sub,glyph) { return `<div class="empty">${icon(glyph,32)}<h3>${head}</h3><p>${sub}</p></div>`; }
+function accountView() {
+  return `${pageTitle('بيانات الدخول','غيّر اسم المستخدم أو كلمة مرور الإدارة بنفسك، بدون تعديل ملفات المشروع.')}
+  <section class="panel card account-form-card">
+    <div class="panel-head"><h2>تغيير بيانات حساب الإدارة</h2></div>
+    <form class="account-form" data-form="account">
+      <label>اسم الدخول<input name="username" class="form-control" pattern="[a-zA-Z0-9_.-]{3,60}" maxlength="60" required value="${safe(state.user.username)}" autocomplete="username" dir="ltr"></label>
+      <label>كلمة المرور الحالية (للتحقق)<input name="current_password" class="form-control" type="password" required autocomplete="current-password" dir="ltr"></label>
+      <label>كلمة مرور جديدة (اختياري)<input name="new_password" class="form-control" type="password" minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>
+      <label>تأكيد كلمة المرور الجديدة<input name="confirm_password" class="form-control" type="password" autocomplete="new-password" dir="ltr"></label>
+      <p class="account-hint">إذا تريد تغيّر الاسم فقط، اترك كلمة المرور الجديدة فارغة. التغيير ينحفظ بقاعدة البيانات ويلغي جلسات الأجهزة الثانية.</p>
+      <button class="btn primary" type="submit">${icon('save',18)} حفظ بيانات الدخول</button>
+    </form>
+  </section>`;
+}
 function usersView() {
   if (!isAdmin()) return '';
   return `${pageTitle('المستخدمون','حساب الإدارة والتحكم بصلاحيات الاطلاع على الأسعار.',primaryButton('new-user','إضافة مستخدم'))}
@@ -287,7 +313,7 @@ function quotePreview(q) {
     </tbody></table></div><div class="quote-sum">المجموع الكلي <strong>${money(q.total)}</strong></div></section>`;
 }
 function workspaceView() {
-  return ({home:homeView,products:productsView,inventory:inventoryView,alerts:alertsView,prepare:prepareView,quotes:quotesView,users:usersView}[state.section] || homeView)();
+  return ({home:homeView,products:productsView,inventory:inventoryView,alerts:alertsView,prepare:prepareView,quotes:quotesView,users:usersView,account:accountView}[state.section] || homeView)();
 }
 let prepareTable=null;
 function drawPreparedGrid() {
@@ -374,8 +400,8 @@ function userModal(u) {
   return `<div class="modal-head"><div><p class="eyebrow">إدارة الصلاحيات</p><h2>${u?'تعديل صلاحيات المستخدم':'إضافة المستخدم الثاني'}</h2></div><button class="icon-btn" data-action="close-modal">${icon('x')}</button></div>
     <form data-form="user" data-id="${u?.id||''}" class="modal-form">
       <div class="form-grid"><label>اسم الشخص *<input name="full_name" required minlength="2" maxlength="120" value="${safe(u?.full_name||'')}"></label>
-      ${u?`<label>اسم الدخول<input disabled value="${safe(u.username)}"></label>`:`<label>اسم الدخول (إنجليزي) *<input name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" placeholder="employee" dir="ltr"></label>`}</div>
-      <label>${u?'كلمة مرور جديدة (اختياري)':'كلمة المرور *'}<input name="password" type="password" minlength="6" maxlength="256" ${u?'':'required'} placeholder="6 رموز على الأقل" autocomplete="new-password"></label>
+      <label>اسم الدخول (إنجليزي) *<input name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" value="${safe(u?.username||'')}" placeholder="employee" dir="ltr"></label></div>
+      <label>${u?'كلمة مرور جديدة (اختياري)':'كلمة المرور *'}<input name="password" type="password" minlength="10" maxlength="128" ${u?'':'required'} placeholder="10 رموز على الأقل" autocomplete="new-password"></label>
       <div class="switch-block"><label class="switch-line"><span><b>إظهار سعر الشراء</b><small>يسمح بعرض تكلفة شراء المنتجات</small></span><input type="checkbox" name="can_view_purchase" ${u?.can_view_purchase?'checked':''}></label>
       <label class="switch-line"><span><b>إظهار سعر البيع</b><small>يسمح بعرض سعر بيع المنتجات</small></span><input type="checkbox" name="can_view_sale" ${u?.can_view_sale?'checked':''}></label>
       ${u?`<label class="switch-line"><span><b>الحساب مفعل</b><small>إيقاف الحساب يمنع تسجيل الدخول</small></span><input type="checkbox" name="is_active" ${u.is_active?'checked':''}></label>`:''}</div>
@@ -440,6 +466,32 @@ async function handleForm(form) {
       }
       render();return;
     }
+    if (type==='recovery') {
+      const desired=String(fields.get('new_password')||'');
+      if(desired!==String(fields.get('confirm_password')||''))throw new Error('تأكيد كلمة المرور مختلف');
+      const result=await api('/admin/recover',{method:'POST',data:{
+        recovery_code:String(fields.get('recovery_code')||''),
+        username:String(fields.get('username')||'').trim(),
+        new_password:desired,
+      }});
+      setAccessToken(result.access_token);setCsrf(result.csrf);
+      state.user=result.user;state.showRecovery=false;state.section='account';
+      await refresh();render();showToast('تم استعادة حساب الإدارة وتعيين بيانات الدخول التي اخترتها');
+      return;
+    }
+    if (type==='account') {
+      const password=String(fields.get('new_password')||'');
+      if(password!==String(fields.get('confirm_password')||''))throw new Error('تأكيد كلمة المرور مختلف');
+      const data={
+        username:String(fields.get('username')||'').trim(),
+        current_password:String(fields.get('current_password')||''),
+      };
+      if(password)data.new_password=password;
+      const result=await api('/auth/change-credentials',{method:'POST',data});
+      state.user=result.user;renderWorkspace();
+      showToast('تم حفظ بيانات الدخول الجديدة');
+      return;
+    }
     if (type==='product') {
       const values={name:String(fields.get('name')||''),description:String(fields.get('description')||''),manufacture:String(fields.get('manufacture')||'')};
       for (const field of ['quantity','min_quantity','purchase_price','sale_price']) values[field]=Number(fields.get(field));
@@ -463,7 +515,7 @@ async function handleForm(form) {
       const data={full_name:String(fields.get('full_name')||''),can_view_purchase:fields.has('can_view_purchase'),can_view_sale:fields.has('can_view_sale')};
       const pwd=String(fields.get('password')||'');
       if (pwd) data.password=pwd;
-      if (!id) data.username=String(fields.get('username')||'');
+      data.username=String(fields.get('username')||'').trim();
       if (id) data.is_active=fields.has('is_active');
       await api(id?`/users/${id}`:'/users',{method:id?'PATCH':'POST',data});
       await syncAndShow('تم حفظ المستخدم والصلاحيات');
@@ -471,6 +523,9 @@ async function handleForm(form) {
   } catch(err) {
     if (type==='login') {
       showLoginError(err instanceof TypeError ? 'تعذّر الاتصال بخادم النظام. تأكد من أن الخادم شغّال وأن المعاينة مرتبطة به.' : (err?.message || 'تعذّر تسجيل الدخول، حاول مرة ثانية.'));
+    } else if(type==='recovery') {
+      const feedback=form.querySelector('#recovery-feedback');
+      if(feedback){feedback.textContent=err?.message||'تعذّرت استعادة الحساب';feedback.hidden=false;}
     } else errorToast(err);
   } finally {
     if (submit) {
@@ -507,6 +562,8 @@ async function handleAction(action, el) {
       document.getElementById('sidebar')?.classList.toggle('collapsed',!state.sidebarOpen);
       document.querySelector('.shell')?.classList.toggle('sidebar-narrow',!state.sidebarOpen);
       document.querySelector('.mobile-scrim')?.classList.toggle('show',state.sidebarOpen);return;
+    case 'recovery-toggle': state.showRecovery=!state.showRecovery;render();return;
+    case 'switch-staff': await switchPortal(api,'/');return;
     case 'logout':
       try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);}
       state.user=null;setCsrf(null);setAccessToken(null);forgetPrivateImages();state.draft=[];render();return;
