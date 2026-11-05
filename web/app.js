@@ -1,4 +1,4 @@
-import {api, setCsrf, setAccessToken, money, number, safe} from './api.js';
+import {api, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-embed-auth';
 import {icon} from './icons.js?v=20261105-ui3';
 
 const state = {
