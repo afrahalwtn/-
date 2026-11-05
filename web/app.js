@@ -290,9 +290,62 @@ function quotePreview(q) {
 function workspaceView() {
   return ({home:homeView,products:productsView,inventory:inventoryView,alerts:alertsView,prepare:prepareView,quotes:quotesView,users:usersView}[state.section] || homeView)();
 }
+let prepareTable=null;
+function drawPreparedGrid() {
+  const host=document.getElementById('prepare-grid');
+  if(!host||!isAdmin())return;
+  const entries=state.draft.map((d,idx)=>{
+    const p=state.products.find(p=>p.id===d.product_id);
+    if(!p)return null;
+    return {id:p.id,idx,name:p.name,description:p.description||'',manufacture:p.manufacture||'',image_url:p.image_url,quantity:d.quantity,unit_price:p.sale_price,total:d.quantity*p.sale_price};
+  }).filter(Boolean);
+  const sum=()=>state.draft.reduce((n,d)=>{const p=state.products.find(p=>p.id===d.product_id);return n+(p?p.sale_price*d.quantity:0)},0);
+  const syncSummary=()=>{
+    const count=document.getElementById('prepare-count');
+    const total=document.getElementById('prepare-total');
+    if(count)count.textContent=number(state.draft.length)+' مادة';
+    if(total)total.textContent=money(sum());
+  };
+  if(typeof window.Tabulator!=='function'){
+    host.innerHTML='<p class="af-grid-error">تعذّر تحميل محرّك الجداول. أعد تشغيل الخادم وتأكد من تثبيت المكتبات المحلية.</p>';
+    showToast('مكتبة الجداول غير متاحة. تأكد من تشغيل الخادم وملفات النظام.',true);
+    return;
+  }
+  prepareTable=new window.Tabulator(host,{
+    data:entries,index:'id',layout:'fitDataStretch',textDirection:'rtl',
+    placeholder:'ماكو مواد بالقائمة. ابحث عن مادة وأضفها للجدول.',
+    columns:[
+      {title:'ت',formatter:'rownum',width:51,hozAlign:'center',headerSort:false,resizable:false},
+      {title:'الصورة',field:'image_url',width:84,headerSort:false,formatter(cell){return image(cell.getRow().getData(),'af-grid-photo')}},
+      {title:'اسم المادة',field:'name',width:188,minWidth:170,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>'}},
+      {title:'الوصف',field:'description',width:200,minWidth:170,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>'},variableHeight:true},
+      {title:'الصنع',field:'manufacture',width:135,minWidth:110,formatter(cell){return safe(cell.getValue()||'—')}},
+      {title:'العدد',field:'quantity',width:99,hozAlign:'center',editor:'number',editorParams:{min:1,max:100000000,step:1},validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>'}},
+      {title:'سعر الوحدة',field:'unit_price',width:142,hozAlign:'left',formatter(cell){return '<span class="af-grid-currency">'+money(cell.getValue())+'</span>'}},
+      {title:'الإجمالي',field:'total',width:152,hozAlign:'left',formatter(cell){return '<b class="af-grid-currency">'+money(cell.getValue())+'</b>'},bottomCalc:'sum',bottomCalcFormatter(cell){return '<strong class="af-grid-total">'+money(cell.getValue()||0)+'</strong>'}},
+      {title:'حذف',width:71,hozAlign:'center',headerSort:false,formatter(cell){return '<button class="af-grid-remove" type="button" data-action="quote-remove" data-idx="'+cell.getRow().getData().idx+'" aria-label="حذف المادة">'+icon('x',17)+'</button>'}}
+    ]
+  });
+  prepareTable.on('renderComplete',()=>{void hydrateImages(host)});
+  prepareTable.on('tableBuilt',()=>{void hydrateImages(host)});
+  prepareTable.on('cellEdited',cell=>{
+    if(cell.getField()!=='quantity')return;
+    const d=cell.getRow().getData(),n=Number(cell.getValue()),item=state.draft[d.idx];
+    if(!item||!Number.isSafeInteger(n)||n<1||n>100000000){
+      cell.restoreOldValue();
+      showToast('أدخل عدداً صحيحاً من 1 إلى 100000000',true);
+      return;
+    }
+    item.quantity=n;
+    cell.getRow().update({total:n*d.unit_price});
+    syncSummary();
+  });
+}
+
 function renderWorkspace() {
   const w = document.getElementById('workspace');
-  if (w) {w.innerHTML=workspaceView();void hydrateImages(w);}
+  if (prepareTable) {prepareTable.destroy();prepareTable=null;}
+  if (w) {w.innerHTML=workspaceView();void hydrateImages(w);if(state.section==='prepare')drawPreparedGrid();}
   document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.section===state.section));
   const alertNode=document.querySelector('.top-alert span');
   if (alertNode) alertNode.textContent=number(state.alerts.length);
