@@ -238,3 +238,20 @@ body{background:linear-gradient(145deg,#EDF6FB 0%,#F9FBFE 55%,#ECF8F8 100%);colo
  .stat-icon{width:46px;height:46px;border-radius:14px}
 }
 @media(prefers-reduced-motion:reduce){.nav-link,.nav-icon,.stat-card,.btn,.icon-btn{transition:none!important;transform:none!important}}
+
+/* Authentication errors stay visible after a rejected login or unavailable backend. */
+.login-feedback{
+  display:block;
+  margin:12px 0 0;
+  padding:13px 15px;
+  border:1px solid #F6C2C2;
+  background:#FFF0EF;
+  color:#92312F;
+  border-radius:12px;
+  line-height:1.85;
+  font-size:13px;
+  font-weight:700;
+  text-align:right;
+}
+.login-feedback[hidden]{display:none!important}
+.stack-form button[aria-busy="true"]{opacity:.72;cursor:progress}
