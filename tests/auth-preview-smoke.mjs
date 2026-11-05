@@ -58,7 +58,19 @@ try {
   for (const marker of ['.koa-hero','.koa-stats','.koa-stock-alerts','#1766df','#0abbd1','@media(max-width:760px)']) {
     assert(koaCss.includes(marker), 'Missing KOA theme rule: ' + marker);
   }
-  const appSource = await fetch(origin + '/web/app.js');
+  const staffSource=await fetch(origin+'/web/app.js');
+  assert.equal(staffSource.status,200);
+  const staffCode=await staffSource.text();
+  assert(staffCode.includes("['prepare','جهّز قائمة','table']"),'Employee portal must include Prepare List');
+  assert(staffCode.includes('new window.Tabulator'),'Staff must use the real editable spreadsheet');
+  assert(!staffCode.includes('function usersView()')&&!staffCode.includes('function productModal('),'No administrative UI may be bundled into staff app');
+  const adminPage=await fetch(origin+'/admin');
+  assert.equal(adminPage.status,200);
+  const adminHtml=await adminPage.text();
+  assert(adminHtml.includes('/web/admin-app.js'),'Separate admin page must load the admin bundle');
+  assert(!html.includes('/web/admin-app.js'),'Staff homepage must not load admin bundle');
+  assert(html.includes('/web/app.js'),'Staff homepage must load independent staff JS');
+  const appSource = await fetch(origin + '/web/admin-app.js');
   assert.equal(appSource.status, 200);
   const homepageCode = await appSource.text();
   assert(homepageCode.includes('af-home-search') && homepageCode.includes('af-home-alerts'));
@@ -120,6 +132,41 @@ try {
   const me = await request('/me',{headers:auth});
   assert.equal(me.status,200,'Session is accepted by /me');
   assert.equal((await me.json()).user.role,'admin');
+
+  const adminPageSelf=await request('/admin/me',{headers:auth});
+  assert.equal(adminPageSelf.status,200,'Admin session may enter admin site');
+
+  const employeeLogin=await request('/staff/auth/login',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'staff',password:'staff123456'})
+  });
+  assert.equal(employeeLogin.status,200,'Staff should login on public site');
+  const employee=await employeeLogin.json();
+  const employeeHeader={Authorization:'Bearer '+employee.access_token};
+  assert.equal((await request('/admin/me',{headers:employeeHeader})).status,403,'Staff cannot enter admin API');
+  assert.equal((await request('/users',{headers:employeeHeader})).status,403,'Staff cannot manage users');
+  assert.equal((await request('/quotes',{headers:employeeHeader})).status,403,'Staff cannot read management quotations');
+  const employeeProducts=await request('/products',{headers:employeeHeader});
+  assert.equal(employeeProducts.status,200);
+  const employeeRows=await employeeProducts.json();
+  assert(!('purchase_price' in employeeRows[0]),'Staff may not receive a disabled purchase price');
+  assert('sale_price' in employeeRows[0],'Enabled sale price remains visible to staff');
+  assert.equal((await request('/products',{
+    method:'POST',headers:{...employeeHeader,'Content-Type':'application/json','X-CSRF-Token':employee.csrf},
+    body:JSON.stringify({name:'Unauthorized item',quantity:1})
+  })).status,403,'Staff cannot modify products');
+  assert.equal((await request('/quotes',{
+    method:'POST',headers:{...employeeHeader,'Content-Type':'application/json','X-CSRF-Token':employee.csrf},
+    body:JSON.stringify({items:[{product_id:1,quantity:1}]})
+  })).status,403,'Staff cannot create a management quote');
+  assert.equal((await request('/admin/auth/login',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'staff',password:'staff123456'})
+  })).status,403,'Staff login must be refused at admin gate');
+  assert.equal((await request('/staff/auth/login',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'admin',password:'admin123456'})
+  })).status,403,'Admin login must be refused at staff gate');
 
   const missingCsrf = await request('/products',{
     method:'POST',headers:{...auth,'Content-Type':'application/json'},body:'{}',
