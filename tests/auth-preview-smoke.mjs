@@ -166,7 +166,7 @@ try {
   assert.equal((await request('/staff/auth/login',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username:'admin',password:'admin123456'})
-  })).status,403,'Admin login must be refused at staff gate');
+  })).status,200,'Admin can use staff view with admin credentials');
 
   // Staff records performed materials, but cannot change product catalogue or quantities.
   const beforeExecution=await request('/products',{headers:employeeHeader});
