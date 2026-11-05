@@ -57,18 +57,31 @@ async function boot() {
   render();
 }
 function loginView() {
-  return `<div class="auth-page">
-    <section class="auth-visual" aria-hidden="true"><div class="auth-halo"></div><div class="auth-brand">أفراح الوطن<small>للتجارة العامة</small></div><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="" class="auth-logo"><div class="auth-caption">نظام المواد والجرد وعروض الأسعار</div></section>
-    <section class="auth-content"><div class="auth-box">
-      
-      <h1>يا هلا ومرحبا</h1><p class="muted">سجّل دخولك للوصول إلى نظام أفراح الوطن</p>
-      <form data-form="login" class="stack-form">
-        <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
-        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
-        <button type="submit" class="btn primary full">${icon('arrow',18)} تسجيل الدخول</button>
-        <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
-      </form>
-    </div></section></div><div id="toast" class="toast" role="status"></div>`;
+  return `<div class="auth-page auth-v6">
+    <div class="auth-visual" aria-hidden="true">
+      <div class="auth-visual-inner">
+        <div class="auth-brand-mark"><span class="auth-brand-dot"></span> شركة أفراح الوطن <small>للتجارة العامة</small></div>
+        <div class="auth-preview">
+          <span class="auth-preview-top">إدارة المواد والتجهيزات</span>
+          <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="" class="auth-logo">
+          <span class="auth-preview-bottom">المواد <i></i> الجرد <i></i> عروض الأسعار</span>
+        </div>
+      </div>
+    </div>
+    <section class="auth-content">
+      <div class="auth-box">
+        <span class="auth-kicker">أفراح الوطن للتجارة العامة</span>
+        <h1>يــا هـلا و مـرحـبـا</h1>
+        <p class="muted">سجّل دخولك للمتابعة إلى نظام المواد والمخزون.</p>
+        <form data-form="login" class="stack-form">
+          <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
+          <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
+          <button type="submit" class="btn primary full">تسجيل الدخول ${icon('arrow',18)}</button>
+          <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
+        </form>
+      </div>
+    </section>
+  </div><div id="toast" class="toast" role="status"></div>`;
 }
 const navItems = [
   ['home','الرئيسية','home'], ['products','المواد','package'], ['inventory','الجرد','clipboard'],
@@ -76,25 +89,31 @@ const navItems = [
 ];
 function renderShell() {
   const nav = navItems.filter(([key])=> isAdmin() || !['quotes','users'].includes(key));
-  return `<div class="shell ${state.sidebarOpen?'':'sidebar-narrow'}">
+  return `<div class="shell shell-v6 ${state.sidebarOpen?'':'sidebar-narrow'}">
     <aside class="sidebar ${state.sidebarOpen?'':'collapsed'}" id="sidebar">
-      <div class="sidebar-head"><span class="brand-square">${icon('package',25)}</span><span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span></div>
-      <div class="sidebar-divider"></div><p class="menu-caption">القائمة الرئيسية</p>
+      <div class="sidebar-head">
+        <span class="brand-square">${icon('package',24)}</span>
+        <span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span>
+      </div>
+      <p class="menu-caption">القائمة الرئيسية</p>
       <nav aria-label="التنقل الرئيسي">${nav.map(([key,title,glyph])=>`<button type="button" class="nav-link ${state.section===key?'active':''}" data-action="nav" data-section="${key}" title="${title}"><span class="nav-icon nav-icon-${key}">${icon(glyph,20)}</span><span>${title}</span>${key==='alerts'&&state.alerts.length?`<b class="nav-count">${state.alerts.length}</b>`:''}</button>`).join('')}</nav>
-      <div class="sidebar-bottom"><span>شركة أفراح الوطن للتجارة العامة</span></div>
+      <div class="sidebar-bottom"><span class="sidebar-bottom-line"></span><span>Tapello</span></div>
     </aside>
     <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-action="toggle-sidebar"></div>
     <div class="main-shell">
       <header class="topbar">
-        <button type="button" class="icon-btn sidebar-toggle" data-action="toggle-sidebar" aria-label="فتح وإغلاق القائمة">${icon('menu',22)}</button>
-        <div class="top-identity"><strong>شركة أفراح الوطن</strong><span>للتجارة العامة</span></div>
-        <label class="search-field">${icon('search',20)}<input id="global-search" aria-label="البحث عن مادة" placeholder="ابحث عن مادة أو وصف..." value="${safe(state.search)}" autocomplete="off"></label>
-        <button type="button" data-action="nav" data-section="alerts" class="top-alert" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?`<span>${number(state.alerts.length)}</span>`:''}</button>
-        <div class="user-badge"><div class="user-circle">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
-        <button type="button" class="icon-btn logout" data-action="logout" title="تسجيل خروج">${icon('logout',20)}</button>
+        <div class="topbar-start">
+          <button type="button" class="icon-btn sidebar-toggle" data-action="toggle-sidebar" aria-label="فتح وإغلاق القائمة">${icon('menu',22)}</button>
+          <div class="top-identity"><strong>شركة أفراح الوطن</strong><span>نظام إدارة التجهيزات</span></div>
+        </div>
+        <label class="search-field">${icon('search',20)}<input id="global-search" aria-label="البحث عن مادة" placeholder="ابحث عن منتج أو وصف..." value="${safe(state.search)}" autocomplete="off"></label>
+        <div class="topbar-actions">
+          <button type="button" data-action="nav" data-section="alerts" class="top-alert" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?`<span>${number(state.alerts.length)}</span>`:''}</button>
+          <div class="user-badge"><div class="user-circle">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
+          <button type="button" class="icon-btn logout" data-action="logout" title="تسجيل خروج">${icon('logout',20)}</button>
+        </div>
       </header>
       <main id="workspace" class="workspace"></main>
-      <footer class="footer">شركة أفراح الوطن للتجارة العامة <span>•</span> نظام إدارة المواد</footer>
     </div>
   </div><div id="modal-layer"></div><div id="toast" class="toast" role="status"></div>`;
 }
@@ -104,17 +123,36 @@ function pageTitle(title, subtitle, buttons='') {
 function primaryButton(action, label, plus=true) { return `<button type="button" class="btn primary" data-action="${action}">${icon(plus?'plus':'check',18)} ${label}</button>`; }
 function homeView() {
   const total = state.products.reduce((n,p)=>n+p.quantity,0);
-  return `${pageTitle('الرئيسية','مساحة عمل المواد والتجهيزات')}
-  <section class="hero">
-    <div class="hero-ring one"></div><div class="hero-ring two"></div>
-    <span class="hero-kicker">أهلاً بك في نظام شركتنا</span>
-    <h2>يــا هـلا و مـرحـبـا</h2><div class="hero-divider"><i></i></div>
-    <p>شركة أفراح الوطن للتجارة العامة</p><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" class="hero-logo">
+  return `<div class="home-head">
+    <div><span class="home-overline">لوحة الرئيسية</span><h1>أهلاً بعودتك</h1><p>كل ما تحتاجه لإدارة مواد شركة أفراح الوطن في مكان واحد.</p></div>
+  </div>
+  <section class="hero" aria-label="الترحيب">
+    <div class="hero-decoration hero-decoration-one"></div>
+    <div class="hero-decoration hero-decoration-two"></div>
+    <div class="hero-text">
+      <span class="hero-kicker"><span class="hero-kicker-dot"></span> نظام أفراح الوطن</span>
+      <h2>يــا هـلا و مـرحـبـا</h2>
+      <p>شركة أفراح الوطن للتجارة العامة</p>
+    </div>
+    <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" class="hero-logo">
   </section>
+  <div class="section-intro"><h2>نظرة على المخزون</h2><span>ملخص المواد والكميات</span></div>
   <div class="stat-grid">
-    <button type="button" class="stat-card" data-action="nav" data-section="products"><span class="stat-icon blue">${icon('package',24)}</span><div><small>المواد المسجّلة</small><strong>${number(state.products.length)}</strong></div>${icon('arrow',18)}</button>
-    <button type="button" class="stat-card" data-action="nav" data-section="inventory"><span class="stat-icon teal">${icon('clipboard',24)}</span><div><small>مجموع القطع المتوفرة</small><strong>${number(total)}</strong></div>${icon('arrow',18)}</button>
-    <button type="button" class="stat-card" data-action="nav" data-section="alerts"><span class="stat-icon amber">${icon('alert',24)}</span><div><small>مواد تحتاج انتباهاً</small><strong>${number(state.alerts.length)}</strong></div>${icon('arrow',18)}</button>
+    <button type="button" class="stat-card" data-action="nav" data-section="products">
+      <span class="stat-icon blue">${icon('package',25)}</span>
+      <div><small>المواد المسجّلة</small><strong>${number(state.products.length)}</strong><em>عرض المواد</em></div>
+      <span class="stat-arrow">${icon('arrow',18)}</span>
+    </button>
+    <button type="button" class="stat-card" data-action="nav" data-section="inventory">
+      <span class="stat-icon teal">${icon('clipboard',25)}</span>
+      <div><small>إجمالي القطع المتوفرة</small><strong>${number(total)}</strong><em>عرض الجرد</em></div>
+      <span class="stat-arrow">${icon('arrow',18)}</span>
+    </button>
+    <button type="button" class="stat-card" data-action="nav" data-section="alerts">
+      <span class="stat-icon amber">${icon('alert',25)}</span>
+      <div><small>مواد تحتاج انتباهاً</small><strong>${number(state.alerts.length)}</strong><em>عرض التنبيهات</em></div>
+      <span class="stat-arrow">${icon('arrow',18)}</span>
+    </button>
   </div>`;
 }
 function productTable(rows, inventory=false) {
