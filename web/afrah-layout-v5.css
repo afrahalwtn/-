@@ -117,3 +117,11 @@
 @media(prefers-reduced-motion:reduce){
  .af-grid-remove,.af-prep-save{transition:none!important}
 }
+
+/* A balanced, deliberately minimal greeting on wide displays. */
+.af-greeting-body.card-body{align-items:center;text-align:center}
+.af-greeting-tag{letter-spacing:0}
+.af-greeting-body h1{font-size:clamp(32px,3.55vw,46px)}
+@media(max-width:700px){
+ .af-greeting-body.card-body{align-items:center;text-align:center}
+}
