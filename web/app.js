@@ -57,7 +57,7 @@ async function boot() {
   render();
 }
 function loginView() {
-  return `<div class="auth-page auth-v6">
+  return `<div class="auth-page auth-v6 page page-center">
     <div class="auth-visual" aria-hidden="true">
       <div class="auth-visual-inner">
         <div class="auth-brand-mark"><span class="auth-brand-dot"></span> شركة أفراح الوطن <small>للتجارة العامة</small></div>
@@ -69,14 +69,14 @@ function loginView() {
       </div>
     </div>
     <section class="auth-content">
-      <div class="auth-box">
+      <div class="auth-box card">
         <span class="auth-kicker">أفراح الوطن للتجارة العامة</span>
         <h1>يــا هـلا و مـرحـبـا</h1>
         <p class="muted">سجّل دخولك للمتابعة إلى نظام المواد والمخزون.</p>
-        <form data-form="login" class="stack-form">
-          <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
-          <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
-          <button type="submit" class="btn primary full">تسجيل الدخول ${icon('arrow',18)}</button>
+        <form data-form="login" class="stack-form card-body">
+          <label>اسم المستخدم<input class="form-control" name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
+          <label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
+          <button type="submit" class="btn primary btn-primary full">تسجيل الدخول ${icon('arrow',18)}</button>
           <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
         </form>
       </div>
@@ -89,8 +89,8 @@ const navItems = [
 ];
 function renderShell() {
   const nav = navItems.filter(([key])=> isAdmin() || !['quotes','users'].includes(key));
-  return `<div class="shell shell-v6 ${state.sidebarOpen?'':'sidebar-narrow'}">
-    <aside class="sidebar ${state.sidebarOpen?'':'collapsed'}" id="sidebar">
+  return `<div class="shell shell-v6 page ${state.sidebarOpen?'':'sidebar-narrow'}">
+    <aside class="sidebar navbar navbar-vertical ${state.sidebarOpen?'':'collapsed'}" id="sidebar">
       <div class="sidebar-head">
         <span class="brand-square">${icon('package',24)}</span>
         <span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span>
@@ -101,15 +101,15 @@ function renderShell() {
     </aside>
     <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-action="toggle-sidebar"></div>
     <div class="main-shell">
-      <header class="topbar">
+      <header class="topbar navbar">
         <div class="topbar-start">
           <button type="button" class="icon-btn sidebar-toggle" data-action="toggle-sidebar" aria-label="فتح وإغلاق القائمة">${icon('menu',22)}</button>
           <div class="top-identity"><strong>شركة أفراح الوطن</strong><span>نظام إدارة التجهيزات</span></div>
         </div>
-        <label class="search-field">${icon('search',20)}<input id="global-search" aria-label="البحث عن مادة" placeholder="ابحث عن منتج أو وصف..." value="${safe(state.search)}" autocomplete="off"></label>
+        <label class="search-field input-icon">${icon('search',20)}<input id="global-search" aria-label="البحث عن مادة" placeholder="ابحث عن منتج أو وصف..." value="${safe(state.search)}" autocomplete="off"></label>
         <div class="topbar-actions">
           <button type="button" data-action="nav" data-section="alerts" class="top-alert" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?`<span>${number(state.alerts.length)}</span>`:''}</button>
-          <div class="user-badge"><div class="user-circle">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
+          <div class="user-badge"><div class="user-circle avatar">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
           <button type="button" class="icon-btn logout" data-action="logout" title="تسجيل خروج">${icon('logout',20)}</button>
         </div>
       </header>
@@ -120,10 +120,10 @@ function renderShell() {
 function pageTitle(title, subtitle, buttons='') {
   return `<div class="page-title"><div><div class="eyebrow">شركة أفراح الوطن للتجارة العامة</div><h1>${title}</h1><p>${subtitle}</p></div><div class="page-buttons">${buttons}</div></div>`;
 }
-function primaryButton(action, label, plus=true) { return `<button type="button" class="btn primary" data-action="${action}">${icon(plus?'plus':'check',18)} ${label}</button>`; }
+function primaryButton(action, label, plus=true) { return `<button type="button" class="btn primary btn-primary" data-action="${action}">${icon(plus?'plus':'check',18)} ${label}</button>`; }
 function homeView() {
   const total = state.products.reduce((n,p)=>n+p.quantity,0);
-  return `<div class="home-head">
+  return `<div class="home-head page-header">
     <div><span class="home-overline">لوحة الرئيسية</span><h1>أهلاً بعودتك</h1><p>كل ما تحتاجه لإدارة مواد شركة أفراح الوطن في مكان واحد.</p></div>
   </div>
   <section class="hero" aria-label="الترحيب">
@@ -138,17 +138,17 @@ function homeView() {
   </section>
   <div class="section-intro"><h2>نظرة على المخزون</h2><span>ملخص المواد والكميات</span></div>
   <div class="stat-grid">
-    <button type="button" class="stat-card" data-action="nav" data-section="products">
+    <button type="button" class="stat-card card" data-action="nav" data-section="products">
       <span class="stat-icon blue">${icon('package',25)}</span>
       <div><small>المواد المسجّلة</small><strong>${number(state.products.length)}</strong><em>عرض المواد</em></div>
       <span class="stat-arrow">${icon('arrow',18)}</span>
     </button>
-    <button type="button" class="stat-card" data-action="nav" data-section="inventory">
+    <button type="button" class="stat-card card" data-action="nav" data-section="inventory">
       <span class="stat-icon teal">${icon('clipboard',25)}</span>
       <div><small>إجمالي القطع المتوفرة</small><strong>${number(total)}</strong><em>عرض الجرد</em></div>
       <span class="stat-arrow">${icon('arrow',18)}</span>
     </button>
-    <button type="button" class="stat-card" data-action="nav" data-section="alerts">
+    <button type="button" class="stat-card card" data-action="nav" data-section="alerts">
       <span class="stat-icon amber">${icon('alert',25)}</span>
       <div><small>مواد تحتاج انتباهاً</small><strong>${number(state.alerts.length)}</strong><em>عرض التنبيهات</em></div>
       <span class="stat-arrow">${icon('arrow',18)}</span>
@@ -173,15 +173,15 @@ function productsView() {
   const q = state.search.trim().toLowerCase();
   const rows = q?state.products.filter(p=>(p.name+' '+p.description+' '+p.manufacture).toLowerCase().includes(q)):state.products;
   return `${pageTitle('المواد','إدارة مواد تجهيز المطاعم وأسعارها وصورها.',isAdmin()?primaryButton('new-product','إضافة مادة'): '')}
-    <section class="panel"><div class="panel-head"><h2>المواد المسجّلة</h2><span class="count-label">${number(rows.length)} مادة</span></div>${productTable(rows)}</section>`;
+    <section class="panel card"><div class="panel-head"><h2>المواد المسجّلة</h2><span class="count-label">${number(rows.length)} مادة</span></div>${productTable(rows)}</section>`;
 }
 function inventoryView() {
   return `${pageTitle('الجرد','متابعة العدد الفعلي لكل مادة وحدّ التنبيه عند النقص.')}
-    <section class="panel"><div class="panel-head"><h2>الكميات الحالية</h2><span class="count-label">${number(state.products.length)} مادة</span></div>${productTable(state.products,true)}</section>`;
+    <section class="panel card"><div class="panel-head"><h2>الكميات الحالية</h2><span class="count-label">${number(state.products.length)} مادة</span></div>${productTable(state.products,true)}</section>`;
 }
 function alertsView() {
   return `${pageTitle('التنبيهات','المواد التي وصلت إلى الحد الأدنى أو نفدت من المخزون.')}
-    <section class="panel"><div class="panel-head"><h2>تنبيهات المخزون</h2><span class="count-label">${number(state.alerts.length)} تنبيه</span></div>
+    <section class="panel card"><div class="panel-head"><h2>تنبيهات المخزون</h2><span class="count-label">${number(state.alerts.length)} تنبيه</span></div>
       ${!state.alerts.length?emptyState('المخزون بحالة جيدة','لا توجد مواد وصلت إلى حد التنبيه.','check'):
       `<div class="alert-list">${state.alerts.map(a=>`<div class="alert-line"><span class="alert-badge">${icon('alert',21)}</span><div><strong>${safe(a.name)}</strong><small>${a.quantity===0?'نفدت المادة':'اقتربت من النفاد'} — المتوفر: ${number(a.quantity)} / حد التنبيه: ${number(a.min_quantity)}</small></div>${isAdmin()?`<button class="btn quiet small" data-action="count" data-id="${a.product_id}">تعديل العدد ${icon('arrow',16)}</button>`:''}</div>`).join('')}</div>`}
     </section>`;
