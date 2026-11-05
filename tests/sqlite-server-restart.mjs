@@ -23,10 +23,15 @@ const open=async()=>{
 const close=async()=>{
  const p=processHandle;
  if(!p)return;
- const closed=once(p,'exit');
- p.kill('SIGTERM');
- await closed;
  processHandle=null;
+ if(p.exitCode!==null||p.signalCode!==null)return;
+ const exited=once(p,'exit');
+ p.kill('SIGTERM');
+ await Promise.race([exited,delay(4000)]);
+ if(p.exitCode===null&&p.signalCode===null){
+  p.kill('SIGKILL');
+  await Promise.race([exited,delay(1000)]);
+ }
 };
 const login=async()=>{
  const response=await fetch(address+'/auth/login',{
