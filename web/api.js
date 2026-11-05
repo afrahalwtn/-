@@ -31,6 +31,18 @@ export async function api(path, {method='GET', data, file} = {}) {
   }
   return body;
 }
+// Authenticated media fetch for embedded Google AI Studio previews.
+// <img src> cannot attach the in-memory bearer token when cookies are blocked.
+export async function apiMedia(path) {
+  if (!/^\/images\/[a-f0-9]{32}\.(png|jpg|webp)$/i.test(path)) throw new Error('مسار الصورة غير صالح');
+  const headers = {};
+  if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+  const res = await fetch('/api' + path, {method:'GET',credentials:'same-origin',cache:'no-store',headers});
+  if (!res.ok) throw new Error('تعذّر تحميل الصورة');
+  const blob = await res.blob();
+  if (!blob.type.startsWith('image/') || blob.size>3*1024*1024) throw new Error('ملف الصورة غير متوقع');
+  return blob;
+}
 export function money(value) { return new Intl.NumberFormat('ar-IQ-u-nu-latn').format(value ?? 0) + ' د.ع'; }
 export function number(value) { return new Intl.NumberFormat('ar-IQ-u-nu-latn').format(value ?? 0); }
 export function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
