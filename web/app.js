@@ -53,15 +53,15 @@ async function boot() {
 }
 function loginView() {
   return `<div class="auth-page">
-    <section class="auth-visual" aria-hidden="true"><div class="auth-halo"></div><div class="auth-brand">أفراح الوطن<small>للتجارة العامة</small></div><img src="/assets/tapello.svg?v=20261105" alt="" class="auth-logo"><div class="auth-caption">نظام المواد والجرد وعروض الأسعار</div></section>
+    <section class="auth-visual" aria-hidden="true"><div class="auth-halo"></div><div class="auth-brand">أفراح الوطن<small>للتجارة العامة</small></div><img src="/assets/tapello.svg" alt="" class="auth-logo"><div class="auth-caption">نظام المواد والجرد وعروض الأسعار</div></section>
     <section class="auth-content"><div class="auth-box">
       <div class="auth-emblem">${icon('shield',27)}</div>
       <p class="eyebrow">مساحة عمل الشركة</p><h1>يا هلا ومرحبا</h1><p class="muted">سجّل دخولك للوصول إلى نظام أفراح الوطن</p>
       <form data-form="login" class="stack-form">
-        <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
-        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
+        <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="admin" value="admin" dir="ltr"></label>
+        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="admin123456" value="admin123456" dir="ltr"></label>
         <button type="submit" class="btn primary full">${icon('lock',18)} دخول آمن</button>
-      </form><div class="auth-foot">جميع الحسابات والصلاحيات محفوظة على الخادم، وليس داخل المتصفح.</div>
+      </form><div class="auth-foot">حساب المسؤول الافتراضي للتجربة: <b>admin</b> / <b>admin123456</b> (جميع الصلاحيات محفوظة ومتحقق منها).</div>
     </div></section></div><div id="toast" class="toast" role="status"></div>`;
 }
 const navItems = [
@@ -103,7 +103,7 @@ function homeView() {
     <div class="hero-ring one"></div><div class="hero-ring two"></div>
     <span class="hero-kicker">أهلاً بك في نظام شركتنا</span>
     <h2>يــا هـلا و مـرحـبـا</h2><div class="hero-divider"><i></i></div>
-    <p>شركة أفراح الوطن للتجارة العامة</p><img src="/assets/tapello.svg?v=20261105" alt="Tapello" class="hero-logo">
+    <p>شركة أفراح الوطن للتجارة العامة</p><img src="/assets/tapello.svg" alt="Tapello" class="hero-logo">
   </section>
   <div class="stat-grid">
     <button type="button" class="stat-card" data-action="nav" data-section="products"><span class="stat-icon blue">${icon('package',24)}</span><div><small>المواد المسجّلة</small><strong>${number(state.products.length)}</strong></div>${icon('arrow',18)}</button>
@@ -204,7 +204,7 @@ function userModal(u) {
     <form data-form="user" data-id="${u?.id||''}" class="modal-form">
       <div class="form-grid"><label>اسم الشخص *<input name="full_name" required minlength="2" maxlength="120" value="${safe(u?.full_name||'')}"></label>
       ${u?`<label>اسم الدخول<input disabled value="${safe(u.username)}"></label>`:`<label>اسم الدخول (إنجليزي) *<input name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" placeholder="employee" dir="ltr"></label>`}</div>
-      <label>${u?'كلمة مرور جديدة (اختياري)':'كلمة المرور *'}<input name="password" type="password" minlength="12" maxlength="256" ${u?'':'required'} placeholder="12 رمزاً على الأقل" autocomplete="new-password"></label>
+      <label>${u?'كلمة مرور جديدة (اختياري)':'كلمة المرور *'}<input name="password" type="password" minlength="6" maxlength="256" ${u?'':'required'} placeholder="6 رموز على الأقل" autocomplete="new-password"></label>
       <div class="switch-block"><label class="switch-line"><span><b>إظهار سعر الشراء</b><small>يسمح بعرض تكلفة شراء المنتجات</small></span><input type="checkbox" name="can_view_purchase" ${u?.can_view_purchase?'checked':''}></label>
       <label class="switch-line"><span><b>إظهار سعر البيع</b><small>يسمح بعرض سعر بيع المنتجات</small></span><input type="checkbox" name="can_view_sale" ${u?.can_view_sale?'checked':''}></label>
       ${u?`<label class="switch-line"><span><b>الحساب مفعل</b><small>إيقاف الحساب يمنع تسجيل الدخول</small></span><input type="checkbox" name="is_active" ${u.is_active?'checked':''}></label>`:''}</div>
@@ -269,7 +269,7 @@ async function handleForm(form) {
 }
 function printQuote(q) {
   if (!q) return;
-  printRoot.innerHTML=`<div class="print-sheet"><header class="print-header"><div><h1>شركة أفراح الوطن للتجارة العامة</h1><p>عرض أسعار رقم ${number(q.id)} — ${new Date(q.date).toLocaleDateString('ar-IQ')}</p></div><img src="/assets/tapello.svg?v=20261105" alt="Tapello"></header>
+  printRoot.innerHTML=`<div class="print-sheet"><header class="print-header"><div><h1>شركة أفراح الوطن للتجارة العامة</h1><p>عرض أسعار رقم ${number(q.id)} — ${new Date(q.date).toLocaleDateString('ar-IQ')}</p></div><img src="/assets/tapello.svg" alt="Tapello"></header>
   <table><thead><tr><th>الصورة</th><th>اسم المنتج ووصفه</th><th>الصنع</th><th>العدد</th><th>سعر المنتج</th><th>المجموع</th></tr></thead><tbody>
   ${q.items.map(row=>`<tr><td>${row.image_url?`<img class="print-photo" src="${safe(row.image_url)}">`:'—'}</td><td><strong>${safe(row.product_name)}</strong><small>${safe(row.description)}</small></td><td>${safe(row.manufacture)}</td><td>${number(row.quantity)}</td><td>${money(row.unit_price)}</td><td>${money(row.total)}</td></tr>`).join('')}
   </tbody></table><footer>المجموع الكلي: <strong>${money(q.total)}</strong></footer></div>`;
