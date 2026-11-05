@@ -50,6 +50,20 @@ try {
   const skin = await fetch(origin + '/web/tabler-afrah.css');
   assert.equal(skin.status, 200, 'Tabler premium Afrah customization must load');
   assert((await skin.text()).includes('"Tajawal"'));
+  // KOA-inspired homepage styling must be served locally and include responsive layouts.
+  assert(html.includes('/web/koa-theme.css?v=20261105-koa-home-v1'));
+  const koaTheme = await fetch(origin + '/web/koa-theme.css');
+  assert.equal(koaTheme.status, 200, 'New KOA brand theme must load');
+  const koaCss = await koaTheme.text();
+  for (const marker of ['.koa-hero','.koa-stats','.koa-stock-alerts','#1766df','#0abbd1','@media(max-width:760px)']) {
+    assert(koaCss.includes(marker), 'Missing KOA theme rule: ' + marker);
+  }
+  const appSource = await fetch(origin + '/web/app.js');
+  assert.equal(appSource.status, 200);
+  const homepageCode = await appSource.text();
+  assert(homepageCode.includes('koa-hero-actions') && homepageCode.includes('koa-stock-alerts'));
+  assert(homepageCode.includes('safe(a.name)'), 'Alert names must be escaped in homepage');
+  assert(homepageCode.includes('setAccessToken(result.access_token)'), 'Working embedded login path must remain intact');
   const icons = await fetch(origin + '/web/icons.js');
   assert.equal(icons.status, 200);
   assert((await icons.text()).includes('Official Tabler SVG icons'));
@@ -95,7 +109,7 @@ try {
   const revoked = await request('/me',{headers:auth});
   assert.equal(revoked.status,401,'Revoked token must no longer work');
 
-  console.log('PASS: real Tabler RTL, offline Tajawal fonts, native SVG icons, auth, CSRF, logout');
+  console.log('PASS: KOA homepage assets, responsive rules, Tabler/Tajawal, auth, CSRF, logout');
 } finally {
   server.kill('SIGTERM');
 }
