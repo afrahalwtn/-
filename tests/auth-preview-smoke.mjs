@@ -168,6 +168,38 @@ try {
     body:JSON.stringify({username:'admin',password:'admin123456'})
   })).status,403,'Admin login must be refused at staff gate');
 
+  // Staff records performed materials, but cannot change product catalogue or quantities.
+  const beforeExecution=await request('/products',{headers:employeeHeader});
+  const initialStock=(await beforeExecution.json()).find(x=>x.id===1).quantity;
+  const done=await request('/execution-lists',{
+   method:'POST',headers:{...employeeHeader,'X-CSRF-Token':employee.csrf,'Content-Type':'application/json'},
+   body:JSON.stringify({items:[{product_id:1,quantity:4},{product_id:2,quantity:3}]})
+  });
+  assert.equal(done.status,201,'Staff must be able to record completed materials');
+  const record=await done.json();
+  assert.equal(record.items.length,2,'Performed items are saved as one list');
+  assert.equal(record.created_by_id,employee.user.id);
+  assert(!JSON.stringify(record).includes('purchase_price')&&!JSON.stringify(record).includes('sale_price'),'Execution list must not reveal prices');
+  const savedLists=await request('/execution-lists',{headers:employeeHeader});
+  assert.equal(savedLists.status,200);
+  assert((await savedLists.json()).some(x=>x.id===record.id),'Staff must view their saved list');
+  const adminLists=await request('/execution-lists',{headers:auth});
+  assert.equal(adminLists.status,200);
+  assert((await adminLists.json()).some(x=>x.id===record.id),'Admin can review staff execution data');
+  const afterExecution=await request('/products',{headers:employeeHeader});
+  assert.equal((await afterExecution.json()).find(x=>x.id===1).quantity,initialStock,'Executed list must not deduct stock without permission');
+  const invalidExecution=await request('/execution-lists',{
+   method:'POST',headers:{...employeeHeader,'X-CSRF-Token':employee.csrf,'Content-Type':'application/json'},
+   body:JSON.stringify({items:[{product_id:1,quantity:-5}]})
+  });
+  assert.equal(invalidExecution.status,422,'Negative quantities must be rejected');
+  const forbiddenAdminList=await request('/execution-lists',{
+   method:'POST',headers:{...auth,'X-CSRF-Token':session.csrf,'Content-Type':'application/json'},
+   body:JSON.stringify({items:[{product_id:1,quantity:1}]})
+  });
+  assert.equal(forbiddenAdminList.status,403,'Execution entry should belong to staff role');
+  assert.equal((await request('/execution-lists')).status,401,'Anonymous list access must be denied');
+
   const missingCsrf = await request('/products',{
     method:'POST',headers:{...auth,'Content-Type':'application/json'},body:'{}',
   });
@@ -224,7 +256,7 @@ try {
   const revoked = await request('/me',{headers:auth});
   assert.equal(revoked.status,401,'Revoked token must no longer work');
 
-  console.log('PASS: centered logo, Tabler welcome, offline Tabulator, editable list, quote persistence, auth, CSRF');
+  console.log('PASS: staff execution lists, no inventory mutation or price leakage, admin/staff permissions, offline grids, auth');
 } finally {
   server.kill('SIGTERM');
 }
