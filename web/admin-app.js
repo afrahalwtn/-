@@ -425,7 +425,7 @@ async function handleForm(form) {
       if (!(await backendAvailable())) {
         throw new Error('الخادم غير متصل. إذا فتحت الواجهة من Google AI Studio، تأكد من تشغيل Backend ومزامنة ملفات GitHub. المشكلة ليست بالضرورة في كلمة المرور.');
       }
-      const result=await api('/auth/login',{method:'POST',data:{username:String(fields.get('username')).trim(),password:String(fields.get('password'))}});
+      const result=await api('/admin/auth/login',{method:'POST',data:{username:String(fields.get('username')).trim(),password:String(fields.get('password'))}});
       if (!result?.user || !result?.csrf) throw new Error('الخادم لم يرجع بيانات دخول صالحة. تأكد من تشغيل خادم النظام، وليس صفحة المعاينة وحدها.');
       if (result.user.role !== 'admin') {
         await api('/auth/logout',{method:'POST'}).catch(()=>{});
