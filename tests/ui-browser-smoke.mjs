@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
 
@@ -11,6 +11,7 @@ const executablePath=[
   '/usr/bin/chromium',
 ].find(x=>x && existsSync(x));
 assert(executablePath,'Chromium/Chrome was not found on the CI runner');
+mkdirSync('screenshots',{recursive:true});
 const port=43189,base='http://127.0.0.1:'+port;
 const server=spawn(process.execPath,['--import','tsx','server.ts'],{
   env:{...process.env,PORT:String(port),AFRAH_SECURE_COOKIES:'false'},
@@ -35,6 +36,7 @@ try {
 
   await page.goto(base+'/',{waitUntil:'domcontentloaded'});
   await page.locator('form[data-form="login"]').waitFor();
+  await page.screenshot({path:'screenshots/mobile-login.png',fullPage:true});
   const loginBg=await page.locator('.auth-preview').evaluate(el=>getComputedStyle(el).backgroundColor);
   assert(['rgba(0, 0, 0, 0)','transparent'].includes(loginBg),'Logo has an added background card: '+loginBg);
   await page.locator('input[name="username"]').fill('admin');
@@ -42,6 +44,7 @@ try {
   await page.locator('button[type="submit"]').click();
   await page.locator('.af-home').waitFor({timeout:15000});
   assert.equal(await page.locator('.af-welcome').count(),1);
+  await page.screenshot({path:'screenshots/mobile-home.png',fullPage:true});
   assert.equal(await page.locator('.af-home-search').count(),1);
   assert.equal(await page.locator('.af-home-alerts').count(),1);
   assert.equal(await page.locator('.koa-stats').count(),0,'Home must not include dashboard stat cards');
@@ -60,6 +63,7 @@ try {
   await page.locator('[data-action="quote-increase"]').first().click();
   assert.equal(await page.locator('.af-qty-input').first().inputValue(),'2','Quantity adjustment must update receipt');
   assert.equal(await page.locator('.af-receipt-product').count(),2);
+  await page.screenshot({path:'screenshots/mobile-receipt.png',fullPage:true});
   assert(await page.locator('.af-receipt-product p').first().textContent(),'Receipt must display description');
   assert(await page.locator('.af-receipt-price').first().textContent(),'Receipt must display item price');
   await page.locator('[data-action="quote-create"]').click();
@@ -78,8 +82,20 @@ try {
   await desktop.locator('input[name="password"]').fill('admin123456');
   await desktop.locator('button[type="submit"]').click();
   await desktop.locator('.af-home').waitFor({timeout:15000});
+  await desktop.screenshot({path:'screenshots/desktop-home.png',fullPage:true});
   const deskWidth=await desktop.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(deskWidth.scroll<=deskWidth.width+2,'Desktop layout overflows: '+JSON.stringify(deskWidth));
+  const ipad=await browser.newPage({viewport:{width:820,height:1180},deviceScaleFactor:1});
+  ipad.on('pageerror',e=>errors.push(e.message));
+  await ipad.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await ipad.locator('form[data-form="login"]').waitFor();
+  await ipad.locator('input[name="username"]').fill('admin');
+  await ipad.locator('input[name="password"]').fill('admin123456');
+  await ipad.locator('button[type="submit"]').click();
+  await ipad.locator('.af-home').waitFor({timeout:15000});
+  await ipad.screenshot({path:'screenshots/ipad-home.png',fullPage:true});
+  const ipadWidth=await ipad.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
+  assert(ipadWidth.scroll<=ipadWidth.width+2,'iPad layout overflows: '+JSON.stringify(ipadWidth));
   assert.equal(errors.length,0,'JavaScript runtime errors: '+errors.join('; '));
   console.log('PASS: mobile/desktop login, home-only layout, multi-search receipt, quantities, quote save, no overflow or JS errors');
 } finally {
