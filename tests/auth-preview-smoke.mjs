@@ -28,6 +28,32 @@ try {
   }
   assert(live, 'Server did not start: ' + logs);
 
+  // Actual free Tabler RTL assets and locally hosted Arabic fonts.
+  const page = await fetch(origin + '/');
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert(html.includes('/vendor/tabler.rtl.min.css'));
+  assert(html.includes('/vendor/tajawal/400.css'));
+  assert(html.includes('/web/tabler-afrah.css'));
+
+  const tabler = await fetch(origin + '/vendor/tabler.rtl.min.css');
+  assert.equal(tabler.status, 200, 'Official Tabler RTL CSS must load offline');
+  assert((await tabler.text()).length > 10000);
+
+  for (const weight of [400,500,700,800,900]) {
+    const font = await fetch(origin + '/vendor/tajawal/' + weight + '.css');
+    assert.equal(font.status, 200, 'Self-hosted Tajawal ' + weight + ' must be accessible');
+    assert((await font.text()).includes('@font-face'), 'Tajawal CSS must contain font-face declarations');
+  }
+  const tajawalFont = await fetch(origin + '/vendor/tajawal/files/tajawal-arabic-400-normal.woff2');
+  assert.equal(tajawalFont.status, 200, 'Arabic Tajawal font binary must be served without CDN');
+  const skin = await fetch(origin + '/web/tabler-afrah.css');
+  assert.equal(skin.status, 200, 'Tabler premium Afrah customization must load');
+  assert((await skin.text()).includes('"Tajawal"'));
+  const icons = await fetch(origin + '/web/icons.js');
+  assert.equal(icons.status, 200);
+  assert((await icons.text()).includes('Official Tabler SVG icons'));
+
   const login = await request('/auth/login', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -69,7 +95,7 @@ try {
   const revoked = await request('/me',{headers:auth});
   assert.equal(revoked.status,401,'Revoked token must no longer work');
 
-  console.log('PASS: login, bearer without cookies, protected endpoints, CSRF, wrong password, logout');
+  console.log('PASS: real Tabler RTL, offline Tajawal fonts, native SVG icons, auth, CSRF, logout');
 } finally {
   server.kill('SIGTERM');
 }
