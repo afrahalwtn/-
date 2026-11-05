@@ -166,6 +166,14 @@ try {
   await staff.waitForFunction(()=>document.querySelector('.af-grid-editable')?.textContent?.includes('4'),null,{timeout:8000});
   await staff.screenshot({path:'screenshots/staff-prepare.png',fullPage:true});
   assert.equal(await staff.locator('#staff-print-list:enabled').count(),1,'Prepared list should be printable by staff');
+  await staff.locator('#staff-save-list').click();
+  await staff.locator('.staff-history-entry').first().waitFor({timeout:15000});
+  assert.equal(await staff.locator('.staff-history-entry').count(),1,'Staff should have one persisted execution list');
+  await staff.locator('.staff-history-entry summary').first().click();
+  assert.equal(await staff.locator('.staff-history-item').count(),2,'Executed list preserves both selected items');
+  assert.equal(await staff.locator('.staff-history-item').first().locator('b').textContent(),'العدد: 4','Saved count must match edited quantity');
+  assert.equal(await staff.locator('#staff-print-list:disabled').count(),1,'Draft clears after save');
+  await staff.screenshot({path:'screenshots/staff-saved-execution.png',fullPage:true});
   assert((await staff.evaluate(()=>document.documentElement.scrollWidth-innerWidth))<=2,'Employee mobile layout must not overflow horizontally');
   await staff.locator('.sidebar-toggle').click();
   assert.equal(await staff.locator('[data-nav="users"],[data-nav="quotes"],[data-action="edit-product"]').count(),0,'Staff site cannot reveal management UI');
