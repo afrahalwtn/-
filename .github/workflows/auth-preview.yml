@@ -6,6 +6,9 @@ on:
       - "server.ts"
       - "web/api.js"
       - "web/app.js"
+      - "web/admin-app.js"
+      - "web/admin.html"
+      - "web/staff-portal.css"
       - "web/arabic-search.js"
       - "web/index.html"
       - "web/tabler-afrah.css"
@@ -49,6 +52,7 @@ jobs:
       - name: Check frontend syntax
         run: |
           node --check web/app.js
+          node --check web/admin-app.js
           node --check web/icons.js
       - name: Verify login with blocked cookies
         run: node tests/auth-preview-smoke.mjs
