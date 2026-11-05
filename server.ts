@@ -398,7 +398,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Auth
-app.post('/api/auth/login', (req, res) => {
+app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
@@ -408,6 +408,14 @@ app.post('/api/auth/login', (req, res) => {
   const u = Array.from(users.values()).find((user) => user.username.toLowerCase() === uname);
   if (!u || !u.is_active || !verifyPassword(String(password),u.password)) {
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    return;
+  }
+  if (req.path==='/api/admin/auth/login' && u.role!=='admin') {
+    res.status(403).json({ detail: 'بوابة الإدارة مخصصة للمسؤول فقط' });
+    return;
+  }
+  if (req.path==='/api/staff/auth/login' && u.role!=='staff') {
+    res.status(403).json({ detail: 'هذا حساب إدارة، استخدم بوابة الإدارة المنفصلة' });
     return;
   }
 
@@ -437,6 +445,12 @@ app.post('/api/auth/login', (req, res) => {
   // when browsers reject the session cookie.
   res.setHeader('Cache-Control', 'no-store');
   res.json({ user: userDict(u), csrf, access_token: rawToken });
+});
+
+// Admin-only session verification. Does not return any data to a staff session.
+app.get('/api/admin/me', requireAuth, requireAdmin, (req, res) => {
+  const ctx=(req as any).auth as AuthContext;
+  res.json({user:userDict(ctx.user),csrf:csrfForToken(ctx.rawToken)});
 });
 
 app.get('/api/me', (req, res) => {
@@ -736,6 +750,14 @@ app.use('/assets', express.static(path.join(__dirname, 'web', 'assets')));
 app.use('/web', express.static(path.join(__dirname, 'web')));
 
 // Home entry
+// Two distinct SPA entrypoints: / is staff-only, /admin is admin-only.
+// The login HTML is public, but sensitive data requires an authenticated admin role.
+app.get(['/admin','/admin/'], (_req, res) => {
+  res.setHeader('Cache-Control','no-store');
+  res.setHeader('X-Robots-Tag','noindex, nofollow');
+  res.sendFile(path.join(__dirname,'web','admin.html'));
+});
+
 app.get('/', (_req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'web', 'index.html'));
@@ -744,7 +766,8 @@ app.get('/', (_req, res) => {
 // Fallback for SPA
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(__dirname, 'web', 'index.html'));
+  if (req.path.startsWith('/admin/')) return res.redirect(302,'/admin');
+  res.sendFile(path.join(__dirname,'web','index.html'));
 });
 
 // Error handling middleware
