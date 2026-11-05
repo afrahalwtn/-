@@ -227,6 +227,14 @@ function closeModal() {state.modal=null;renderModal();}
 async function syncAndShow(message) {
   await refresh(); closeModal(); renderWorkspace(); showToast(message);
 }
+async function backendAvailable() {
+  try {
+    const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store'});
+    if (!response.ok) return false;
+    const data=await response.json();
+    return data?.status==='ok';
+  } catch {return false;}
+}
 async function handleForm(form) {
   const type=form.dataset.form;
   const fields=new FormData(form);
@@ -234,6 +242,9 @@ async function handleForm(form) {
   if (submit) submit.disabled=true;
   try {
     if (type==='login') {
+      if (!(await backendAvailable())) {
+        throw new Error('الخادم غير متصل. إذا فتحت الواجهة من Google AI Studio، تأكد من تشغيل Backend ومزامنة ملفات GitHub. المشكلة ليست بالضرورة في كلمة المرور.');
+      }
       const result=await api('/auth/login',{method:'POST',data:{username:String(fields.get('username')).trim(),password:String(fields.get('password'))}});
       state.user=result.user;setCsrf(result.csrf);state.section='home';state.sidebarOpen=window.innerWidth >= 950;await refresh();render();return;
     }
