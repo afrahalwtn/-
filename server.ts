@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {matchesArabicSearch} from './web/arabic-search.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -454,15 +455,10 @@ app.post('/api/auth/logout', (req, res) => {
 // Products
 app.get('/api/products', requireAuth, (req, res) => {
   const ctx = (req as any).auth as AuthContext;
-  const q = String(req.query.q || '').trim().toLowerCase();
+  const q = typeof req.query.q === 'string' ? req.query.q.slice(0,200) : '';
   let list = Array.from(products.values());
-  if (q) {
-    list = list.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.manufacture.toLowerCase().includes(q)
-    );
+  if (q.trim()) {
+    list = list.filter(p => matchesArabicSearch(q, p.name, p.description, p.manufacture));
   }
   list.sort((a, b) => b.id - a.id);
   res.json(list.map((p) => productDict(p, ctx.user)));
