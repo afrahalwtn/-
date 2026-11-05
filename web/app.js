@@ -59,15 +59,14 @@ function loginView(){
 }
 const sections=[['home','الرئيسية','home'],['products','المواد','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell'],['prepare','جهّز قائمة','table'],['account','بيانات الدخول','shield']];
 function shell(){
- return '<div class="shell shell-v6 page '+(state.sidebarOpen?'':'sidebar-narrow')+'">'+
-   '<aside id="sidebar" class="sidebar navbar navbar-vertical '+(state.sidebarOpen?'':'collapsed')+'">'+
-     '<div class="sidebar-head"><span class="brand-square">'+icon('package',24)+'</span><span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span></div>'+
-     '<p class="menu-caption">القائمة الرئيسية</p><nav aria-label="قائمة الموظفين">'+sections.map(([key,title,glyph])=>
-       '<button type="button" class="nav-link '+(state.section===key?'active':'')+'" data-nav="'+key+'"><span class="nav-icon">'+icon(glyph,20)+'</span><span>'+title+'</span>'+
-       (key==='alerts'&&state.alerts.length?'<b class="nav-count">'+number(state.alerts.length)+'</b>':'')+'</button>').join('')+'</nav>'+
-     '<div class="sidebar-bottom">شركة أفراح الوطن</div></aside>'+
-   '<div class="mobile-scrim '+(state.sidebarOpen?'show':'')+'" data-toggle="menu"></div>'+
-   '<div class="main-shell"><header class="topbar navbar af-dual-header">
+ return `<div class="shell shell-v6 page ${state.sidebarOpen?'':'sidebar-narrow'}">
+   <aside id="sidebar" class="sidebar navbar navbar-vertical ${state.sidebarOpen?'':'collapsed'}">
+     <div class="sidebar-head"><span class="brand-square">${icon('package',24)}</span><span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span></div>
+     <p class="menu-caption">القائمة الرئيسية</p><nav aria-label="قائمة الموظفين">${sections.map(([key,title,glyph])=>'<button type="button" class="nav-link '+(state.section===key?'active':'')+'" data-nav="'+key+'"><span class="nav-icon">'+icon(glyph,20)+'</span><span>'+title+'</span>'+(key==='alerts'&&state.alerts.length?'<b class="nav-count">'+number(state.alerts.length)+'</b>':'')+'</button>').join('')}</nav>
+     <div class="sidebar-bottom">شركة أفراح الوطن</div>
+   </aside>
+   <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-toggle="menu"></div>
+   <div class="main-shell"><header class="topbar navbar af-dual-header">
         <div class="af-brand-row" aria-label="الهوية الرسمية للشركة">
           <a class="af-brand-primary" href="/" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261106" alt="Afrah Al Watan — أفراح الوطن"></a>
           <div class="af-brand-secondary" aria-label="العلامة التجارية Tapello">
@@ -90,9 +89,9 @@ function shell(){
             </div>
           </details>
         </div>
-      </header>'+
-     '<main class="workspace" id="staff-workspace"></main></div>'+
-   '</div><div class="toast" id="staff-toast" role="status"></div>';
+      </header>
+     <main class="workspace" id="staff-workspace"></main>
+   </div></div><div class="toast" id="staff-toast" role="status"></div>`;
 }
 function results(q,limit=12){
  const data=filterArabicProducts(state.products,q,limit);
