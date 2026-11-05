@@ -210,16 +210,61 @@ function usersView() {
 }
 function quotesView() {
   if (!isAdmin()) return '';
-  return `${pageTitle('عروض الأسعار','عروض تتضمن صورة المنتج، الاسم، الوصف، العدد، الصنع والسعر.')}
-    <div class="quotes-grid"><section class="panel quote-builder"><div class="panel-head"><h2>إنشاء عرض أسعار</h2></div>
-      <div class="quote-inputs"><label>المادة<select id="quote-product"><option value="">اختر المادة</option>${state.products.map(p=>`<option value="${p.id}">${safe(p.name)}</option>`).join('')}</select></label><label>العدد<input id="quote-qty" type="number" min="1" step="1" value="1"></label><button class="btn secondary" data-action="quote-add">${icon('plus',17)} إضافة للعرض</button></div>
-      <div class="draft-items">${state.draft.length?state.draft.map((item,idx)=>{const p=state.products.find(p=>p.id===item.product_id);return !p?'':`<div class="draft-line">${image(p)}<div><b>${safe(p.name)}</b><small>${number(item.quantity)} × ${money(p.sale_price)}</small></div><button class="tiny-btn red" data-action="quote-remove" data-idx="${idx}" title="حذف">${icon('x',17)}</button></div>`;}).join(''):emptyState('لم تُضف مواد بعد','اختر المادة والعدد لإعداد العرض.','file')}</div>
-      <button class="btn primary full" data-action="quote-create" ${!state.draft.length?'disabled':''}>${icon('save',17)} حفظ عرض الأسعار</button>
-    </section>
-    <section class="panel quotes-history"><div class="panel-head"><h2>عروض الأسعار المحفوظة</h2><span class="count-label">${number(state.quotes.length)} عرض</span></div>
-      ${state.quotes.length?state.quotes.map(q=>`<button class="history-item" data-action="quote-open" data-id="${q.id}"><span class="history-icon">${icon('file',22)}</span><span><b>عرض رقم ${number(q.id)}</b><small>${new Date(q.date).toLocaleDateString('ar-IQ')} • ${q.items.length} مادة</small></span><strong>${money(q.total)}</strong>${icon('arrow',16)}</button>`).join(''):emptyState('لا توجد عروض محفوظة','احفظ أول عرض ليظهر هنا.','file')}
-    </section></div>${state.selectedQuote?quotePreview(state.selectedQuote):''}`;
+  const validDraft=state.draft.map((item,idx)=>({item,idx,p:state.products.find(p=>p.id===item.product_id)})).filter(row=>row.p);
+  const total=validDraft.reduce((sum,{item,p})=>sum+item.quantity*p.sale_price,0);
+  const draftHtml=validDraft.map(({item,idx,p})=>
+    '<div class="af-receipt-item">'+
+      image(p,'af-receipt-photo')+
+      '<div class="af-receipt-product"><strong>'+safe(p.name)+'</strong>'+
+        '<p>'+safe(p.description||'')+'</p>'+
+        '<small>الصنع: '+safe(p.manufacture||'—')+'</small>'+
+        '<span class="af-receipt-price">سعر الوحدة: '+money(p.sale_price)+'</span>'+
+      '</div>'+
+      '<div class="af-receipt-controls">'+
+        '<div class="af-qty-control">'+
+          '<button type="button" data-action="quote-decrease" data-idx="'+idx+'" aria-label="تقليل العدد">'+icon('minus',15)+'</button>'+
+          '<input type="number" min="1" max="100000000" step="1" value="'+item.quantity+'" data-idx="'+idx+'" class="af-qty-input" aria-label="عدد '+safe(p.name)+'">'+
+          '<button type="button" data-action="quote-increase" data-idx="'+idx+'" aria-label="زيادة العدد">'+icon('plus',15)+'</button>'+
+        '</div>'+
+        '<strong class="af-line-total">'+money(item.quantity*p.sale_price)+'</strong>'+
+        '<button class="af-remove-item" type="button" data-action="quote-remove" data-idx="'+idx+'">'+icon('x',15)+' حذف</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+  return '<div class="af-quotes">'+
+    '<header class="af-section-title"><div><span>شركة أفراح الوطن للتجارة العامة</span><h1>عروض الأسعار</h1><p>ابحث عن المواد وأضفها إلى ورقة واحدة، ثم احفظ العرض واطبعه.</p></div></header>'+
+    '<div class="af-quote-workspace">'+
+      '<section class="af-quote-finder" aria-label="البحث عن مواد العرض">'+
+        '<div class="af-box-heading"><span class="af-heading-icon">'+icon('search',21)+'</span><div><h2>البحث عن المواد</h2><p>يمكنك إضافة أكثر من مادة إلى نفس العرض.</p></div></div>'+
+        '<label for="quote-search" class="af-input-label">اسم المادة أو وصفها أو الصنع</label>'+
+        '<div class="af-search-input">'+icon('search',21)+'<input id="quote-search" type="search" autocomplete="off" placeholder="مثلاً: رول نايلون أو أقداح ورقية" value="'+safe(state.quoteSearch)+'"></div>'+
+        '<div id="quote-search-results" class="af-search-results" aria-live="polite">'+
+          (state.quoteSearch.trim()?searchableProductList(state.quoteSearch,'quote'):'<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للوَصل». كرر البحث لإضافة مواد أخرى.</p>')+
+        '</div>'+
+      '</section>'+
+      '<section class="af-quote-receipt" aria-label="ورقة عرض الأسعار">'+
+        '<div class="af-receipt-heading">'+
+          '<div><span class="af-receipt-tag">'+icon('receipt',18)+' ورقة عرض الأسعار</span><h2>المواد المختارة</h2></div>'+
+          '<span class="af-receipt-count">'+number(validDraft.length)+' مادة</span>'+
+        '</div>'+
+        '<div class="af-receipt-items">'+(draftHtml||'<div class="af-receipt-empty">'+icon('receipt',31)+'<strong>الوصل فارغ حالياً</strong><span>ابحث عن المادة الأولى وأضفها، ثم ابحث عن التالية.</span></div>')+'</div>'+
+        '<div class="af-receipt-footer"><div class="af-receipt-total"><span>الإجمالي</span><strong>'+money(total)+'</strong></div>'+
+          '<button type="button" class="btn primary af-save-quote" data-action="quote-create" '+(validDraft.length?'':'disabled')+'>'+icon('save',18)+' حفظ عرض الأسعار</button>'+
+        '</div>'+
+      '</section>'+
+    '</div>'+
+    '<section class="af-quotes-archive">'+
+      '<div class="af-archive-heading"><h2>عروض الأسعار المحفوظة</h2><span>'+number(state.quotes.length)+' عرض</span></div>'+
+      (state.quotes.length?'<div class="af-archive-list">'+state.quotes.map(q=>
+        '<button class="af-archive-row" type="button" data-action="quote-open" data-id="'+q.id+'">'+
+          '<span class="af-archive-icon">'+icon('receipt',20)+'</span>'+
+          '<span><strong>عرض رقم '+number(q.id)+'</strong><small>'+new Date(q.date).toLocaleDateString('ar-IQ')+' • '+number(q.items.length)+' مادة</small></span>'+
+          '<b>'+money(q.total)+'</b>'+icon('arrow',16)+
+        '</button>').join('')+'</div>':'<p class="af-no-quotes">لا توجد عروض أسعار محفوظة بعد.</p>')+
+    '</section>'+
+  '</div>'+(state.selectedQuote?quotePreview(state.selectedQuote):'');
 }
+
 function quotePreview(q) {
   return `<section class="panel quote-preview"><div class="panel-head"><h2>عرض أسعار رقم ${number(q.id)}</h2><button class="btn secondary" data-action="quote-print">${icon('printer',18)} طباعة / حفظ PDF</button></div>
     <div class="quote-meta"><b>شركة أفراح الوطن للتجارة العامة</b><span>التاريخ: ${new Date(q.date).toLocaleDateString('ar-IQ')}</span></div>
