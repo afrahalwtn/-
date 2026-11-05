@@ -72,19 +72,19 @@ try {
 
   // The first search takes the item to the dedicated "جهّز قائمة" page.
   await page.locator('#quote-search').waitFor();
-  await page.locator('#prepare-grid .tabulator-row').first().waitFor({timeout:15000});
+  await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor({timeout:15000});
   assert.equal(await page.locator('.nav-link[data-section="prepare"]').count(),1,'Dedicated Prepare List section is required');
   assert(await page.evaluate(()=>typeof window.Tabulator==='function'),'Real MIT Tabulator library must initialize');
-  assert.equal(await page.locator('#prepare-grid .tabulator-row').count(),1,'First material must be in spreadsheet');
+  assert.equal(await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'First material must be in spreadsheet');
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('img.af-grid-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),null,{timeout:15000});
 
   await page.locator('#quote-search').fill('علب');
   await page.locator('.quote-add-result').first().click();
-  await page.locator('#prepare-grid .tabulator-row').nth(1).waitFor({timeout:15000});
-  assert.equal(await page.locator('#prepare-grid .tabulator-row').count(),2,'Second item must append to the same spreadsheet');
+  await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').nth(1).waitFor({timeout:15000});
+  assert.equal(await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),2,'Second item must append to the same spreadsheet');
 
   // Edit quantity in a native Tabulator cell like Excel.
-  const quantityCell=page.locator('#prepare-grid .tabulator-row .tabulator-cell[tabulator-field="quantity"]').first();
+  const quantityCell=page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell[tabulator-field="quantity"]').first();
   await quantityCell.dblclick();
   await page.locator('#prepare-grid input[type="number"]').fill('2');
   await page.locator('#prepare-grid input[type="number"]').press('Enter');
