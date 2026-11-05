@@ -8,6 +8,7 @@ on:
       - "web/app.js"
       - "web/index.html"
       - "web/tabler-afrah.css"
+      - "web/koa-theme.css"
       - "web/icons.js"
       - "package.json"
       - "tests/auth-preview-smoke.mjs"
@@ -28,5 +29,9 @@ jobs:
           node-version: "22"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Check frontend syntax
+        run: |
+          node --check web/app.js
+          node --check web/icons.js
       - name: Verify login with blocked cookies
         run: node tests/auth-preview-smoke.mjs
