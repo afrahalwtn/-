@@ -55,13 +55,13 @@ function loginView() {
   return `<div class="auth-page">
     <section class="auth-visual" aria-hidden="true"><div class="auth-halo"></div><div class="auth-brand">أفراح الوطن<small>للتجارة العامة</small></div><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="" class="auth-logo"><div class="auth-caption">نظام المواد والجرد وعروض الأسعار</div></section>
     <section class="auth-content"><div class="auth-box">
-      <div class="auth-emblem">${icon('shield',27)}</div>
-      <p class="eyebrow">مساحة عمل الشركة</p><h1>يا هلا ومرحبا</h1><p class="muted">سجّل دخولك للوصول إلى نظام أفراح الوطن</p>
+      
+      <h1>يا هلا ومرحبا</h1><p class="muted">سجّل دخولك للوصول إلى نظام أفراح الوطن</p>
       <form data-form="login" class="stack-form">
-        <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="admin" value="admin" dir="ltr"></label>
-        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="admin123456" value="admin123456" dir="ltr"></label>
-        <button type="submit" class="btn primary full">${icon('lock',18)} دخول آمن</button>
-      </form><div class="auth-foot">حساب المسؤول الافتراضي للتجربة: <b>admin</b> / <b>admin123456</b> (جميع الصلاحيات محفوظة ومتحقق منها).</div>
+        <label>اسم المستخدم<input name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
+        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
+        <button type="submit" class="btn primary full">${icon('arrow',18)} تسجيل الدخول</button>
+      </form>
     </div></section></div><div id="toast" class="toast" role="status"></div>`;
 }
 const navItems = [
@@ -75,7 +75,7 @@ function renderShell() {
       <div class="sidebar-head"><span class="brand-square">${icon('package',25)}</span><span class="sidebar-titles"><strong>أفراح الوطن</strong><small>للتجارة العامة</small></span></div>
       <div class="sidebar-divider"></div><p class="menu-caption">القائمة الرئيسية</p>
       <nav aria-label="التنقل الرئيسي">${nav.map(([key,title,glyph])=>`<button type="button" class="nav-link ${state.section===key?'active':''}" data-action="nav" data-section="${key}" title="${title}">${icon(glyph,20)}<span>${title}</span>${key==='alerts'&&state.alerts.length?`<b class="nav-count">${state.alerts.length}</b>`:''}</button>`).join('')}</nav>
-      <div class="sidebar-bottom">${icon('shield',17)}<span>نظام داخلي محمي بالصلاحيات</span></div>
+      <div class="sidebar-bottom"><span>شركة أفراح الوطن للتجارة العامة</span></div>
     </aside>
     <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-action="toggle-sidebar"></div>
     <div class="main-shell">
