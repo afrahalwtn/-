@@ -1,5 +1,6 @@
 import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-secure-images';
 import {icon} from './icons.js?v=20261105-price-tag';
+import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 
 const state = {
   user:null, section:'home', products:[], alerts:[], users:[], quotes:[],
@@ -150,10 +151,8 @@ function pageTitle(title, subtitle, buttons='') {
 }
 function primaryButton(action, label, plus=true) { return `<button type="button" class="btn primary btn-primary" data-action="${action}">${icon(plus?'plus':'check',18)} ${label}</button>`; }
 function searchableProductList(query, context) {
-  const q=query.trim().toLocaleLowerCase('ar');
-  if (!q) return '';
-  const results=state.products.filter(p=>
-    (p.name+' '+p.description+' '+p.manufacture).toLocaleLowerCase('ar').includes(q)).slice(0,12);
+  if (!query.trim()) return '';
+  const results=filterArabicProducts(state.products, query, 12);
   if (!results.length) return '<p class="search-empty">ماكو مواد مطابقة للبحث.</p>';
   return results.map(p=>
     '<article class="search-product">'+
@@ -212,8 +211,7 @@ function productTable(rows, inventory=false) {
     </tr>`).join('')}</tbody></table></div>`;
 }
 function productsView() {
-  const q = state.search.trim().toLocaleLowerCase('ar');
-  const rows=q?state.products.filter(p=>(p.name+' '+p.description+' '+p.manufacture).toLocaleLowerCase('ar').includes(q)):state.products;
+  const rows=filterArabicProducts(state.products,state.search);
   return `${pageTitle('المواد','إدارة مواد تجهيز المطاعم وأسعارها وصورها.',isAdmin()?primaryButton('new-product','إضافة مادة'):'')}
     <div class="products-searchbar"><label for="products-search">البحث في المواد</label><div class="af-search-input">
       ${icon('search',21)}<input id="products-search" type="search" autocomplete="off" value="${safe(state.search)}" placeholder="اسم المادة أو الوصف أو بلد الصنع..." />
