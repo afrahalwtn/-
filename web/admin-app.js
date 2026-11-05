@@ -103,7 +103,7 @@ function loginView() {
     <section class="auth-content">
       <div class="auth-box card">
         <span class="auth-kicker">أفراح الوطن للتجارة العامة</span>
-        <h1>يــا هـلا و مـرحـبـا</h1>
+        <h1>أهلاً بك في أفراح الوطن</h1>
         <p class="muted">سجّل دخول الإدارة للوصول إلى المواد والجرد والصلاحيات وعروض الأسعار.</p>
         ${state.showRecovery? `<form data-form="recovery" class="stack-form card-body">
           <p class="auth-help">إذا فقدت رمز الإدارة، فعّل وضع الاستعادة على خادم الشركة وخذ الرمز المؤقت من شاشة الخادم. الاستعادة موقوفة افتراضياً.</p>
@@ -142,17 +142,28 @@ function renderShell() {
     </aside>
     <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-action="toggle-sidebar"></div>
     <div class="main-shell">
-      <header class="topbar navbar">
+      <header class="topbar navbar af-dual-header">
+        <div class="af-brand-row" aria-label="الهوية الرسمية للشركة">
+          <a class="af-brand-primary" href="/" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261106" alt="Afrah Al Watan — أفراح الوطن"></a>
+          <div class="af-brand-secondary" aria-label="العلامة التجارية Tapello">
+            <span class="af-brand-secondary-copy">علامتنا التجارية للمنتجات اللاصقة</span>
+            <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello">
+          </div>
+        </div>
         <div class="topbar-start">
           <button type="button" class="icon-btn sidebar-toggle" data-action="toggle-sidebar" aria-label="فتح وإغلاق القائمة">${icon('menu',22)}</button>
-
         </div>
-        <div class="header-centered-logo"><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" /></div>
+        <div class="af-utility-intro"><strong>لوحة الإدارة</strong><span>نظام تجهيز المواد والمخزون</span></div>
         <div class="topbar-actions">
-          <button type="button" class="portal-switch-btn" data-action="switch-staff" title="فتح بوابة الموظفين بدون تسجيل ثانٍ">بوابة الموظفين ${icon('arrow',16)}</button>
-          <button type="button" data-action="nav" data-section="alerts" class="top-alert" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?`<span>${number(state.alerts.length)}</span>`:''}</button>
-          <div class="user-badge"><div class="user-circle avatar">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
-          <button type="button" class="icon-btn logout" data-action="logout" title="تسجيل خروج">${icon('logout',20)}</button>
+          <button type="button" class="top-alert" data-action="nav" data-section="alerts" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':''}</button>
+          <details class="af-account-menu">
+            <summary class="af-account-trigger" aria-label="فتح قائمة الحساب">${icon('users',19)}<span>الحساب</span>${icon('chevron-down',14)}</summary>
+            <div class="af-account-popover">
+              <div class="af-account-name"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div>
+              <button type="button" class="portal-switch-btn" data-action="switch-staff" title="فتح بوابة الموظفين بدون تسجيل ثانٍ">${icon('shield',17)} بوابة الموظفين</button>
+              <button type="button" class="icon-btn logout" data-action="logout">${icon('logout',18)} تسجيل الخروج</button>
+            </div>
+          </details>
         </div>
       </header>
       <main id="workspace" class="workspace"></main>
@@ -186,7 +197,7 @@ function homeView() {
       <div class="card-body af-greeting-body">
         <div class="af-greeting-tag">شركة أفراح الوطن للتجارة العامة</div>
         <h1>يــا هـلا و مـرحـبـا</h1>
-        <p>نظام تجهيزات المطاعم والمواد الاستهلاكية</p>
+        <p>اكتشف المواد، تابع المخزون، وجهّز طلباتك بسهولة من مكان واحد.</p>
       </div>
     </section>
     <section class="af-home-search" aria-label="البحث عن المواد">
