@@ -54,9 +54,10 @@ try {
   await page.locator('.sidebar-toggle').click();
   await page.locator('.nav-link[data-section="products"]').click();
   await page.locator('[data-action="edit-product"][data-id="1"]').click();
+  await page.locator('.af-dialog').waitFor({state:'visible'});
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPUqDjBwMDAxMDAwMDAAAAQagFs+4JkhgAAAABJRU5ErkJggg==','base64');
-  await page.locator('.modal input[name="image"]').setInputFiles({name:'test-product.png',mimeType:'image/png',buffer:png});
-  await page.locator('.modal button[type="submit"]').click();
+  await page.locator('.af-dialog input[name="image"]').setInputFiles({name:'test-product.png',mimeType:'image/png',buffer:png});
+  await page.locator('.af-dialog button[type="submit"]').click();
   await page.waitForFunction(
     ()=>Array.from(document.querySelectorAll('img.product-thumb[data-private-image]')).some(img=>img.src.startsWith('blob:') && img.naturalWidth>0),
     null,{timeout:15000},
