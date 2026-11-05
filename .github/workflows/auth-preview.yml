@@ -39,3 +39,11 @@ jobs:
         run: node tests/auth-preview-smoke.mjs
       - name: Verify homepage and multi-item receipt in Chrome
         run: node tests/ui-browser-smoke.mjs
+      - name: Attach mobile, iPad and desktop previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: afrah-ui-previews
+          path: screenshots/
+          if-no-files-found: ignore
+          retention-days: 14
