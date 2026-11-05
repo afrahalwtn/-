@@ -116,6 +116,97 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .stack-form input{height:53px;background:#F8FBFC;border-radius:14px}
 .stack-form .btn{height:52px;border-radius:14px;font-size:14px}
 
+
+/* v4 — distinctly different visual layout. Main palette: deep midnight navy,
+   luminous turquoise, bright ivory. Official Tapello SVG remains transparent. */
+:root {
+ --navy:#102544;--navy2:#0b1d38;--navy3:#183d65;
+ --teal:#00AFAA;--blue:#236CC7;--sky:#E8F7F7;
+ --bg:#F3F8FC;--text:#142F49;--line:#DCE9F0;
+ --shadow:0 20px 52px rgba(11,35,65,.10);
+}
+body{background:linear-gradient(145deg,#EDF6FB 0%,#F9FBFE 55%,#ECF8F8 100%);color:var(--text)}
+/* High-contrast light navigation is deliberate, not a variant of the old dark sidebar. */
+.sidebar{background:#FFFFFF;border-inline-end:1px solid #DCE9F2;box-shadow:-8px 0 34px #0e34530f}
+.sidebar:before,.sidebar:after{opacity:.1}
+.sidebar-head{border-radius:18px;background:linear-gradient(125deg,#102B4D,#175C77);margin:0 2px 18px;padding:16px 12px;min-height:94px}
+.brand-square{background:#FFFFFF17;border-color:#FFFFFF27;color:#86F4E5}
+.sidebar-titles strong{color:#FFF;font-size:17px}
+.sidebar-titles small{color:#BCE6EE}
+.sidebar-divider{background:#DDEAF0;margin-bottom:19px}
+.menu-caption{color:#6C879A;font-size:11px}
+.sidebar nav{gap:9px}
+.nav-link{color:#31536C;background:#F3F8FB;border:1px solid #E7F0F4;border-radius:15px;padding:7px 11px;min-height:59px;box-shadow:none}
+.nav-link:hover{background:#E9F5F8;color:#113A56;border-color:#D0E6EB;transform:none}
+.nav-link.active{background:linear-gradient(105deg,#102D51,#147B85);color:#FFFFFF;border:1px solid #0E7483;box-shadow:0 10px 18px rgba(13,77,103,.2),inset -3px 0 #5BE8D9}
+.nav-icon{border-radius:12px;background:#E1F1F5;color:#207587;border:1px solid #D2E9EC}
+.nav-link.active .nav-icon{background:#FFFFFF23;color:#B7FFF0;border-color:#FFFFFF2F}
+.nav-link:hover .nav-icon{background:#D8EFF0}
+.nav-count{background:#FECE88;color:#5B390F}
+.sidebar-bottom{border-top:1px solid #DFEAF1;color:#7D96A4}
+.sidebar.collapsed .sidebar-head{padding:11px 5px;background:#102B4D}
+/* Distinct dark top navigation bar. */
+.topbar{background:linear-gradient(105deg,#102543,#12445F);border-bottom:1px solid #123E59;box-shadow:0 12px 28px rgba(14,45,76,.12);min-height:83px}
+.top-identity strong{color:#FFFFFF}
+.top-identity span,.user-detail small{color:#B4D5E1}
+.user-detail strong{color:#FFF}
+.sidebar-toggle,.icon-btn,.top-alert{background:#FFFFFF14;color:#E5F8FC;border:1px solid #FFFFFF25;box-shadow:inset 0 1px #FFFFFF16}
+.sidebar-toggle:hover,.icon-btn:hover,.top-alert:hover{background:#FFFFFF25;color:#FFF;border-color:#FFFFFF48}
+.search-field{background:#FFF;color:#267081;border:1px solid #DCEEF2;box-shadow:0 8px 20px #071C321B;border-radius:15px}
+.search-field input{color:#15364D}
+.search-field input::placeholder{color:#708F9C}
+.search-field:focus-within{background:#FFF;box-shadow:0 0 0 3px #60F0DA50}
+.top-alert{color:#C8FAF5;background:#FFFFFF12;border-color:#FFFFFF25}
+.user-circle{background:#2C748733;color:#C6FFF6;border:1px solid #73C7C45A}
+.logout{color:#FCECEC}
+/* Welcome panel with strong identity and an airy stage for the unboxed logo. */
+.workspace{max-width:1550px}
+.hero{background:radial-gradient(circle at 90% 15%,#B5F0EC 0,transparent 35%),radial-gradient(circle at 12% 78%,#C6E4FF 0,transparent 37%),linear-gradient(130deg,#FFFFFF 8%,#E7F6FB 65%,#E2F9F4 100%);border:1px solid #D2E7EC;border-radius:29px;box-shadow:0 18px 52px rgba(13,49,78,.11);min-height:clamp(480px,62vh,700px)}
+.hero:before{width:440px;height:440px;bottom:-335px;left:-130px;border:55px solid #0EB8B31C;transform:rotate(-24deg);background:transparent}
+.hero:after{width:470px;height:470px;top:-300px;right:-150px;border:65px solid #246CC317;transform:rotate(18deg);background:transparent}
+.hero-kicker{font-size:12px;color:#047F8B;letter-spacing:.06em}
+.hero h2{color:#102A4B;font-size:clamp(43px,5.5vw,82px);font-weight:900}
+.hero-divider:before,.hero-divider:after{background:#67C5C9;height:2px;width:98px}
+.hero-divider i{background:#0BA7AF;transform:rotate(45deg)}
+.hero p{font-size:clamp(14px,1.45vw,18px);color:#486E85;font-weight:600}
+.hero-logo{max-width:min(570px,82%);width:min(62vw,570px);filter:none!important;mix-blend-mode:normal;box-shadow:none!important;background:none!important;padding:0!important;border:none!important}
+/* Dashboard tiles use recognizable, deliberately varied premium colors. */
+.stat-grid{gap:15px;margin-top:18px}
+.stat-card{border-radius:21px;border:1px solid #D7E8EE;box-shadow:0 10px 28px #1025430e;min-height:116px;background:#FFF}
+.stat-card:nth-child(1){background:linear-gradient(110deg,#12385C,#1B5B78);border-color:#235D7D}
+.stat-card:nth-child(1) small,.stat-card:nth-child(1) strong,.stat-card:nth-child(1)>.i{color:#F5FDFF}
+.stat-card:nth-child(1) .stat-icon{background:#FFFFFF22;color:#BBFFF0;border-color:#FFFFFF36}
+.stat-card:nth-child(2){background:linear-gradient(116deg,#008D91,#00B8AD);border-color:#00AFAA}
+.stat-card:nth-child(2) small,.stat-card:nth-child(2) strong,.stat-card:nth-child(2)>.i{color:#FFF}
+.stat-card:nth-child(2) .stat-icon{background:#FFFFFF29;color:#FFF;border-color:#FFFFFF3D}
+.stat-card:nth-child(3){border-color:#F6DDBA;background:linear-gradient(115deg,#FFFFFF,#FFF7ED)}
+.stat-card:nth-child(3) .stat-icon{background:#FFE8C8;color:#A95A23;border-color:#F7D3A4}
+.stat-card strong{font-size:30px}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 18px 30px #0c34441f}
+/* Crisp, high-contrast controls across the actual working pages. */
+.btn.primary{background:linear-gradient(110deg,#008A92,#00B1AA);border:1px solid #008E90;color:#FFF;box-shadow:0 9px 18px #009F9B30}
+.btn.primary:hover{background:linear-gradient(110deg,#006F81,#008E96);border-color:#006F81}
+.btn.secondary{background:#DDF5F2;color:#066B77;border-color:#B6E5E1}
+.btn.quiet{background:#FFF;color:#244B69;border-color:#C8DCE5}
+.panel{border:1px solid #D5E6EC;box-shadow:0 14px 38px #1025430A}
+.panel-head{background:#F5FAFD}
+.data-table th{background:#EAF4F7;color:#355F77}
+.data-table tr:hover td{background:#EAF8F8}
+.page-title h1{color:#102B4B}
+/* Login is visually redesigned, not just recolored. Logo is truly unboxed. */
+.auth-page{background:#0F2B4B;grid-template-columns:minmax(320px,46%) 1fr}
+.auth-visual{background:radial-gradient(circle at 12% 17%,#B6F0EF 0,transparent 41%),linear-gradient(145deg,#EAF8FB,#FBFEFF 80%);border:0}
+.auth-brand{color:#12375A}
+.auth-brand small{color:#557988}
+.auth-logo{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;filter:none!important;padding:0!important;mix-blend-mode:normal}
+.auth-content{background:radial-gradient(circle at 80% 13%,#1F5D75 0,transparent 40%),linear-gradient(145deg,#102744,#0C1D35);color:#F4FBFF}
+.auth-box{background:#FFF;border:1px solid #DDEFF1;box-shadow:0 25px 65px #020F2750;border-radius:28px;padding:clamp(27px,3vw,48px);width:min(100%,490px)}
+.auth-box h1{color:#112F50}
+.auth-box>p.muted{color:#637E90}
+.stack-form label{color:#244861}
+.stack-form input{border:1px solid #CBDDE7;background:#F7FAFC;color:#122D49}
+.auth-foot,.auth-box>.eyebrow,.auth-emblem{display:none!important}
+
 @media(max-width:950px){
  .sidebar{border-radius:0;box-shadow:-14px 0 45px #10273F37}
  .sidebar.collapsed .sidebar-titles,.sidebar.collapsed .nav-link span:not(.nav-icon){display:initial}
