@@ -75,7 +75,7 @@ try {
   const homepageCode = await appSource.text();
   assert(homepageCode.includes('af-home-search') && homepageCode.includes('af-home-alerts'));
   assert(homepageCode.includes('af-greeting-card'), 'Welcome must use a Tabler card');
-  assert(homepageCode.includes('header-centered-logo'), 'Tapello must be centered in header');
+  assert(homepageCode.includes('af-brand-primary') && homepageCode.includes('af-brand-secondary'), 'Header must show primary Afrah and secondary Tapello marks');
   assert(homepageCode.includes("['prepare','جهّز قائمة','table']"), 'Prepare List nav must exist');
   assert(homepageCode.includes('function prepareView()'), 'Dedicated list preparation view must exist');
   assert(homepageCode.includes('id="quote-search"'), 'Prepare List must have product search');
@@ -84,7 +84,13 @@ try {
   assert(homepageCode.includes('cellEdited') && homepageCode.includes("bottomCalc:'sum'"), 'Grid must support editable quantities and Excel-like sums');
   assert(homepageCode.includes("case 'quote-create'"), 'Existing quotation save must remain operational');
   assert(homepageCode.includes('safe(a.name)'), 'Alert names must be escaped');
-  assert(html.includes('/web/afrah-layout-v5.css?v=20261105-v5'), 'New welcome/header/grid layout must be active');
+  assert(html.includes('/web/afrah-layout-v5.css?v=20261105-v5'), 'Existing free UI layout must stay loaded');
+   assert(html.includes('/web/afrah-brand-2026.css') && adminHtml.includes('/web/afrah-brand-2026.css'), 'Dual-brand theme must be active in both portals');
+   const brandCss=await (await fetch(origin+'/web/afrah-brand-2026.css')).text();
+   assert(brandCss.includes('.af-brand-primary') && brandCss.includes('.af-brand-secondary'), 'Missing dual-brand visual hierarchy');
+   const logoResponse=await fetch(origin+'/assets/afrah-alwatan.svg');
+   assert.equal(logoResponse.status,200,'Main Afrah logo asset must be served');
+   assert((await logoResponse.text()).includes('viewBox'), 'Afrah logo must be an actual SVG');
   assert(html.includes('/vendor/tabulator.min.css') && html.includes('/vendor/tabulator.min.js'), 'Spreadsheet assets must be linked locally');
   const gridCss = await fetch(origin + '/vendor/tabulator.min.css');
   assert.equal(gridCss.status,200,'Tabulator CSS must be served offline');
