@@ -6,6 +6,10 @@ on:
       - "server.ts"
       - "web/api.js"
       - "web/app.js"
+      - "web/index.html"
+      - "web/tabler-afrah.css"
+      - "web/icons.js"
+      - "package.json"
       - "tests/auth-preview-smoke.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
