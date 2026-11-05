@@ -7,18 +7,21 @@ import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-reboot-'));
+let serverLogs='';
 const address='http://127.0.0.1:43881/api';
 let processHandle;
 const open=async()=>{
  processHandle=spawn(process.execPath,['--import','tsx','server.ts'],{
   env:{...process.env,PORT:'43881',AFRAH_DATA_DIR:folder,AFRAH_SECURE_COOKIES:'false'},
-  stdio:'ignore'
+  stdio:['ignore','pipe','pipe']
  });
+ processHandle.stdout.on('data',part=>serverLogs+=part.toString());
+ processHandle.stderr.on('data',part=>serverLogs+=part.toString());
  for(let n=0;n<60;n++){
   try{if((await fetch(address+'/health')).ok)return;}catch{}
   await delay(250);
  }
- throw Error('Local backend not ready');
+ throw Error('Local backend not ready. Exit='+processHandle?.exitCode+'; Logs='+serverLogs.slice(-4000));
 };
 const close=async()=>{
  const p=processHandle;
