@@ -76,6 +76,8 @@ try {
   assert.equal(await page.locator('.nav-link[data-section="prepare"]').count(),1,'Dedicated Prepare List section is required');
   assert(await page.evaluate(()=>typeof window.Tabulator==='function'),'Real MIT Tabulator library must initialize');
   assert.equal(await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'First material must be in spreadsheet');
+  await page.screenshot({path:'screenshots/mobile-prepare-first.png',fullPage:true});
+  console.log('GRID-PHOTO-STATE',JSON.stringify(await page.evaluate(()=>Array.from(document.querySelectorAll('#prepare-grid img')).map(x=>({className:x.className,src:x.getAttribute('src'),data:x.getAttribute('data-private-image'),naturalWidth:x.naturalWidth})))));
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('img.af-grid-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),null,{timeout:15000});
 
   await page.locator('#quote-search').fill('علب');
