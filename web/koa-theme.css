@@ -1,0 +1,159 @@
+/* AFRAH ALWATAN — KOA-inspired navy/electric-blue skin.
+   Built on @tabler/core (MIT) and locally hosted Tajawal (OFL).
+   The Tapello logo is the original transparent SVG, unmodified.
+   Style reference site could not be inspected directly: colors are directionally matched. */
+:root{
+ --tblr-primary:#1766df;--tblr-primary-rgb:23,102,223;
+ --navy:#071e3c;--navy2:#0b294e;--navy3:#153d73;
+ --blue:#1766df;--teal:#0abbd1;--gold:#d2a963;
+ --sky:#ecf5ff;--bg:#f3f6fb;--surface:#fff;
+ --text:#102946;--muted:#687e96;--line:#e2eaf3;
+ --shadow:0 14px 40px rgba(9,30,60,.07);
+}
+html,body{background:var(--bg);color:var(--text);font-family:"Tajawal",Tahoma,Arial,sans-serif}
+.main-shell{background:#f3f6fb}
+.shell.shell-v6.page{background:#f3f6fb}
+.shell .sidebar.navbar-vertical{background:linear-gradient(175deg,#081d39 0%,#0b284d 59%,#0c345c 100%);border:0;border-inline-end:1px solid #123b63;color:#d5e7fa;box-shadow:-8px 0 34px #06152c14}
+.sidebar-titles strong{color:#fff}
+.sidebar-titles small{color:#a4c2e1}
+.brand-square{background:linear-gradient(150deg,#155ad1,#12bcd2);box-shadow:0 8px 22px #0a9acf33}
+.menu-caption{color:#729abb}
+.nav-link{color:#bfd3e9;background:transparent;border:1px solid transparent}
+.nav-link:hover{color:#fff;background:#ffffff13;border-color:#5f91c32b}
+.nav-link.active{background:linear-gradient(100deg,#1766df44,#0bb9d229);color:#fff;border-color:#24b9dc66;box-shadow:inset -3px 0 #0dcee0,0 8px 23px #04122a22}
+.nav-icon{color:#9ac5e7;background:#ffffff0c;border-color:#ffffff12}
+.nav-link.active .nav-icon{background:#15aede22;color:#95f0ff;border-color:#29c7e34a}
+.nav-link:hover .nav-icon{background:#ffffff1c;color:#e5fbff}
+.sidebar-bottom{border-top-color:#ffffff24;color:#acc8e0}
+.sidebar-bottom-line{background:#21c5d5}
+.nav-count{background:#d5ad67;color:#071e3c}
+.topbar.navbar{border-bottom:1px solid #e1eaf4;background:#fff;box-shadow:0 5px 22px #061c3610}
+.top-identity strong{color:#0b2a4c}
+.top-identity span{color:#617c9b}
+.sidebar-toggle,.icon-btn,.top-alert{color:#21579e;background:#f6f9fd;border-color:#dce7f3}
+.sidebar-toggle:hover,.icon-btn:hover,.top-alert:hover{background:#e8f3ff;border-color:#91b8ed;color:#1766df}
+.search-field.input-icon{background:#f4f8fd;border-color:#dce7f3;color:#3d76b0}
+.search-field:focus-within{border-color:#6294e9;box-shadow:0 0 0 4px #1766df19}
+.user-circle.avatar{background:#e9f3ff;color:#1766df;border-color:#d5e7fc}
+.top-alert>span{background:#d2a963}
+.workspace{max-width:1550px}
+.btn.primary,.btn.btn-primary{background:#1766df;border-color:#1766df;box-shadow:0 7px 17px #1766df29}
+.btn.primary:hover,.btn.btn-primary:hover{background:#0d4db6;border-color:#0d4db6}
+.btn.secondary{background:#e8f2ff;border-color:#c9defa;color:#1761b9}
+.btn.quiet{color:#22547c;border-color:#dae6f3}
+.page-title h1{color:#0b2b51}
+.eyebrow{color:#1766df}
+.panel.card{border-color:#dde7f2;box-shadow:0 8px 27px #08264e08}
+.panel-head{border-bottom-color:#e7edf5}
+.panel-head h2{color:#143860}
+.count-label{background:#eaf3ff;color:#165bb1}
+.data-table th{background:#f1f6fc;color:#4d6582}
+.data-table tr:hover td{background:#f4f9ff}
+.tiny-btn{color:#1766df;border-color:#d9e6f8}
+.tiny-btn:hover{background:#edf5ff}
+.stack-form input:focus,.modal-form input:focus,.modal-form textarea:focus,.quote-inputs input:focus,.quote-inputs select:focus{border-color:#4d91ec;box-shadow:0 0 0 4px #1766df16}
+.nav-link .i-tabler,.koa-stat-icon .i-tabler,.koa-action .i-tabler{stroke-width:1.8}
+.nav-link:hover .nav-icon .i-tabler,.koa-stat:hover .koa-stat-icon .i-tabler{transform:translateY(-2px) scale(1.06)}
+.nav-icon .i-tabler,.koa-stat-icon .i-tabler{transition:transform .18s ease}
+
+/* Homepage: content grouped by purpose, no oversized empty hero */
+.koa-home{display:flex;flex-direction:column;gap:0;width:100%}
+.koa-page-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:0 0 20px}
+.koa-page-eyebrow{display:block;color:#5680a8;font-size:12px;font-weight:700;line-height:1.6}
+.koa-page-heading h1{font-size:clamp(25px,2.6vw,36px);font-weight:900;color:#071e3c;line-height:1.3;margin:3px 0 0}
+.koa-page-label{color:#6b86a1;font-size:12px;font-weight:750}
+.koa-hero{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,.84fr);direction:rtl;min-height:clamp(305px,32vw,395px);background:#081e3b;border-radius:23px;border:1px solid #10335b;box-shadow:0 22px 46px rgba(4,27,63,.13);overflow:hidden;isolation:isolate}
+.koa-hero-copy{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:clamp(27px,3.5vw,53px);color:#fff;background:radial-gradient(ellipse at 15% 30%,#12589c75,transparent 62%),linear-gradient(125deg,#071b34,#0b2a50 76%,#123f6d)}
+.koa-hero-copy:before{content:"";position:absolute;inset:0;background:linear-gradient(160deg,transparent 70%,#0bc0da12);pointer-events:none}
+.koa-hero-kicker{position:relative;display:inline-flex;align-items:center;gap:9px;color:#c3effb;background:#16b5d91d;border:1px solid #25c3e04c;border-radius:30px;padding:7px 13px;font-size:12px;font-weight:800;margin-bottom:19px}
+.koa-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#21cfdf;box-shadow:0 0 0 4px #21cfdf24}
+.koa-hero h2{color:#fff;position:relative;font-size:clamp(33px,3.4vw,53px);line-height:1.34;margin:0;font-weight:900;letter-spacing:0}
+.koa-hero-copy>p{font-size:clamp(13px,1.2vw,16px);color:#b2cfe7;margin:11px 0 28px;line-height:1.75;max-width:480px}
+.koa-hero-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.koa-action{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:11px 15px;min-height:44px;border:1px solid transparent;border-radius:10px;font-family:inherit;font-size:13px;font-weight:900;white-space:nowrap;cursor:pointer}
+.koa-action-primary{background:#1766df;border-color:#397ff3;color:#fff;box-shadow:0 8px 18px #03173339}
+.koa-action-primary:hover{background:#2579f0;color:#fff}
+.koa-action-outline{background:#ffffff0b;color:#e5f6ff;border-color:#5688b85b}
+.koa-action-outline:hover{background:#ffffff20;border-color:#31d1e5;color:#fff}
+.koa-action:focus-visible{outline-color:#29cce1}
+.koa-brand-area{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;padding:30px 38px;background:radial-gradient(circle at 85% 20%,#d0f4ff 0%,transparent 52%),linear-gradient(140deg,#eff8ff,#dbe9f8 65%,#dceffc);overflow:hidden}
+.koa-brand-area:before,.koa-brand-area:after{content:"";position:absolute;pointer-events:none;border-radius:50%;border:1px solid #2865bd1a}
+.koa-brand-area:before{height:350px;width:350px;left:-195px;bottom:-230px}
+.koa-brand-area:after{height:230px;width:230px;right:-110px;top:-130px}
+.koa-brand-logo{display:block;position:relative;z-index:1;width:min(100%,350px);height:auto;max-height:185px;object-fit:contain;background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important;filter:none!important;mix-blend-mode:normal}
+.koa-section-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:29px 1px 15px}
+.koa-section-heading h2{font-size:19px;font-weight:900;margin:0;color:#092b51}
+.koa-section-heading span{color:#7890a8;font-size:12px}
+.koa-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.koa-stat{display:flex;align-items:flex-start;gap:15px;text-align:right;background:#fff;border-radius:16px;border:1px solid #dfe9f4;padding:22px 18px;min-height:133px;box-shadow:0 8px 21px #0c2a4a08;transition:transform .18s,border-color .18s,box-shadow .18s;cursor:pointer}
+.koa-stat:hover{transform:translateY(-2px);border-color:#b6cfee;box-shadow:0 14px 30px #0b2e5914}
+.koa-stat-icon{display:grid;place-items:center;width:49px;height:49px;flex:none;border-radius:13px}
+.koa-stat-blue{background:#e8f1ff;color:#1766df}
+.koa-stat-cyan{background:#dcf6fb;color:#028eaa}
+.koa-stat-gold{background:#fff3e2;color:#a77937}
+.koa-stat-body{display:flex;align-items:flex-start;flex-direction:column;min-width:0;flex:1}
+.koa-stat small{font-size:12px;font-weight:750;color:#7a8da3;line-height:1.55}
+.koa-stat strong{font-size:clamp(26px,2.5vw,34px);font-weight:900;color:#0b2b52;line-height:1.3;margin:4px 0}
+.koa-stat em{display:inline-flex;align-items:center;gap:5px;font-style:normal;font-weight:800;color:#286cba;font-size:11px;margin-top:6px}
+.koa-stock-alerts{background:#fff;border:1px solid #e1eaf4;border-radius:16px;box-shadow:0 8px 21px #092b5006;margin-top:19px;overflow:hidden}
+.koa-alerts-heading{padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:15px;border-bottom:1px solid #eef1f6}
+.koa-alerts-heading>div{display:flex;align-items:center;gap:12px}
+.koa-alerts-symbol{height:39px;width:39px;border-radius:11px;background:#fff4e2;color:#a67635;display:grid;place-items:center}
+.koa-alerts-heading h2{font-size:16px;font-weight:900;color:#123355;margin:0}
+.koa-alerts-heading p{font-size:11px;margin:1px 0 0;color:#7d91a5}
+.koa-view-all{display:inline-flex;align-items:center;gap:7px;border:0;background:none;font-size:12px;color:#1766df;font-weight:900;cursor:pointer}
+.koa-view-all:hover{text-decoration:underline}
+.koa-alerts-content{padding:7px 22px 12px}
+.koa-alert-row{display:flex;align-items:center;gap:12px;min-height:43px;padding:9px 1px;border-bottom:1px solid #f0f3f6}
+.koa-alert-row:last-child{border-bottom:0}
+.koa-alert-indicator{flex:none;width:8px;height:8px;background:#d7a154;border-radius:50%}
+.koa-alert-indicator.koa-empty{background:#d45258}
+.koa-alert-name{min-width:0;flex:1;color:#36546e;font-size:13px;font-weight:750;overflow-wrap:anywhere}
+.koa-alert-quantity{white-space:nowrap;color:#986c32;background:#fff5e8;border-radius:6px;font-size:11px;padding:4px 8px}
+.koa-stock-ok{display:flex;align-items:center;gap:9px;min-height:43px;color:#277b7e;font-size:13px;font-weight:800}
+
+/* Consistent KOA colors on the login surface; do not touch the auth logic. */
+.auth-v6 .auth-visual{background:radial-gradient(circle at 20% 20%,#174ba077,transparent 43%),linear-gradient(145deg,#071a33,#0b2c54 79%,#10416f)}
+.auth-brand-dot{background:#0bc3db}
+.auth-v6 .auth-content{background:#f4f7fb}
+.auth-kicker{color:#1766df}
+.auth-v6 .auth-box h1{color:#0b2b52}
+.auth-v6 .stack-form button.btn-primary{background:#1766df;border-color:#1766df}
+.auth-v6 .stack-form button.btn-primary:hover{background:#0c4fae;border-color:#0c4fae}
+
+@media(max-width:1080px){
+ .koa-hero-copy{padding:28px 25px}
+ .koa-hero h2{font-size:clamp(32px,4vw,46px)}
+ .koa-action{padding:10px 11px}
+ .koa-stat{padding:17px 13px;gap:11px}
+ .koa-stat-icon{height:44px;width:44px}
+}
+@media(max-width:760px){
+ .koa-hero{grid-template-columns:1fr;min-height:0}
+ .koa-hero-copy{padding:29px 25px 25px;align-items:flex-start}
+ .koa-hero-kicker{margin-bottom:14px}
+ .koa-hero h2{font-size:clamp(31px,7vw,44px)}
+ .koa-hero-copy>p{margin:9px 0 19px}
+ .koa-brand-area{min-height:165px;padding:17px 28px}
+ .koa-brand-logo{max-width:260px;max-height:130px}
+ .koa-stats{grid-template-columns:1fr;gap:10px}
+ .koa-stat{min-height:93px;padding:15px 18px}
+ .koa-stat strong{font-size:28px}
+ .koa-page-heading{margin-bottom:15px}
+ .koa-page-label{display:none}
+ .koa-section-heading{margin:24px 0 12px}
+ .koa-alerts-heading{padding:15px 16px}
+ .koa-alerts-content{padding-inline:15px}
+}
+@media(max-width:410px){
+ .koa-hero-actions{gap:7px}
+ .koa-action{font-size:12px;padding:9px 10px}
+ .koa-hero-copy{padding:26px 19px}
+ .koa-hero h2{font-size:32px}
+ .koa-alert-row{align-items:flex-start;flex-wrap:wrap;gap:7px}
+ .koa-alert-quantity{margin-right:19px}
+}
+@media(prefers-reduced-motion:reduce){
+ .nav-icon .i-tabler,.koa-stat-icon .i-tabler,.koa-stat,.koa-action{transition:none!important}
+ .nav-link:hover .nav-icon .i-tabler,.koa-stat:hover .koa-stat-icon .i-tabler{transform:none!important}
+}
