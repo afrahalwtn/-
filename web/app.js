@@ -132,9 +132,9 @@ function renderShell() {
       <header class="topbar navbar">
         <div class="topbar-start">
           <button type="button" class="icon-btn sidebar-toggle" data-action="toggle-sidebar" aria-label="فتح وإغلاق القائمة">${icon('menu',22)}</button>
-          <div class="top-identity"><strong>شركة أفراح الوطن</strong><span>نظام إدارة التجهيزات</span></div>
+
         </div>
-        <label class="search-field input-icon">${icon('search',20)}<input id="global-search" aria-label="البحث عن مادة" placeholder="ابحث عن منتج أو وصف..." value="${safe(state.search)}" autocomplete="off"></label>
+        <div class="header-centered-logo"><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" /></div>
         <div class="topbar-actions">
           <button type="button" data-action="nav" data-section="alerts" class="top-alert" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?`<span>${number(state.alerts.length)}</span>`:''}</button>
           <div class="user-badge"><div class="user-circle avatar">${icon('users',18)}</div><div class="user-detail"><strong>${safe(state.user.full_name)}</strong><small>${isAdmin()?'الإدارة':'المستخدم الثاني'}</small></div></div>
@@ -168,33 +168,33 @@ function searchableProductList(query, context) {
 }
 function homeView() {
   const alerts = state.alerts.slice(0,5);
-  return '<div class="af-home">'+
-    '<section class="af-welcome" aria-label="رسالة الترحيب">'+
-      '<div class="af-welcome-copy">'+
-        '<span class="af-welcome-tag">شركة أفراح الوطن للتجارة العامة</span>'+
-        '<h1>يــا هـلا و مـرحـبـا</h1>'+
-        '<p>نظام تجهيزات المطاعم والمواد الاستهلاكية</p>'+
-      '</div>'+
-      '<div class="af-welcome-brand"><img alt="Tapello" src="/assets/tapello.svg?v=20261105-pdf-logo" class="af-welcome-logo"></div>'+
-    '</section>'+
-    '<section class="af-home-search" aria-label="البحث عن المواد">'+
-      '<label for="home-search" class="af-home-search-label">ابحث عن مادة</label>'+
-      '<div class="af-search-input">'+icon('search',23)+'<input id="home-search" type="search" autocomplete="off" placeholder="اكتب اسم المنتج أو وصفه أو بلد الصنع..." value="'+safe(state.homeSearch)+'"></div>'+
-      '<div id="home-search-results" class="af-search-results" aria-live="polite">'+searchableProductList(state.homeSearch,'home')+'</div>'+
-    '</section>'+
-    '<section class="af-home-alerts">'+
-      '<div class="af-home-alert-heading"><div><span class="af-alert-ico">'+icon('bell',20)+'</span><h2>تنبيهات المواد</h2>'+
-        (state.alerts.length?'<span class="af-alert-count">'+number(state.alerts.length)+'</span>':'')+
-      '</div><button type="button" data-action="nav" data-section="alerts" class="af-link">عرض جميع التنبيهات '+icon('arrow',16)+'</button></div>'+
-      '<div class="af-home-alert-list">'+
-      (alerts.length?alerts.map(a=>
-        '<div class="af-home-alert-row"><span class="af-alert-dot '+(a.quantity===0?'out':'')+'"></span>'+
-        '<strong>'+safe(a.name)+'</strong>'+
-        '<span class="af-alert-value">'+(a.quantity===0?'نفدت الكمية':'المتوفر: '+number(a.quantity))+'</span></div>'
-      ).join(''):'<div class="af-all-good">'+icon('check',20)+' لا توجد مواد وصلت إلى حد التنبيه.</div>')+
-      '</div>'+
-    '</section>'+
-  '</div>';
+  return `<div class="af-home af-home-v4">
+    <section class="card af-greeting-card" aria-label="الترحيب">
+      <div class="card-status-top bg-blue"></div>
+      <div class="card-body af-greeting-body">
+        <div class="af-greeting-tag">شركة أفراح الوطن للتجارة العامة</div>
+        <h1>يــا هـلا و مـرحـبـا</h1>
+        <p>نظام تجهيزات المطاعم والمواد الاستهلاكية</p>
+      </div>
+    </section>
+    <section class="af-home-search" aria-label="البحث عن المواد">
+      <label for="home-search" class="af-home-search-label">ابحث عن مادة</label>
+      <div class="af-search-input">${icon('search',23)}<input id="home-search" type="search" autocomplete="off" placeholder="اكتب اسم المنتج أو وصفه أو بلد الصنع..." value="${safe(state.homeSearch)}"></div>
+      <div id="home-search-results" class="af-search-results" aria-live="polite">${searchableProductList(state.homeSearch,'home')}</div>
+    </section>
+    <section class="af-home-alerts">
+      <div class="af-home-alert-heading"><div><span class="af-alert-ico">${icon('bell',20)}</span><h2>تنبيهات المواد</h2>
+        ${state.alerts.length?`<span class="af-alert-count">${number(state.alerts.length)}</span>`:''}
+        </div><button type="button" data-action="nav" data-section="alerts" class="af-link">عرض جميع التنبيهات ${icon('arrow',16)}</button></div>
+      <div class="af-home-alert-list">
+        ${alerts.length?alerts.map(a=>`<div class="af-home-alert-row">
+          <span class="af-alert-dot ${a.quantity===0?'out':''}"></span>
+          <strong>${safe(a.name)}</strong>
+          <span class="af-alert-value">${a.quantity===0?'نفدت الكمية':'المتوفر: '+number(a.quantity)}</span>
+        </div>`).join(''):`<div class="af-all-good">${icon('check',20)} لا توجد مواد وصلت إلى حد التنبيه.</div>`}
+      </div>
+    </section>
+  </div>`;
 }
 
 function productTable(rows, inventory=false) {
