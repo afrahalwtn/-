@@ -1,5 +1,5 @@
 import {api, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-embed-auth';
-import {icon} from './icons.js?v=20261105-tabler';
+import {icon} from './icons.js?v=20261105-price-tag';
 
 const state = {
   user:null, section:'home', products:[], alerts:[], users:[], quotes:[],
@@ -85,7 +85,7 @@ function loginView() {
 }
 const navItems = [
   ['home','الرئيسية','home'], ['products','المواد','package'], ['inventory','الجرد','clipboard'],
-  ['alerts','التنبيهات','bell'], ['quotes','عروض الأسعار','file'], ['users','المستخدمون','users'],
+  ['alerts','التنبيهات','bell'], ['quotes','عروض الأسعار','tag'], ['users','المستخدمون','users'],
 ];
 function renderShell() {
   const nav = navItems.filter(([key])=> isAdmin() || !['quotes','users'].includes(key));
