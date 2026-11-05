@@ -1,0 +1,26 @@
+/* Secure role-aware portal controls; all components remain locally hosted.
+   Navigation handoff tickets are one-use and never placed in a URL. */
+.portal-switch-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+ min-height:40px;padding:8px 12px;border:1px solid #bed6ef;border-radius:10px;background:#edf5ff;
+ color:#164d88;font-family:"Tajawal",Tahoma,Arial,sans-serif;font-size:12px;font-weight:850;cursor:pointer;white-space:nowrap}
+.portal-switch-btn:hover{background:#daeefe;border-color:#8cbfe8;color:#0d3d74}
+.auth-recovery-toggle{display:block;margin:20px auto 0;border:0;background:transparent;
+ color:#1766df;font-family:"Tajawal",Tahoma,Arial,sans-serif;font-size:13px;font-weight:850;
+ text-align:center;cursor:pointer;padding:9px}
+.auth-recovery-toggle:hover{text-decoration:underline}
+.auth-help{font-size:13px;line-height:1.8;color:#57718b;margin:0 0 8px}
+.account-form-card{max-width:720px;margin:0 auto}
+.account-form{display:flex;flex-direction:column;gap:16px;padding:25px}
+.account-form>label{display:flex;flex-direction:column;gap:7px;font-weight:850;font-size:13px;color:#244966}
+.account-form .form-control{height:48px;border:1px solid #d7e3ef;background:#fafcff;border-radius:10px;
+ padding:9px 13px;font-size:14px}
+.account-form .form-control:focus{outline:3px solid #1766df22;border-color:#4b92e0}
+.account-form .btn{align-self:flex-start;min-width:175px}
+.account-hint{font-size:12px;line-height:1.8;color:#687f96;margin:0}
+@media(max-width:700px){
+ .portal-switch-btn{width:38px;min-width:38px;height:40px;padding:6px;font-size:0;gap:0}
+ .portal-switch-btn .i{width:18px;height:18px}
+ .account-form{padding:17px}
+ .account-form .btn{width:100%}
+ .account-form-card{width:100%}
+}
