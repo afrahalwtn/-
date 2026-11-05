@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, type ExecutionLine } from './storage.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -676,6 +676,51 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
   }
   users.set(u.id,u);
   res.json(userDict(u));
+});
+
+// Execution lists: staff record what they carried out from existing catalogue
+// materials. They cannot create products, change inventory, or write price data.
+app.get('/api/execution-lists', requireAuth, (req, res) => {
+ const ctx=(req as any).auth as AuthContext;
+ res.json(listExecutionLists(ctx.user.role==='admin'?null:ctx.user.id));
+});
+app.post('/api/execution-lists', requireAuth, requireCsrf, (req, res) => {
+ const ctx=(req as any).auth as AuthContext;
+ if(ctx.user.role!=='staff'){
+  res.status(403).json({detail:'إضافة قوائم التنفيذ مخصصة للمستخدم الثاني'});
+  return;
+ }
+ const entries=req.body?.items;
+ if(!Array.isArray(entries)||entries.length<1||entries.length>500){
+  res.status(422).json({detail:'القائمة يجب أن تحتوي من مادة إلى 500 مادة'});
+  return;
+ }
+ const unique=new Set<number>();
+ const lines:ExecutionLine[]=[];
+ for(const entry of entries){
+  const id=entry?.product_id,quantity=entry?.quantity;
+  if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(quantity)||quantity<1||quantity>100000000||unique.has(id)){
+   res.status(422).json({detail:'معرّف المادة أو عددها غير صالح، أو المادة مكررة'});
+   return;
+  }
+  const p=products.get(id);
+  if(!p){
+   res.status(422).json({detail:'إحدى المواد غير مسجلة في النظام'});
+   return;
+  }
+  unique.add(id);
+  lines.push({
+   product_id:p.id,
+   name:p.name,
+   description:p.description,
+   manufacture:p.manufacture,
+   image_url:p.image_name?'/api/images/'+p.image_name:null,
+   quantity,
+  });
+ }
+ const record=createExecutionList(ctx.user.id,lines);
+ // This is a historical record only; no inventory deduction occurs.
+ res.status(201).json(record);
 });
 
 // Quotes
