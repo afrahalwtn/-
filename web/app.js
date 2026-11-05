@@ -6,7 +6,7 @@ import {icon} from './icons.js?v=20261105-price-tag';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],sidebarOpen:innerWidth>=950};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950};
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
 function asset(p){
@@ -157,7 +157,18 @@ function prepare(){
   '<p class="af-prep-scroll-tip">يمكن تمرير الجدول أفقياً على الموبايل.</p>'+
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
-  '<button class="btn primary" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button></footer></section></div>';
+  '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
+  '<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+' حفظ قائمة التنفيذ</button></div></footer></section>'+
+  '<section class="card staff-execution-history"><div class="staff-history-heading"><h2>قوائم التنفيذ المحفوظة</h2><span>'+number(state.executionLists.length)+' قائمة</span></div>'+
+  '<div class="staff-history-body">'+(state.executionLists.length?state.executionLists.map(record=>
+   '<details class="staff-history-entry"><summary><span>قائمة رقم '+number(record.id)+'</span><small>'+
+   safe(new Date(record.created_at).toLocaleDateString('ar-IQ'))+' — '+number(record.items.length)+' مادة</small></summary>'+
+   '<div class="staff-history-items">'+record.items.map(item=>
+    '<div class="staff-history-item">'+(item.image_url?'<img data-photo="'+safe(item.image_url)+'" alt="صورة المادة">':icon('package',19))+
+    '<div><strong>'+safe(item.name)+'</strong><small>'+safe(item.description||'')+
+    ' — '+safe(item.manufacture||'—')+'</small></div><b>العدد: '+number(item.quantity)+'</b></div>'
+   ).join('')+'</div></details>'
+  ).join(''):'<p class="staff-history-empty">لم تُحفظ أي قائمة تنفيذ بعد.</p>')+'</div></section></div>';
 }
 function renderPreparedGrid(){
  const host=document.getElementById('staff-grid');
@@ -199,6 +210,22 @@ function renderPreparedGrid(){
   if(totals)totals.innerHTML=preparedTotals();
  });
 }
+async function saveExecutionList(){
+ if(!state.draft.length)return;
+ const button=document.getElementById('staff-save-list');
+ if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
+ try{
+  const items=state.draft.map(item=>({product_id:item.product_id,quantity:item.quantity}));
+  const saved=await api('/execution-lists',{method:'POST',data:{items}});
+  state.executionLists.unshift(saved);
+  state.draft=[];state.prepareQuery='';
+  workspace();
+  message('تم حفظ قائمة التنفيذ بنجاح',false);
+ }catch(error){
+  message(error?.message||'تعذّر حفظ القائمة');
+  if(button){button.disabled=false;button.innerHTML='حفظ قائمة التنفيذ';}
+ }
+}
 async function printPreparedList(){
  const rows=selectedRows(),purchase=Boolean(state.user.can_view_purchase),sale=Boolean(state.user.can_view_sale);
  if(!rows.length)return;
@@ -230,12 +257,13 @@ function render(){
  if(state.user)workspace();
 }
 async function refresh(){
- const [products,alerts]=await Promise.all([api('/products'),api('/alerts')]);
+ const [products,alerts,executionLists]=await Promise.all([api('/products'),api('/alerts'),api('/execution-lists')]);
  state.products=products;
  state.alerts=alerts;
+ state.executionLists=executionLists;
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
 async function boot(){
@@ -272,7 +300,7 @@ document.addEventListener('submit',async e=>{
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
 document.addEventListener('click',async e=>{
- const el=e.target.closest('[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],#staff-print-list');
+ const el=e.target.closest('[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],#staff-print-list,#staff-save-list');
  if(el?.hasAttribute('data-add') && state.user){
   const id=Number(el.dataset.add);
   if(!state.products.some(p=>p.id===id))return;
@@ -289,6 +317,7 @@ document.addEventListener('click',async e=>{
   workspace();return;
  }
  if(el?.id==='staff-print-list' && state.user){await printPreparedList();return;}
+ if(el?.id==='staff-save-list' && state.user){await saveExecutionList();return;}
  if(!el||!state.user)return;
  if(el.dataset.toggle){state.sidebarOpen=!state.sidebarOpen;render();return;}
  if(el.dataset.nav){
