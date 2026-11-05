@@ -151,11 +151,11 @@ try {
   await staff.locator('#staff-home-search').fill('رول');
   await staff.locator('.staff-add-to-list').first().click();
   await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor({timeout:15000});
-  assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'Employee's first item appears in list');
+  assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,"Employee's first item appears in list");
   await staff.locator('#staff-prepare-search').fill('علب');
   await staff.locator('.staff-add-to-list').first().click();
   await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').nth(1).waitFor({timeout:15000});
-  assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),2,'Employee's second item appends to same spreadsheet');
+  assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),2,"Employee's second item appends to same spreadsheet");
   assert.equal(await staff.locator('#staff-grid .tabulator-col[tabulator-field="purchase_price"]').count(),0,'Disabled purchase-price column must be absent');
   assert.equal(await staff.locator('#staff-grid .tabulator-col[tabulator-field="sale_price"]').count(),1,'Enabled sale-price column must be visible');
   const quantity=staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell[tabulator-field="quantity"]').first();
