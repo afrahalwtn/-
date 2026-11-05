@@ -6,7 +6,7 @@ import {icon} from './icons.js?v=20261105-price-tag';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',sidebarOpen:innerWidth>=950};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],sidebarOpen:innerWidth>=950};
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
 function asset(p){
@@ -56,7 +56,7 @@ function loginView(){
       '<p id="staff-login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>'+
       '</form></div></section></div><div id="staff-toast" class="toast" role="status"></div>';
 }
-const sections=[['home','الرئيسية','home'],['products','المواد','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell']];
+const sections=[['home','الرئيسية','home'],['products','المواد','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell'],['prepare','جهّز قائمة','table']];
 function shell(){
  return '<div class="shell shell-v6 page '+(state.sidebarOpen?'':'sidebar-narrow')+'">'+
    '<aside id="sidebar" class="sidebar navbar navbar-vertical '+(state.sidebarOpen?'':'collapsed')+'">'+
@@ -83,7 +83,7 @@ function results(q,limit=12){
  return data.map(p=>'<div class="search-product">'+asset(p)+
    '<div class="search-product-info"><strong>'+safe(p.name)+'</strong>'+
    '<span>'+safe(p.description)+'</span><small>الصنع: '+safe(p.manufacture||'—')+'</small></div>'+
-   '<div class="staff-result-side"><span>المتوفر: '+number(p.quantity)+'</span>'+pricing(p)+'</div></div>').join('');
+   '<div class="staff-result-side"><span>المتوفر: '+number(p.quantity)+'</span>'+pricing(p)+ '<button type="button" class="btn primary staff-add-to-list" data-add="'+p.id+'">'+icon('plus',17)+' إضافة للقائمة</button></div></div>').join('');
 }
 function home(){
  const alerts=state.alerts.slice(0,5);
@@ -131,11 +131,99 @@ function alerts(){
        (a.quantity===0?'نفدت المادة':'المتوفر: '+number(a.quantity))+'</span></div>').join(''):
        '<p class="af-all-good">لا توجد تنبيهات حالياً.</p>')+'</div></section>';
 }
+
+let prepareGrid=null;
+function selectedRows(){
+ return state.draft.map(item=>{
+  const p=state.products.find(x=>x.id===item.product_id);
+  return p?{...p,quantity:item.quantity,sale_total:state.user.can_view_sale?item.quantity*p.sale_price:undefined}:null;
+ }).filter(Boolean);
+}
+function preparedTotals(){
+ const rows=selectedRows(),parts=[];
+ if(state.user?.can_view_purchase)parts.push('<span>إجمالي الشراء: <b>'+money(rows.reduce((n,p)=>n+p.quantity*p.purchase_price,0))+'</b></span>');
+ if(state.user?.can_view_sale)parts.push('<span>إجمالي البيع: <b>'+money(rows.reduce((n,p)=>n+p.quantity*p.sale_price,0))+'</b></span>');
+ return parts.join(' ');
+}
+function prepare(){
+ return '<div class="af-prep staff-prep">'+
+  '<div class="af-prep-heading"><h1>جهّز قائمة</h1><p>ابحث عن المواد واجمعها في جدول واحد، وعدّل العدد قبل الطباعة.</p></div>'+
+  '<section class="card af-prep-search-card"><div class="card-body">'+
+  '<label class="af-input-label" for="staff-prepare-search">البحث عن المواد</label>'+
+  '<div class="af-search-input">'+icon('search',21)+'<input id="staff-prepare-search" type="search" autocomplete="off" placeholder="اسم المادة أو وصفها أو الصنع..." value="'+safe(state.prepareQuery)+'"></div>'+
+  '<div class="af-search-results" id="staff-prepare-results">'+(state.prepareQuery.trim()?results(state.prepareQuery):'<p class="af-search-hint">ابحث عن مادة واضغط «إضافة للقائمة»، وكرر العملية لإضافة غيرها.</p>')+'</div></div></section>'+
+  '<section class="card af-prep-sheet"><header class="af-prep-sheet-header"><div><span class="af-prep-sheet-title">'+icon('table',22)+'<h2>قائمة المواد المختارة</h2></span>'+
+  '<p>رتّب الأعمدة وعدّل الكميات داخل الجدول.</p></div><span class="af-prep-count">'+number(state.draft.length)+' مادة</span></header>'+
+  '<p class="af-prep-scroll-tip">يمكن تمرير الجدول أفقياً على الموبايل.</p>'+
+  '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
+  '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
+  '<button class="btn primary" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button></footer></section></div>';
+}
+function renderPreparedGrid(){
+ const host=document.getElementById('staff-grid');
+ if(!host)return;
+ if(typeof window.Tabulator!=='function'){host.textContent='مكتبة الجدول غير متاحة. أعد تشغيل الخادم.';return;}
+ const columns=[
+  {title:'ت',formatter:'rownum',width:50,hozAlign:'center',headerSort:false},
+  {title:'الصورة',field:'image_url',width:88,headerSort:false,formatter(cell){return asset(cell.getRow().getData()).replace('class="product-thumb"','class="af-grid-photo"');}},
+  {title:'اسم المنتج',field:'name',width:190,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>';}},
+  {title:'الوصف',field:'description',width:200,variableHeight:true,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>';}},
+  {title:'الصنع',field:'manufacture',width:130,formatter(cell){return safe(cell.getValue()||'—');}},
+  {title:'العدد',field:'quantity',width:108,hozAlign:'center',editor:'number',editorParams:{min:1,max:100000000,step:1},
+   validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>';}},
+ ];
+ if(state.user?.can_view_purchase)columns.push({title:'سعر الشراء',field:'purchase_price',width:145,formatter(cell){return money(cell.getValue());}});
+ if(state.user?.can_view_sale){
+  columns.push({title:'سعر البيع',field:'sale_price',width:145,formatter(cell){return money(cell.getValue());}});
+  columns.push({title:'إجمالي البيع',field:'sale_total',width:160,bottomCalc:'sum',
+    formatter(cell){return money(cell.getValue());},bottomCalcFormatter(cell){return money(cell.getValue()||0);}});
+ }
+ columns.push({title:'حذف',width:70,hozAlign:'center',headerSort:false,formatter(cell){
+  return '<button type="button" class="af-grid-remove" data-remove="'+cell.getRow().getData().id+'" aria-label="حذف المادة">'+icon('x',16)+'</button>';
+ }});
+ prepareGrid=new window.Tabulator(host,{data:selectedRows(),index:'id',layout:'fitDataStretch',textDirection:'rtl',
+  editTriggerEvent:'click',placeholder:'القائمة فارغة. ابحث عن مادة وأضفها.',columns,
+  rowFormatter:()=>queueMicrotask(()=>{void paintPhotos(host);})
+ });
+ prepareGrid.on('renderComplete',()=>{void paintPhotos(host)});
+ prepareGrid.on('tableBuilt',()=>{void paintPhotos(host)});
+ prepareGrid.on('cellEdited',cell=>{
+  if(cell.getField()!=='quantity')return;
+  const row=cell.getRow().getData(),n=Number(cell.getValue());
+  if(!Number.isSafeInteger(n)||n<1||n>100000000){cell.restoreOldValue();message('العدد يجب أن يكون صحيحاً بين 1 و100000000');return;}
+  const draft=state.draft.find(x=>x.product_id===row.id);
+  if(!draft)return;
+  draft.quantity=n;
+  if(state.user?.can_view_sale)cell.getRow().update({sale_total:n*row.sale_price});
+  const totals=document.getElementById('staff-prep-total');
+  if(totals)totals.innerHTML=preparedTotals();
+ });
+}
+async function printPreparedList(){
+ const rows=selectedRows(),purchase=Boolean(state.user.can_view_purchase),sale=Boolean(state.user.can_view_sale);
+ if(!rows.length)return;
+ const headers=['الصورة','اسم المادة','الوصف','الصنع','العدد',...(purchase?['سعر الشراء']:[]),...(sale?['سعر البيع','إجمالي البيع']:[])];
+ const body=rows.map(p=>'<tr><td>'+asset(p)+'</td><td>'+safe(p.name)+'</td><td>'+safe(p.description)+'</td>'+
+  '<td>'+safe(p.manufacture)+'</td><td>'+number(p.quantity)+'</td>'+
+  (purchase?'<td>'+money(p.purchase_price)+'</td>':'')+
+  (sale?'<td>'+money(p.sale_price)+'</td><td>'+money(p.sale_total)+'</td>':'')+'</tr>').join('');
+ const root=document.getElementById('print-root');
+ root.innerHTML='<div class="print-sheet staff-print"><header>شركة أفراح الوطن للتجارة العامة — قائمة مواد</header>'+
+ '<table><thead><tr>'+headers.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table>'+
+ '<footer>'+preparedTotals()+'</footer></div>';
+ await paintPhotos(root);
+ await Promise.all(Array.from(root.querySelectorAll('img')).map(img=>img.decode?.().catch(()=>{})||Promise.resolve()));
+ document.body.classList.add('printing');window.print();
+}
+window.addEventListener('afterprint',()=>document.body.classList.remove('printing'));
+
 function workspace(){
  const root=document.getElementById('staff-workspace');
  if(!root)return;
- root.innerHTML=({home,products,inventory,alerts}[state.section]||home)();
+ if(prepareGrid){prepareGrid.destroy();prepareGrid=null;}
+ root.innerHTML=({home,products,inventory,alerts,prepare}[state.section]||home)();
  void paintPhotos(root);
+ if(state.section==='prepare')renderPreparedGrid();
 }
 function render(){
  app.innerHTML=state.user?shell():loginView();
@@ -147,7 +235,7 @@ async function refresh(){
  state.alerts=alerts;
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
 async function boot(){
@@ -184,7 +272,23 @@ document.addEventListener('submit',async e=>{
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
 document.addEventListener('click',async e=>{
- const el=e.target.closest('[data-nav],[data-logout],[data-toggle]');
+ const el=e.target.closest('[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],#staff-print-list');
+ if(el?.hasAttribute('data-add') && state.user){
+  const id=Number(el.dataset.add);
+  if(!state.products.some(p=>p.id===id))return;
+  const item=state.draft.find(x=>x.product_id===id);
+  if(item)item.quantity=Math.min(100000000,item.quantity+1);
+  else state.draft.push({product_id:id,quantity:1});
+  state.section='prepare';state.query='';state.prepareQuery='';
+  if(innerWidth<950)state.sidebarOpen=false;
+  render();message('أُضيفت المادة إلى القائمة',false);
+  document.getElementById('staff-prepare-search')?.focus();return;
+ }
+ if(el?.hasAttribute('data-remove') && state.user){
+  state.draft=state.draft.filter(x=>x.product_id!==Number(el.dataset.remove));
+  workspace();return;
+ }
+ if(el?.id==='staff-print-list' && state.user){await printPreparedList();return;}
  if(!el||!state.user)return;
  if(el.dataset.toggle){state.sidebarOpen=!state.sidebarOpen;render();return;}
  if(el.dataset.nav){
@@ -203,6 +307,13 @@ document.addEventListener('input',e=>{
   state.query=input.value;
   const dest=document.getElementById('staff-home-results');
   if(dest){dest.innerHTML=state.query.trim()?results(state.query):'';void paintPhotos(dest);}
+ }
+ if(input.id==='staff-prepare-search'){
+  state.prepareQuery=input.value;
+  const target=document.getElementById('staff-prepare-results');
+  if(target){target.innerHTML=state.prepareQuery.trim()?results(state.prepareQuery):
+    '<p class="af-search-hint">ابحث عن مادة واضغط «إضافة للقائمة».</p>';
+    void paintPhotos(target);}
  }
  if(input.id==='staff-products-search'){
   const selection=input.selectionStart;
