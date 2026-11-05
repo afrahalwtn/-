@@ -1,5 +1,5 @@
 import {api, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-embed-auth';
-import {icon} from './icons.js?v=20261105-ui3';
+import {icon} from './icons.js?v=20261105-tabler';
 
 const state = {
   user:null, section:'home', products:[], alerts:[], users:[], quotes:[],
