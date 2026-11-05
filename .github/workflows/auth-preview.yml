@@ -1,0 +1,28 @@
+name: Test preview login
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server.ts"
+      - "web/api.js"
+      - "web/app.js"
+      - "tests/auth-preview-smoke.mjs"
+      - ".github/workflows/auth-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Verify login with blocked cookies
+        run: node tests/auth-preview-smoke.mjs
