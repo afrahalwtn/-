@@ -49,7 +49,7 @@ function loginView(){
       '<div class="auth-preview"><img class="auth-logo" src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></div>'+
     '</div></div>'+
     '<section class="auth-content"><div class="auth-box card"><span class="auth-kicker">بوابة الموظفين</span>'+
-      '<h1>يــا هـلا و مـرحـبـا</h1><p class="muted">سجّل الدخول لمشاهدة المواد والجرد والتنبيهات حسب صلاحياتك.</p>'+
+      '<h1>أهلاً بك في أفراح الوطن</h1><p class="muted">سجّل الدخول لمشاهدة المواد والجرد والتنبيهات حسب صلاحياتك.</p>'+
       '<form id="staff-login" class="stack-form card-body" autocomplete="on">'+
       '<label>اسم المستخدم<input class="form-control" name="username" maxlength="60" required autocomplete="username" dir="ltr"></label>'+
       '<label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" dir="ltr"></label>'+
@@ -67,15 +67,30 @@ function shell(){
        (key==='alerts'&&state.alerts.length?'<b class="nav-count">'+number(state.alerts.length)+'</b>':'')+'</button>').join('')+'</nav>'+
      '<div class="sidebar-bottom">شركة أفراح الوطن</div></aside>'+
    '<div class="mobile-scrim '+(state.sidebarOpen?'show':'')+'" data-toggle="menu"></div>'+
-   '<div class="main-shell"><header class="topbar navbar">'+
-     '<div class="topbar-start"><button class="icon-btn sidebar-toggle" type="button" data-toggle="menu" aria-label="فتح القائمة">'+icon('menu',22)+'</button></div>'+
-     '<div class="header-centered-logo"><img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></div>'+
-     '<div class="topbar-actions">'+(state.user.role==='admin'?'<button type="button" class="portal-switch-btn" data-switch="admin">'+icon('shield',16)+' العودة للإدارة</button>':'')+
-     '<button type="button" class="top-alert" data-nav="alerts" aria-label="التنبيهات">'+icon('bell',20)+
-       (state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':'')+'</button>'+
-       '<div class="user-badge"><div class="user-circle avatar">'+icon('users',18)+'</div>'+
-       '<div class="user-detail"><strong>'+safe(state.user.full_name)+'</strong><small>'+(state.user.role==='admin'?'الإدارة — عرض الموظفين':'الموظف')+'</small></div></div>'+
-       '<button type="button" class="icon-btn logout" data-logout="1" aria-label="تسجيل الخروج">'+icon('logout',20)+'</button></div></header>'+
+   '<div class="main-shell"><header class="topbar navbar af-dual-header">
+        <div class="af-brand-row" aria-label="الهوية الرسمية للشركة">
+          <a class="af-brand-primary" href="/" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261106" alt="Afrah Al Watan — أفراح الوطن"></a>
+          <div class="af-brand-secondary" aria-label="العلامة التجارية Tapello">
+            <span class="af-brand-secondary-copy">علامتنا التجارية للمنتجات اللاصقة</span>
+            <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello">
+          </div>
+        </div>
+        <div class="topbar-start">
+          <button type="button" class="icon-btn sidebar-toggle" data-toggle="menu" aria-label="فتح القائمة">${icon('menu',22)}</button>
+        </div>
+        <div class="af-utility-intro"><strong>بوابة الموظفين</strong><span>نظام تجهيز المواد والمخزون</span></div>
+        <div class="topbar-actions">
+          <button type="button" class="top-alert" data-nav="alerts" aria-label="التنبيهات">${icon('bell',20)}${state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':''}</button>
+          <details class="af-account-menu">
+            <summary class="af-account-trigger" aria-label="فتح قائمة الحساب">${icon('users',19)}<span>الحساب</span>${icon('chevron-down',14)}</summary>
+            <div class="af-account-popover">
+              <div class="af-account-name"><strong>${safe(state.user.full_name)}</strong><small>${state.user.role==='admin'?'الإدارة — عرض الموظفين':'الموظف'}</small></div>
+              ${state.user.role==='admin'?'<button type="button" class="portal-switch-btn" data-switch="admin">'+icon('shield',17)+' العودة للإدارة</button>':''}
+              <button type="button" class="icon-btn logout" data-logout="1">${icon('logout',18)} تسجيل الخروج</button>
+            </div>
+          </details>
+        </div>
+      </header>'+
      '<main class="workspace" id="staff-workspace"></main></div>'+
    '</div><div class="toast" id="staff-toast" role="status"></div>';
 }
@@ -92,7 +107,7 @@ function home(){
  return '<div class="af-home af-home-v4">'+
    '<section class="card af-greeting-card"><div class="card-status-top bg-blue"></div>'+
      '<div class="card-body af-greeting-body"><div class="af-greeting-tag">شركة أفراح الوطن للتجارة العامة</div>'+
-     '<h1>يــا هـلا و مـرحـبـا</h1><p>نظام تجهيزات المطاعم والمواد الاستهلاكية</p></div></section>'+
+     '<h1>يــا هـلا و مـرحـبـا</h1><p>ابحث عن المواد، وجهّز قائمة التنفيذ، وتابع حالة المخزون بسهولة.</p></div></section>'+
    '<section class="af-home-search"><label for="staff-home-search" class="af-home-search-label">ابحث عن مادة</label>'+
      '<div class="af-search-input">'+icon('search',21)+'<input id="staff-home-search" type="search" autocomplete="off" placeholder="اسم المادة أو وصفها أو الصنع..." value="'+safe(state.query)+'"></div>'+
      '<div id="staff-home-results" class="af-search-results" aria-live="polite">'+(state.query.trim()?results(state.query):'')+'</div></section>'+
