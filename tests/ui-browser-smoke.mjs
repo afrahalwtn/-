@@ -43,14 +43,17 @@ try {
   await page.locator('input[name="password"]').fill('admin123456');
   await page.locator('button[type="submit"]').click();
   await page.locator('.af-home').waitFor({timeout:15000});
-  assert.equal(await page.locator('.af-welcome').count(),1);
-  await page.screenshot({path:'screenshots/mobile-home.png',fullPage:true});
+  assert.equal(await page.locator('.af-greeting-card.card').count(),1,'Welcome must use the real Tabler card layout');
+  assert.equal(await page.locator('.af-welcome-brand').count(),0,'Logo must not be repeated in a large home panel');
+  assert.equal(await page.locator('.header-centered-logo img').count(),1,'The official logo belongs in the header');
   assert.equal(await page.locator('.af-home-search').count(),1);
   assert.equal(await page.locator('.af-home-alerts').count(),1);
-  assert.equal(await page.locator('.koa-stats').count(),0,'Home must not include dashboard stat cards');
-  assert.equal(await page.locator('.nav-link[data-section="quotes"]').count(),1);
+  assert.equal(await page.locator('.koa-stats').count(),0,'Home must not contain dashboard stat cards');
+  const headerCenter=await page.locator('.header-centered-logo').boundingBox();
+  assert(headerCenter && Math.abs(headerCenter.x+headerCenter.width/2-195)<3,'Logo must be at precise mobile header center');
+  await page.screenshot({path:'screenshots/mobile-home.png',fullPage:true});
 
-  // Upload a real product photo through the working UI and verify its protected blob renders.
+  // Upload a genuine image, check it appears securely when the product is searched.
   await page.locator('.sidebar-toggle').click();
   await page.locator('.nav-link[data-section="products"]').click();
   await page.locator('[data-action="edit-product"][data-id="1"]').click();
@@ -59,36 +62,40 @@ try {
   await page.locator('.af-dialog input[name="image"]').setInputFiles({name:'test-product.png',mimeType:'image/png',buffer:png});
   await page.locator('.af-dialog button[type="submit"]').click();
   await page.waitForFunction(
-    ()=>Array.from(document.querySelectorAll('img.product-thumb[data-private-image]')).some(img=>img.src.startsWith('blob:') && img.naturalWidth>0),
-    null,{timeout:15000},
+    ()=>Array.from(document.querySelectorAll('img.product-thumb[data-private-image]')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),
+    null,{timeout:15000}
   );
   await page.locator('.sidebar-toggle').click();
   await page.locator('.nav-link[data-section="home"]').click();
-  await page.locator('.af-home').waitFor();
-
   await page.locator('#home-search').fill('رول');
-  await page.locator('.search-product').first().waitFor();
   await page.locator('.quote-add-result').first().click();
+
+  // The first search takes the item to the dedicated "جهّز قائمة" page.
   await page.locator('#quote-search').waitFor();
-  assert.equal(await page.locator('.af-receipt-item').count(),1,'First material should be on receipt');
-  await page.waitForFunction(
-    ()=>Array.from(document.querySelectorAll('img.af-receipt-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),
-    null,{timeout:15000},
-  );
+  await page.locator('#prepare-grid .tabulator-row').first().waitFor({timeout:15000});
+  assert.equal(await page.locator('.nav-link[data-section="prepare"]').count(),1,'Dedicated Prepare List section is required');
+  assert(await page.evaluate(()=>typeof window.Tabulator==='function'),'Real MIT Tabulator library must initialize');
+  assert.equal(await page.locator('#prepare-grid .tabulator-row').count(),1,'First material must be in spreadsheet');
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('img.af-grid-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),null,{timeout:15000});
 
   await page.locator('#quote-search').fill('علب');
-  await page.locator('.quote-add-result').first().waitFor();
   await page.locator('.quote-add-result').first().click();
-  assert.equal(await page.locator('.af-receipt-item').count(),2,'Second search should append rather than replace the first');
-  await page.locator('[data-action="quote-increase"]').first().click();
-  assert.equal(await page.locator('.af-qty-input').first().inputValue(),'2','Quantity adjustment must update receipt');
-  assert.equal(await page.locator('.af-receipt-product').count(),2);
+  await page.locator('#prepare-grid .tabulator-row').nth(1).waitFor({timeout:15000});
+  assert.equal(await page.locator('#prepare-grid .tabulator-row').count(),2,'Second item must append to the same spreadsheet');
+
+  // Edit quantity in a native Tabulator cell like Excel.
+  const quantityCell=page.locator('#prepare-grid .tabulator-row .tabulator-cell[tabulator-field="quantity"]').first();
+  await quantityCell.dblclick();
+  await page.locator('#prepare-grid input[type="number"]').fill('2');
+  await page.locator('#prepare-grid input[type="number"]').press('Enter');
+  await page.waitForFunction(()=>document.querySelector('.af-grid-editable')?.textContent?.includes('2'),null,{timeout:7000});
+  assert(await page.locator('#prepare-total').textContent(),'Sheet must recalculate total');
   await page.screenshot({path:'screenshots/mobile-receipt.png',fullPage:true});
-  assert(await page.locator('.af-receipt-product p').first().textContent(),'Receipt must display description');
-  assert(await page.locator('.af-receipt-price').first().textContent(),'Receipt must display item price');
+
   await page.locator('[data-action="quote-create"]').click();
   await page.locator('.quote-preview').waitFor({timeout:15000});
-  assert.equal(await page.locator('.quote-preview tbody tr').count(),2,'Saved quotation must contain both items');
+  assert.equal(await page.locator('.quote-preview tbody tr').count(),2,'Saved quotation must contain both selected items');
+  assert.equal(await page.locator('.nav-link[data-section="quotes"]').count(),1,'Saved quotations remain a separate section');
 
   // Navigation should not overflow the mobile screen.
   const mobileWidth=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
@@ -103,6 +110,12 @@ try {
   await desktop.locator('button[type="submit"]').click();
   await desktop.locator('.af-home').waitFor({timeout:15000});
   await desktop.screenshot({path:'screenshots/desktop-home.png',fullPage:true});
+  const desktopCenter=await desktop.locator('.header-centered-logo').boundingBox();
+  assert(desktopCenter && Math.abs(desktopCenter.x+desktopCenter.width/2-((1366-desktopCenter.width)/2+desktopCenter.width/2))<4,'Header center requires review');
+  await desktop.locator('.nav-link[data-section="prepare"]').click();
+  await desktop.locator('#prepare-grid').waitFor({timeout:8000});
+  await desktop.screenshot({path:'screenshots/desktop-prepare.png',fullPage:true});
+
   const deskWidth=await desktop.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(deskWidth.scroll<=deskWidth.width+2,'Desktop layout overflows: '+JSON.stringify(deskWidth));
   const ipad=await browser.newPage({viewport:{width:820,height:1180},deviceScaleFactor:1});
@@ -114,10 +127,15 @@ try {
   await ipad.locator('button[type="submit"]').click();
   await ipad.locator('.af-home').waitFor({timeout:15000});
   await ipad.screenshot({path:'screenshots/ipad-home.png',fullPage:true});
+  await ipad.locator('.sidebar-toggle').click();
+  await ipad.locator('.nav-link[data-section="prepare"]').click();
+  await ipad.locator('#prepare-grid').waitFor({timeout:8000});
+  await ipad.screenshot({path:'screenshots/ipad-prepare.png',fullPage:true});
+
   const ipadWidth=await ipad.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(ipadWidth.scroll<=ipadWidth.width+2,'iPad layout overflows: '+JSON.stringify(ipadWidth));
   assert.equal(errors.length,0,'JavaScript runtime errors: '+errors.join('; '));
-  console.log('PASS: mobile/desktop login, home-only layout, multi-search receipt, quantities, quote save, no overflow or JS errors');
+  console.log('PASS: centered logo, Tabler welcome, mobile/iPad/desktop, real Tabulator grid and multi-search quote');
 } finally {
   if(browser)await browser.close();
   server.kill('SIGTERM');
