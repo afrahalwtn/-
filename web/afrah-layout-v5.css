@@ -1,0 +1,119 @@
+/* Project: Afrah AlWatan. Free Tabler UI kit (MIT), Tabulator spreadsheet (MIT), Tajawal (OFL).
+   V5: centered transparent brand in header, compact Tabler welcome card, Excel-like prepare list.
+   Original functionality and backend permissions remain unchanged. */
+:root {--af-navy:#0b2545;--af-blue:#1766df;--af-cyan:#0bb9d0;--af-border:#dfe8f2;}
+
+/* True geometrical center across iPad/mobile/desktop, independent of toolbar button widths */
+.topbar.navbar{position:sticky;display:flex;justify-content:space-between;min-height:87px;padding-inline:clamp(13px,2.2vw,29px);isolation:isolate}
+.topbar-start,.topbar-actions{position:relative;z-index:2;flex:0 0 auto}
+.topbar-start .top-identity{display:none!important}
+.header-centered-logo{position:absolute;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;width:clamp(128px,19vw,207px);height:70px;pointer-events:none}
+.header-centered-logo img{width:100%;max-width:100%;max-height:65px;height:auto;object-fit:contain;background:transparent!important;filter:none!important;box-shadow:none!important;padding:0!important}
+.topbar-actions .logout,.topbar-actions .top-alert{box-shadow:none}
+.topbar-actions{margin-inline-start:auto}
+.products-searchbar{background:#fff;border:1px solid #e1e9f4;border-radius:14px;padding:18px 22px;margin:0 0 17px}
+.products-searchbar label{font-size:13px;font-weight:850;display:block;color:#193b59;margin-bottom:10px}
+.products-searchbar .af-search-input{height:49px}
+
+/* Welcome: actual Tabler card/card-body and card-status-top pattern. No illustrations,
+   extra controls, redundant logo or AI-styled decorative circles. */
+.af-home-v4{max-width:1070px}
+.af-home-v4 .af-greeting-card.card{position:relative;overflow:hidden;display:block;border:1px solid #163c66!important;border-radius:16px;background:#0b274a!important;box-shadow:0 8px 24px rgba(8,38,70,.12);min-height:164px}
+.af-home-v4 .af-greeting-card .card-status-top{height:4px;background:#12b8d0!important}
+.af-greeting-body.card-body{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:29px clamp(21px,3.2vw,44px);min-height:160px;text-align:right}
+.af-greeting-tag{font-size:12px;font-weight:750;letter-spacing:0;color:#9acbec;line-height:1.7}
+.af-greeting-body h1{font-size:clamp(32px,3.9vw,49px);color:#fff;line-height:1.32;font-weight:900;margin:8px 0 5px}
+.af-greeting-body p{font-size:13px;font-weight:600;line-height:1.65;color:#b1d2e9;margin:0}
+.af-home-v4 .af-home-search,.af-home-v4 .af-home-alerts{box-shadow:0 5px 15px #12355409;border-color:#e4eaf3}
+.af-home-v4 .af-home-search{padding:22px 24px}
+.af-home-v4 .af-home-alert-heading h2{font-size:17px}
+
+/* Prepare-list page built on authentic Tabler cards and Tabulator spreadsheet */
+.af-prep,.af-quotes{max-width:1480px;margin:auto}
+.af-prep-heading{margin-bottom:23px}
+.af-prep-overline{font-size:12px;font-weight:750;color:#4476a3}
+.af-prep-heading h1{font-size:30px;color:#102f50;margin:2px 0 5px;line-height:1.3;font-weight:900}
+.af-prep-heading p{font-size:13px;color:#71869b;margin:0;line-height:1.7}
+.af-prep-search-card.card,.af-prep-sheet.card{background:#fff;border:1px solid var(--af-border);border-radius:15px;box-shadow:0 6px 22px #102f4f0b;overflow:hidden}
+.af-prep-search-card .card-body{padding:21px 24px}
+.af-prep-search-card .af-search-results{max-height:290px}
+.af-prep-search-card .search-product{padding:12px 4px}
+.af-prep-sheet{margin-top:19px}
+.af-prep-sheet-header{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:19px 23px 15px;border-bottom:1px solid #e6edf6}
+.af-prep-sheet-title{display:inline-flex;align-items:center;gap:9px;color:#2264aa}
+.af-prep-sheet-title h2{font-size:19px;margin:0;color:#103659;font-weight:900}
+.af-prep-sheet-header p{font-size:12px;color:#7890a7;margin:6px 0 0}
+.af-prep-count{white-space:nowrap;border-radius:9px;padding:7px 12px;background:#eaf3ff;color:#2165b7;font-size:12px;font-weight:800}
+.af-prep-scroll-tip{margin:0;padding:11px 23px;color:#6e8397;font-size:11px;background:#fbfdff}
+.af-tabulator-wrap{min-width:0;width:100%;overflow-x:auto;direction:rtl;padding:0 15px 13px}
+#prepare-grid{width:100%;min-width:0;font-family:"Tajawal",Tahoma,Arial,sans-serif}
+#prepare-grid.tabulator{border:1px solid #dfe6ee!important;border-radius:10px;overflow:hidden;background:#fff;font-size:13px;font-family:"Tajawal",Tahoma,Arial,sans-serif}
+#prepare-grid .tabulator-header{background:#eaf1fa;border-bottom:1px solid #d3e2f1;color:#173b62;font-weight:850}
+#prepare-grid .tabulator-col{background:#eaf1fa;border-right:1px solid #d6e2f0}
+#prepare-grid .tabulator-col .tabulator-col-content{padding:13px 10px}
+#prepare-grid .tabulator-col .tabulator-col-title{font-size:12px;white-space:normal;font-weight:850}
+#prepare-grid .tabulator-row{background:#fff;border-bottom:1px solid #e5edf5;min-height:62px}
+#prepare-grid .tabulator-row.tabulator-row-even{background:#f8fbff}
+#prepare-grid .tabulator-row:hover{background:#f0f6ff}
+#prepare-grid .tabulator-row .tabulator-cell{border-inline-end:1px solid #edf1f6;padding:11px 10px;font-family:"Tajawal",Tahoma,Arial,sans-serif;font-size:13px;color:#25425e;display:inline-flex;align-items:center}
+#prepare-grid .tabulator-row .tabulator-cell[tabulator-field="quantity"]{color:#145ab8;background:#ecf5ff;cursor:cell;justify-content:center}
+#prepare-grid .tabulator-row .tabulator-cell[tabulator-field="total"]{background:#f3f8ff}
+#prepare-grid .tabulator-footer{background:#eff6ff;border-top:1px solid #d4e3f5}
+#prepare-grid .tabulator-calcs-holder{background:#eff6ff;font-weight:900}
+#prepare-grid .tabulator-calcs-holder .tabulator-row{background:#eff6ff}
+#prepare-grid input[type="number"]{font-size:14px;font-family:"Tajawal",Tahoma,Arial,sans-serif;outline:2px solid #2c7fe9;border:0;border-radius:3px;padding:4px;background:#fff}
+#prepare-grid .tabulator-placeholder{min-height:118px;display:grid;place-items:center;color:#6986a5;font-size:13px;text-align:center;padding:15px}
+.af-grid-photo,#prepare-grid .product-no-image{width:54px;height:54px;object-fit:contain;background:#f4f9fe;border:1px solid #e0eaf5;border-radius:8px}
+.af-grid-name{line-height:1.5;color:#14395c;font-weight:850}
+.af-grid-description{display:block;line-height:1.5;white-space:normal;overflow-wrap:anywhere;color:#58728b}
+.af-grid-editable{display:inline-flex;align-items:center;gap:8px;color:#1766df;font-weight:900;border-bottom:1px dotted #84a9db;white-space:nowrap}
+.af-grid-currency{display:block;width:100%;color:#205b9b;font-size:12px;white-space:nowrap;font-weight:850}
+.af-grid-total{color:#0a4da5;font-weight:900;white-space:nowrap}
+.af-grid-remove{width:33px;height:33px;display:inline-grid;place-items:center;border:1px solid #f2dce1;background:#fff7f8;border-radius:8px;color:#bc5363;cursor:pointer}
+.af-grid-remove:hover{color:#a92d42;background:#ffe9ee}
+.af-grid-error{padding:19px;color:#b64949;background:#fff1f1;border-radius:9px}
+.af-prep-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 23px 21px;border-top:1px solid #e7edf5;background:#fbfdff}
+.af-prep-sum{display:flex;align-items:center;gap:17px;flex-wrap:wrap}
+.af-prep-sum>span{font-size:13px;color:#53708c;font-weight:750}
+.af-prep-sum>strong{font-size:21px;color:#0d4c9a;font-weight:900}
+.af-prep-save{min-width:200px}
+.af-prep-save:disabled{opacity:.5;cursor:not-allowed}
+.af-quotes .af-archive-row .i{flex-shrink:0}
+
+@media(max-width:950px){
+ .topbar.navbar{min-height:80px}
+ .header-centered-logo{width:157px;height:63px}
+ .header-centered-logo img{max-height:55px}
+ .af-greeting-body.card-body{padding:28px 30px}
+ .af-prep-sheet-header{padding:16px 16px 13px}
+ .af-prep-search-card .card-body{padding:18px}
+ .af-tabulator-wrap{padding:0 10px 10px}
+}
+@media(max-width:700px){
+ .topbar.navbar{min-height:77px;padding:10px 11px}
+ .header-centered-logo{width:137px;height:59px}
+ .header-centered-logo img{max-height:52px}
+ .topbar-actions,.topbar-start{gap:5px}
+ .af-greeting-body.card-body{min-height:145px;padding:24px 22px}
+ .af-greeting-body h1{font-size:34px}
+ .af-greeting-body p{font-size:12px}
+ .af-home-v4 .af-home-search{padding:17px 15px}
+ .af-prep-heading h1{font-size:26px}
+ .af-prep-heading p{font-size:12px}
+ .af-prep-sheet-title h2{font-size:16px}
+ .af-prep-sheet-header p{font-size:11px}
+ .af-prep-scroll-tip{padding:10px 14px}
+ .af-prep-footer{flex-direction:column;align-items:stretch;padding:14px 15px}
+ .af-prep-sum{justify-content:space-between}
+ .af-prep-save{width:100%;min-width:0}
+ .af-prep-count{font-size:11px}
+ .products-searchbar{padding:15px}
+ .af-quotes .page-title{align-items:flex-start;gap:12px;flex-direction:column}
+}
+@media(max-width:370px){
+ .header-centered-logo{width:120px}
+ .topbar-actions .top-alert,.topbar-actions .logout,.topbar-start .sidebar-toggle{min-width:37px;width:37px}
+}
+@media(prefers-reduced-motion:reduce){
+ .af-grid-remove,.af-prep-save{transition:none!important}
+}
