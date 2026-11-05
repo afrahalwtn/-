@@ -1,4 +1,4 @@
-import {api, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-embed-auth';
+import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-secure-images';
 import {icon} from './icons.js?v=20261105-price-tag';
 
 const state = {
@@ -18,7 +18,35 @@ function status(product) {
 }
 function placeholder() { return `<div class="product-no-image">${icon('package',24)}</div>`; }
 function image(product, cssClass='product-thumb') {
-  return product.image_url ? `<img class="${cssClass}" src="${safe(product.image_url)}" alt="صورة ${safe(product.name||product.product_name)}" loading="lazy">` : placeholder();
+  return product.image_url ?
+    '<img class="'+safe(cssClass)+'" data-private-image="'+safe(product.image_url)+'" alt="صورة '+safe(product.name||product.product_name)+'" loading="lazy">' :
+    placeholder();
+}
+// Product photos remain protected when third-party cookies are blocked.
+const privateImages = new Map();
+function forgetPrivateImages() {
+  for (const pending of privateImages.values()) pending.then(url=>URL.revokeObjectURL(url)).catch(()=>{});
+  privateImages.clear();
+}
+function getPrivateImage(url) {
+  if (!privateImages.has(url)) {
+    const pending=apiMedia(url.slice(4)).then(blob=>URL.createObjectURL(blob)).catch(err=>{
+      privateImages.delete(url);throw err;
+    });
+    privateImages.set(url,pending);
+  }
+  return privateImages.get(url);
+}
+async function hydrateImages(root) {
+  const images=Array.from(root?.querySelectorAll('img[data-private-image]')||[]);
+  await Promise.all(images.map(async node=>{
+    try {
+      const objectURL=await getPrivateImage(node.dataset.privateImage);
+      if (node.isConnected) node.src=objectURL;
+    } catch {
+      if (node.isConnected){node.alt='تعذّر تحميل صورة المنتج';node.classList.add('image-failed');}
+    }
+  }));
 }
 function showToast(message, error=false) {
   const toast = document.getElementById('toast');
@@ -29,7 +57,7 @@ function showToast(message, error=false) {
   showToast.timer = setTimeout(()=>toast.classList.remove('visible'), 4000);
 }
 function errorToast(err) {
-  if (err?.status === 401 && state.user) { state.user=null; setCsrf(null); setAccessToken(null); render(); }
+  if (err?.status === 401 && state.user) { state.user=null; setCsrf(null); setAccessToken(null); forgetPrivateImages(); render(); }
   showToast(err?.message || 'تعذر تنفيذ الطلب', true);
 }
 function showLoginError(message) {
@@ -277,7 +305,7 @@ function workspaceView() {
 }
 function renderWorkspace() {
   const w = document.getElementById('workspace');
-  if (w) w.innerHTML=workspaceView();
+  if (w) {w.innerHTML=workspaceView();void hydrateImages(w);}
   document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.section===state.section));
   const alertNode=document.querySelector('.top-alert span');
   if (alertNode) alertNode.textContent=number(state.alerts.length);
@@ -324,6 +352,7 @@ function renderModal() {
   if (type==='stock') content=stockModal(state.products.find(p=>p.id===id));
   if (type==='user') content=userModal(state.users.find(u=>u.id===id));
   layer.innerHTML=`<div class="modal-backdrop" data-action="backdrop"><section class="modal" role="dialog" aria-modal="true">${content}</section></div>`;
+  void hydrateImages(layer);
   document.querySelector('.modal input:not([disabled])')?.focus();
 }
 function closeModal() {state.modal=null;renderModal();}
@@ -434,7 +463,7 @@ async function handleAction(action, el) {
       document.querySelector('.mobile-scrim')?.classList.toggle('show',state.sidebarOpen);return;
     case 'logout':
       try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);}
-      state.user=null;setCsrf(null);setAccessToken(null);state.draft=[];render();return;
+      state.user=null;setCsrf(null);setAccessToken(null);forgetPrivateImages();state.draft=[];render();return;
     case 'new-product': state.modal={type:'product',id:0};renderModal();return;
     case 'edit-product': state.modal={type:'product',id:Number(el.dataset.id)};renderModal();return;
     case 'count': state.modal={type:'stock',id:Number(el.dataset.id)};renderModal();return;
