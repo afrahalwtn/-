@@ -34,7 +34,7 @@ try {
   const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
   page.on('pageerror',e=>errors.push(e.message));
 
-  await page.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await page.goto(base+'/admin',{waitUntil:'domcontentloaded'});
   await page.locator('form[data-form="login"]').waitFor();
   await page.screenshot({path:'screenshots/mobile-login.png',fullPage:true});
   const loginBg=await page.locator('.auth-preview').evaluate(el=>getComputedStyle(el).backgroundColor);
@@ -105,7 +105,7 @@ try {
 
   const desktop=await browser.newPage({viewport:{width:1366,height:768}});
   desktop.on('pageerror',e=>errors.push(e.message));
-  await desktop.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await desktop.goto(base+'/admin',{waitUntil:'domcontentloaded'});
   await desktop.locator('form[data-form="login"]').waitFor();
   await desktop.locator('input[name="username"]').fill('admin');
   await desktop.locator('input[name="password"]').fill('admin123456');
@@ -123,7 +123,7 @@ try {
   assert(deskWidth.scroll<=deskWidth.width+2,'Desktop layout overflows: '+JSON.stringify(deskWidth));
   const ipad=await browser.newPage({viewport:{width:820,height:1180},deviceScaleFactor:1});
   ipad.on('pageerror',e=>errors.push(e.message));
-  await ipad.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await ipad.goto(base+'/admin',{waitUntil:'domcontentloaded'});
   await ipad.locator('form[data-form="login"]').waitFor();
   await ipad.locator('input[name="username"]').fill('admin');
   await ipad.locator('input[name="password"]').fill('admin123456');
@@ -137,8 +137,41 @@ try {
 
   const ipadWidth=await ipad.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(ipadWidth.scroll<=ipadWidth.width+2,'iPad layout overflows: '+JSON.stringify(ipadWidth));
+  // Independent employee site; it must share Prepare List but never include admin controls.
+  const staff=await browser.newPage({viewport:{width:390,height:844}});
+  staff.on('pageerror',e=>errors.push(e.message));
+  await staff.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await staff.locator('#staff-login').waitFor({timeout:10000});
+  await staff.locator('input[name="username"]').fill('staff');
+  await staff.locator('input[name="password"]').fill('staff123456');
+  await staff.locator('button[type="submit"]').click();
+  await staff.locator('.af-home').waitFor({timeout:15000});
+  assert.equal(await staff.locator('.nav-link[data-nav="prepare"]').count(),1,'Prepare List must exist for staff');
+  assert.equal(await staff.locator('[data-action="new-user"],[data-action="new-product"]').count(),0,'Admin controls must be absent');
+  await staff.locator('#staff-home-search').fill('رول');
+  await staff.locator('.staff-add-to-list').first().click();
+  await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor({timeout:15000});
+  assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'Employee's first item appears in list');
+  await staff.locator('#staff-prepare-search').fill('علب');
+  await staff.locator('.staff-add-to-list').first().click();
+  await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').nth(1).waitFor({timeout:15000});
+  assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),2,'Employee's second item appends to same spreadsheet');
+  assert.equal(await staff.locator('#staff-grid .tabulator-col[tabulator-field="purchase_price"]').count(),0,'Disabled purchase-price column must be absent');
+  assert.equal(await staff.locator('#staff-grid .tabulator-col[tabulator-field="sale_price"]').count(),1,'Enabled sale-price column must be visible');
+  const quantity=staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell[tabulator-field="quantity"]').first();
+  await quantity.click();
+  await staff.locator('#staff-grid input[type="number"]').waitFor({state:'visible',timeout:8000});
+  await staff.locator('#staff-grid input[type="number"]').fill('4');
+  await staff.locator('#staff-grid input[type="number"]').press('Enter');
+  await staff.waitForFunction(()=>document.querySelector('.af-grid-editable')?.textContent?.includes('4'),null,{timeout:8000});
+  await staff.screenshot({path:'screenshots/staff-prepare.png',fullPage:true});
+  assert.equal(await staff.locator('#staff-print-list:enabled').count(),1,'Prepared list should be printable by staff');
+  assert((await staff.evaluate(()=>document.documentElement.scrollWidth-innerWidth))<=2,'Employee mobile layout must not overflow horizontally');
+  await staff.locator('.sidebar-toggle').click();
+  assert.equal(await staff.locator('[data-nav="users"],[data-nav="quotes"],[data-action="edit-product"]').count(),0,'Staff site cannot reveal management UI');
+
   assert.equal(errors.length,0,'JavaScript runtime errors: '+errors.join('; '));
-  console.log('PASS: centered logo, Tabler welcome, mobile/iPad/desktop, real Tabulator grid and multi-search quote');
+  console.log('PASS: separated admin/staff portals, shared Prepare List, role-safe price columns, and responsive mobile/iPad/desktop');
 } finally {
   if(browser)await browser.close();
   server.kill('SIGTERM');
