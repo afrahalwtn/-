@@ -116,7 +116,7 @@ try {
   assert.equal(missingCsrf.status,403,'CSRF check must remain enabled');
 
   // Product images must work with bearer authentication in cookie-blocking previews.
-  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLytQAAAABJRU5ErkJggg==','base64');
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPUqDjBwMDAxMDAwMDAAAAQagFs+4JkhgAAAABJRU5ErkJggg==','base64');
   const imageForm=new FormData();
   imageForm.set('file',new Blob([png],{type:'image/png'}),'sample.png');
   const uploaded=await request('/products/1/image',{
