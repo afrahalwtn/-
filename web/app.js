@@ -161,7 +161,7 @@ function searchableProductList(query, context) {
     '<div class="search-product-info"><strong>'+safe(p.name)+'</strong>'+
     '<span>'+safe(p.description||'')+'</span>'+
     '<small>الصنع: '+safe(p.manufacture||'—')+(canSale()?' · '+money(p.sale_price):'')+'</small></div>'+
-    (isAdmin()?'<button class="btn primary quote-add-result" type="button" data-action="quote-add-item" data-id="'+p.id+'" aria-label="إضافة '+safe(p.name)+' لعرض الأسعار">'+icon('plus',17)+' إضافة للوَصل</button>':
+    (isAdmin()?'<button class="btn primary quote-add-result" type="button" data-action="quote-add-item" data-id="'+p.id+'" aria-label="إضافة '+safe(p.name)+' لعرض الأسعار">'+icon('plus',17)+' إضافة للقائمة</button>':
       '<button class="btn quiet" type="button" data-action="nav" data-section="products">عرض المواد</button>')+
     '</article>'
   ).join('');
@@ -240,61 +240,44 @@ function usersView() {
       <div class="permission-list"><div>عرض سعر الشراء <b class="${u.can_view_purchase?'allowed':'forbidden'}">${u.can_view_purchase?'مسموح':'ممنوع'}</b></div><div>عرض سعر البيع <b class="${u.can_view_sale?'allowed':'forbidden'}">${u.can_view_sale?'مسموح':'ممنوع'}</b></div></div>
       ${u.role==='staff'?`<button type="button" class="btn quiet small" data-action="edit-user" data-id="${u.id}">${icon('edit',16)} ضبط الصلاحيات</button>`:''}</section>`).join('')}</div>`;
 }
-function quotesView() {
-  if (!isAdmin()) return '';
-  const validDraft=state.draft.map((item,idx)=>({item,idx,p:state.products.find(p=>p.id===item.product_id)})).filter(row=>row.p);
-  const total=validDraft.reduce((sum,{item,p})=>sum+item.quantity*p.sale_price,0);
-  const draftHtml=validDraft.map(({item,idx,p})=>
-    '<div class="af-receipt-item">'+
-      image(p,'af-receipt-photo')+
-      '<div class="af-receipt-product"><strong>'+safe(p.name)+'</strong>'+
-        '<p>'+safe(p.description||'')+'</p>'+
-        '<small>الصنع: '+safe(p.manufacture||'—')+'</small>'+
-        '<span class="af-receipt-price">سعر الوحدة: '+money(p.sale_price)+'</span>'+
-      '</div>'+
-      '<div class="af-receipt-controls">'+
-        '<div class="af-qty-control">'+
-          '<button type="button" data-action="quote-decrease" data-idx="'+idx+'" aria-label="تقليل العدد">'+icon('minus',15)+'</button>'+
-          '<input type="number" min="1" max="100000000" step="1" value="'+item.quantity+'" data-idx="'+idx+'" class="af-qty-input" aria-label="عدد '+safe(p.name)+'">'+
-          '<button type="button" data-action="quote-increase" data-idx="'+idx+'" aria-label="زيادة العدد">'+icon('plus',15)+'</button>'+
-        '</div>'+
-        '<strong class="af-line-total">'+money(item.quantity*p.sale_price)+'</strong>'+
-        '<button class="af-remove-item" type="button" data-action="quote-remove" data-idx="'+idx+'">'+icon('x',15)+' حذف</button>'+
-      '</div>'+
-    '</div>'
-  ).join('');
-  return '<div class="af-quotes">'+
-    '<header class="af-section-title"><div><span>شركة أفراح الوطن للتجارة العامة</span><h1>عروض الأسعار</h1><p>ابحث عن المواد وأضفها إلى ورقة واحدة، ثم احفظ العرض واطبعه.</p></div></header>'+
-    '<div class="af-quote-workspace">'+
-      '<section class="af-quote-finder" aria-label="البحث عن مواد العرض">'+
-        '<div class="af-box-heading"><span class="af-heading-icon">'+icon('search',21)+'</span><div><h2>البحث عن المواد</h2><p>يمكنك إضافة أكثر من مادة إلى نفس العرض.</p></div></div>'+
-        '<label for="quote-search" class="af-input-label">اسم المادة أو وصفها أو الصنع</label>'+
-        '<div class="af-search-input">'+icon('search',21)+'<input id="quote-search" type="search" autocomplete="off" placeholder="مثلاً: رول نايلون أو أقداح ورقية" value="'+safe(state.quoteSearch)+'"></div>'+
-        '<div id="quote-search-results" class="af-search-results" aria-live="polite">'+
-          (state.quoteSearch.trim()?searchableProductList(state.quoteSearch,'quote'):'<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للوَصل». كرر البحث لإضافة مواد أخرى.</p>')+
-        '</div>'+
-      '</section>'+
-      '<section class="af-quote-receipt" aria-label="ورقة عرض الأسعار">'+
-        '<div class="af-receipt-heading">'+
-          '<div><span class="af-receipt-tag">'+icon('receipt',18)+' ورقة عرض الأسعار</span><h2>المواد المختارة</h2></div>'+
-          '<span class="af-receipt-count">'+number(validDraft.length)+' مادة</span>'+
-        '</div>'+
-        '<div class="af-receipt-items">'+(draftHtml||'<div class="af-receipt-empty">'+icon('receipt',31)+'<strong>الوصل فارغ حالياً</strong><span>ابحث عن المادة الأولى وأضفها، ثم ابحث عن التالية.</span></div>')+'</div>'+
-        '<div class="af-receipt-footer"><div class="af-receipt-total"><span>الإجمالي</span><strong>'+money(total)+'</strong></div>'+
-          '<button type="button" class="btn primary af-save-quote" data-action="quote-create" '+(validDraft.length?'':'disabled')+'>'+icon('save',18)+' حفظ عرض الأسعار</button>'+
-        '</div>'+
-      '</section>'+
-    '</div>'+
-    '<section class="af-quotes-archive">'+
-      '<div class="af-archive-heading"><h2>عروض الأسعار المحفوظة</h2><span>'+number(state.quotes.length)+' عرض</span></div>'+
-      (state.quotes.length?'<div class="af-archive-list">'+state.quotes.map(q=>
-        '<button class="af-archive-row" type="button" data-action="quote-open" data-id="'+q.id+'">'+
-          '<span class="af-archive-icon">'+icon('receipt',20)+'</span>'+
-          '<span><strong>عرض رقم '+number(q.id)+'</strong><small>'+new Date(q.date).toLocaleDateString('ar-IQ')+' • '+number(q.items.length)+' مادة</small></span>'+
-          '<b>'+money(q.total)+'</b>'+icon('arrow',16)+
-        '</button>').join('')+'</div>':'<p class="af-no-quotes">لا توجد عروض أسعار محفوظة بعد.</p>')+
-    '</section>'+
-  '</div>'+(state.selectedQuote?quotePreview(state.selectedQuote):'');
+function prepareView(){
+  if(!isAdmin()) return '';
+  const rows=state.draft.map((d,idx)=>({d,idx,p:state.products.find(p=>p.id===d.product_id)})).filter(r=>r.p);
+  const sum=rows.reduce((n,r)=>n+r.d.quantity*r.p.sale_price,0);
+  return `<div class="af-prep">
+    <div class="af-prep-heading"><div><span class="af-prep-overline">شركة أفراح الوطن للتجارة العامة</span><h1>جهّز قائمة</h1><p>ابحث عن المواد وأضفها للجدول، ثم عدّل العدد واحفظ عرض الأسعار.</p></div></div>
+    <section class="card af-prep-search-card">
+      <div class="card-body">
+        <label for="quote-search" class="af-input-label">ابحث عن مادة لإضافتها إلى القائمة</label>
+        <div class="af-search-input">${icon('search',21)}<input id="quote-search" type="search" autocomplete="off" placeholder="اسم المنتج أو الوصف أو بلد الصنع..." value="${safe(state.quoteSearch)}"></div>
+        <div id="quote-search-results" class="af-search-results" aria-live="polite">${state.quoteSearch.trim()?searchableProductList(state.quoteSearch,'prepare'):'<p class="af-search-hint">ابحث عن المادة ثم اضغط «إضافة للقائمة». المواد المختارة تبقى بالجدول أثناء البحث عن غيرها.</p>'}</div>
+      </div>
+    </section>
+    <section class="card af-prep-sheet">
+      <header class="af-prep-sheet-header">
+        <div><span class="af-prep-sheet-title">${icon('table',23)}<h2>قائمة المواد المختارة</h2></span><p>جدول قابل للترتيب وتعديل الأعداد، مثل جداول إكسل.</p></div>
+        <span class="af-prep-count" id="prepare-count">${number(rows.length)} مادة</span>
+      </header>
+      <p class="af-prep-scroll-tip">يمكنك تمرير الجدول أفقياً على الموبايل لرؤية بقية الأعمدة.</p>
+      <div class="af-tabulator-wrap"><div id="prepare-grid" aria-label="جدول تجهيز القائمة"></div></div>
+      <footer class="af-prep-footer">
+        <div class="af-prep-sum"><span>إجمالي عرض الأسعار</span><strong id="prepare-total">${money(sum)}</strong></div>
+        <button type="button" class="btn primary af-prep-save" data-action="quote-create" ${rows.length?'':'disabled'}>${icon('save',18)} حفظ عرض الأسعار</button>
+      </footer>
+    </section>
+  </div>`;
+}
+
+function quotesView(){
+  if(!isAdmin()) return '';
+  return `<div class="af-quotes">
+    ${pageTitle('عروض الأسعار','العروض المحفوظة وصورها وأسعارها.',`<button class="btn primary" type="button" data-action="nav" data-section="prepare">${icon('table',19)} جهّز قائمة جديدة</button>`)}
+    <section class="af-quotes-archive">
+      <div class="af-archive-heading"><h2>عروض الأسعار المحفوظة</h2><span>${number(state.quotes.length)} عرض</span></div>
+      ${state.quotes.length?`<div class="af-archive-list">${state.quotes.map(q=>`<button class="af-archive-row" type="button" data-action="quote-open" data-id="${q.id}"><span class="af-archive-icon">${icon('tag',20)}</span><span><strong>عرض رقم ${number(q.id)}</strong><small>${new Date(q.date).toLocaleDateString('ar-IQ')} • ${number(q.items.length)} مادة</small></span><b>${money(q.total)}</b>${icon('arrow',16)}</button>`).join('')}</div>`:'<p class="af-no-quotes">لا توجد عروض أسعار محفوظة بعد.</p>'}
+    </section>
+    ${state.selectedQuote?quotePreview(state.selectedQuote):''}
+  </div>`;
 }
 
 function quotePreview(q) {
@@ -305,7 +288,7 @@ function quotePreview(q) {
     </tbody></table></div><div class="quote-sum">المجموع الكلي <strong>${money(q.total)}</strong></div></section>`;
 }
 function workspaceView() {
-  return ({home:homeView,products:productsView,inventory:inventoryView,alerts:alertsView,quotes:quotesView,users:usersView}[state.section] || homeView)();
+  return ({home:homeView,products:productsView,inventory:inventoryView,alerts:alertsView,prepare:prepareView,quotes:quotesView,users:usersView}[state.section] || homeView)();
 }
 function renderWorkspace() {
   const w = document.getElementById('workspace');
@@ -492,7 +475,7 @@ async function handleAction(action, el) {
         if (existing.quantity>=100000000) {showToast('بلغ العدد الحد المسموح',true);return;}
         existing.quantity+=1;
       } else state.draft.push({product_id:id,quantity:1});
-      state.quoteSearch='';state.homeSearch='';state.section='quotes';state.selectedQuote=null;
+      state.quoteSearch='';state.homeSearch='';state.section='prepare';state.selectedQuote=null;
       renderWorkspace();
       document.getElementById('quote-search')?.focus();
       showToast('تمت إضافة المادة إلى نفس الوصل');
@@ -520,7 +503,7 @@ async function handleAction(action, el) {
       if (!state.draft.length) return;
       try {
         const q=await api('/quotes',{method:'POST',data:{items:state.draft}});
-        state.selectedQuote=q;state.draft=[];await refresh();renderWorkspace();showToast('تم حفظ عرض الأسعار');
+        state.selectedQuote=q;state.draft=[];state.quoteSearch='';state.section='quotes';await refresh();renderWorkspace();showToast('تم حفظ عرض الأسعار');
         document.querySelector('.quote-preview')?.scrollIntoView({behavior:'smooth'});
       } catch(err){errorToast(err);}return;
     }
@@ -552,7 +535,7 @@ document.addEventListener('input',(e)=>{
     const results=document.getElementById('quote-search-results');
     if (results) results.innerHTML=state.quoteSearch.trim()?
       searchableProductList(state.quoteSearch,'quote'):
-      '<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للوَصل».</p>';
+      '<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للقائمة».</p>';
     if (results) void hydrateImages(results);
     return;
   }
