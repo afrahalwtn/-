@@ -61,8 +61,23 @@ try {
   const appSource = await fetch(origin + '/web/app.js');
   assert.equal(appSource.status, 200);
   const homepageCode = await appSource.text();
-  assert(homepageCode.includes('koa-hero-actions') && homepageCode.includes('koa-stock-alerts'));
+  assert(homepageCode.includes('af-home-search') && homepageCode.includes('af-home-alerts'));
   assert(homepageCode.includes('safe(a.name)'), 'Alert names must be escaped in homepage');
+  assert(homepageCode.includes('id="quote-search"'), 'Offers must have product search');
+  assert(homepageCode.includes('case \'quote-add-item\''), 'Search must add a new item to the same draft');
+  assert(homepageCode.includes('af-receipt-item'), 'Receipt rows must contain product details');
+  assert(homepageCode.includes('af-qty-input'), 'Receipt quantities must be editable');
+  assert(homepageCode.includes('case \'quote-create\''), 'Quote save must remain operational');
+  assert(html.includes('/web/afrah-clean.css?v=20261105-clean-receipts-v1'), 'New minimal UI stylesheet must be active');
+  const cleanTheme = await fetch(origin + '/web/afrah-clean.css');
+  assert.equal(cleanTheme.status,200,'Responsive clean UI must be served locally');
+  const cleanCss = await cleanTheme.text();
+  for(const marker of ['.af-home{','.af-home-search{','.af-home-alerts{','.af-quote-workspace{','.af-receipt-item{','@media(max-width:700px)']) {
+    assert(cleanCss.includes(marker),'Missing actual home/receipt styling: '+marker);
+  }
+  const realIcons = await fetch(origin + '/web/icons.js');
+  const iconCode=await realIcons.text();
+  assert(iconCode.includes('"receipt"') && iconCode.includes('"tag"'),'Tabler quote and price icons are required');
   assert(homepageCode.includes('setAccessToken(result.access_token)'), 'Working embedded login path must remain intact');
   const icons = await fetch(origin + '/web/icons.js');
   assert.equal(icons.status, 200);
@@ -95,6 +110,25 @@ try {
   });
   assert.equal(missingCsrf.status,403,'CSRF check must remain enabled');
 
+  // Multiple searched materials must be printable in a single saved quote.
+  const savedQuoteResponse=await request('/quotes',{
+    method:'POST',
+    headers:{...auth,'X-CSRF-Token':session.csrf,'Content-Type':'application/json'},
+    body:JSON.stringify({items:[{product_id:1,quantity:2},{product_id:2,quantity:3}]}),
+  });
+  assert.equal(savedQuoteResponse.status,201,'Two-product receipt must be saved');
+  const savedQuote=await savedQuoteResponse.json();
+  assert.equal(savedQuote.items.length,2);
+  assert.equal(savedQuote.items[0].quantity,2);
+  assert.equal(savedQuote.items[1].quantity,3);
+  assert.equal(savedQuote.items[0].product_name,'رول نايلون غذائي شفاف 45 سم');
+  assert.equal(savedQuote.items[1].manufacture,'إماراتي');
+  assert.equal(savedQuote.total,127000,'Quote total must multiply price by each quantity');
+  assert('image_url' in savedQuote.items[0],'Receipt must preserve image field');
+  const storedQuote=await request('/quotes/'+savedQuote.id,{headers:auth});
+  assert.equal(storedQuote.status,200,'Saved multi-item quote must be retrievable');
+  assert.equal((await storedQuote.json()).total,127000);
+
   const badLogin = await request('/auth/login',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username:'admin',password:'wrong'}),
@@ -109,7 +143,7 @@ try {
   const revoked = await request('/me',{headers:auth});
   assert.equal(revoked.status,401,'Revoked token must no longer work');
 
-  console.log('PASS: KOA homepage assets, responsive rules, Tabler/Tajawal, auth, CSRF, logout');
+  console.log('PASS: clean home, searchable receipt assets, saved multi-item quote, Tajawal, auth, CSRF, logout');
 } finally {
   server.kill('SIGTERM');
 }
