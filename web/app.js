@@ -81,7 +81,7 @@ function shell(){
         <div class="topbar-actions">
           <button type="button" class="top-alert" data-nav="alerts" aria-label="التنبيهات">${icon('bell',20)}${state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':''}</button>
           <details class="af-account-menu">
-            <summary class="af-account-trigger" aria-label="فتح قائمة الحساب">${icon('users',19)}<span>الحساب</span>${icon('chevron-down',14)}</summary>
+            <summary class="af-account-trigger" aria-label="فتح قائمة الحساب">${icon('users',19)}<span>الحساب</span>${icon('arrow',14)}</summary>
             <div class="af-account-popover">
               <div class="af-account-name"><strong>${safe(state.user.full_name)}</strong><small>${state.user.role==='admin'?'الإدارة — عرض الموظفين':'الموظف'}</small></div>
               ${state.user.role==='admin'?'<button type="button" class="portal-switch-btn" data-switch="admin">'+icon('shield',17)+' العودة للإدارة</button>':''}
