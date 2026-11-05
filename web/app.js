@@ -447,6 +447,31 @@ async function handleAction(action, el) {
       if (!confirm('تأكيد حذف المادة؟ ستبقى عروض الأسعار المحفوظة كما كانت.')) return;
       try {await api(`/products/${id}`,{method:'DELETE'});await syncAndShow('تم حذف المادة');}catch(err){errorToast(err);}return;
     }
+    case 'quote-add-item': {
+      if (!isAdmin()) return;
+      const id=Number(el.dataset.id);
+      const p=state.products.find(p=>p.id===id);
+      if (!p) {showToast('المادة غير موجودة',true);return;}
+      const existing=state.draft.find(item=>item.product_id===id);
+      if (existing) {
+        if (existing.quantity>=100000000) {showToast('بلغ العدد الحد المسموح',true);return;}
+        existing.quantity+=1;
+      } else state.draft.push({product_id:id,quantity:1});
+      state.quoteSearch='';state.homeSearch='';state.section='quotes';state.selectedQuote=null;
+      renderWorkspace();
+      document.getElementById('quote-search')?.focus();
+      showToast('تمت إضافة المادة إلى نفس الوصل');
+      return;
+    }
+    case 'quote-increase':
+    case 'quote-decrease': {
+      const idx=Number(el.dataset.idx);
+      const row=state.draft[idx];
+      if (!row) return;
+      const delta=action==='quote-increase'?1:-1;
+      row.quantity=Math.min(100000000,Math.max(1,row.quantity+delta));
+      renderWorkspace();return;
+    }
     case 'quote-add': {
       const id=Number(document.getElementById('quote-product')?.value);
       const qty=Number(document.getElementById('quote-qty')?.value);
@@ -481,11 +506,38 @@ document.addEventListener('submit',async(e)=>{
   e.preventDefault();await handleForm(form);
 });
 document.addEventListener('input',(e)=>{
+  if (e.target.id==='home-search') {
+    state.homeSearch=e.target.value;
+    const results=document.getElementById('home-search-results');
+    if (results) results.innerHTML=searchableProductList(state.homeSearch,'home');
+    return;
+  }
+  if (e.target.id==='quote-search') {
+    state.quoteSearch=e.target.value;
+    const results=document.getElementById('quote-search-results');
+    if (results) results.innerHTML=state.quoteSearch.trim()?
+      searchableProductList(state.quoteSearch,'quote'):
+      '<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للوَصل».</p>';
+    return;
+  }
   if(e.target.id==='global-search') {
     state.search=e.target.value;
     if(state.section!=='products') state.section='products';
     renderWorkspace();
   }
+});
+document.addEventListener('change',(e)=>{
+  const input=e.target.closest('.af-qty-input');
+  if (!input) return;
+  const idx=Number(input.dataset.idx),row=state.draft[idx],qty=Number(input.value);
+  if (!row) return;
+  if(!Number.isSafeInteger(qty)||qty<1||qty>100000000) {
+    input.value=String(row.quantity);
+    showToast('أدخل عدداً صحيحاً بين 1 و100000000',true);
+    return;
+  }
+  row.quantity=qty;
+  renderWorkspace();
 });
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&state.modal)closeModal();});
 boot();
