@@ -287,3 +287,26 @@ body, .main-shell{background:#f5f8fc}
 @media(prefers-reduced-motion:reduce){
  .nav-icon .i-tabler{transition:none!important}
 }
+
+
+/* Dedicated application dialog names avoid Tabler/Bootstrap's .modal{display:none}. */
+.af-modal-backdrop{
+  position:fixed;inset:0;z-index:100;display:flex;align-items:center;
+  justify-content:center;padding:16px;background:#0a1b36a6;
+  overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(3px);
+}
+.af-dialog{
+  position:relative;display:block!important;flex:none;min-width:0;
+  width:min(690px,100%);max-height:calc(100dvh - 32px);overflow-y:auto;
+  background:#fff;border:1px solid #e1eaf3;border-radius:17px;
+  box-shadow:0 24px 85px #04172d63;padding:25px 27px;color:#173852;
+}
+.af-dialog .modal-head{border-bottom:1px solid #e9eff6;padding-bottom:15px;margin-bottom:17px}
+.af-dialog .modal-head h2{font-size:21px;color:#133758}
+.af-dialog .modal-form{display:grid;gap:15px}
+.af-dialog .modal-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.af-dialog input,.af-dialog textarea{font-family:"Tajawal",Tahoma,Arial,sans-serif}
+@media(max-width:700px){
+ .af-modal-backdrop{padding:10px;align-items:center}
+ .af-dialog{width:100%;max-height:calc(100dvh - 20px);padding:20px 17px;border-radius:13px}
+}
