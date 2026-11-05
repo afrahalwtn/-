@@ -703,6 +703,8 @@ app.get('/vendor/tabler.rtl.min.css', (_req, res) => {
   const cssFile = path.join(__dirname, 'node_modules', '@tabler', 'core', 'dist', 'css', 'tabler.rtl.min.css');
   res.type('text/css').sendFile(cssFile);
 });
+// Tajawal is packaged locally so the Arabic UI works entirely offline.
+app.use('/vendor/tajawal', express.static(path.join(__dirname, 'node_modules', '@fontsource', 'tajawal')));
 app.use('/assets', express.static(path.join(__dirname, 'web', 'assets')));
 app.use('/web', express.static(path.join(__dirname, 'web')));
 
