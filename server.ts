@@ -532,6 +532,61 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
   res.json({user:userDict(ctx.user),message:'تم تحديث بيانات الدخول'});
 });
 
+// Local owner-assisted recovery is explicitly disabled unless the server operator
+// starts it with AFRAH_ENABLE_ADMIN_RECOVERY=1. Nothing is sent by email or to GitHub.
+const recoveryEnabled=process.env.AFRAH_ENABLE_ADMIN_RECOVERY==='1';
+const recoveryCode=recoveryEnabled?crypto.randomBytes(18).toString('base64url'):null;
+let recoveryExpires=Date.now()+10*60*1000;
+let recoveryFailures=0;
+let recoveryUsed=false;
+if(recoveryCode){
+  console.info('AFRAH ADMIN RECOVERY (10 minutes, one use): '+recoveryCode);
+  console.info('Enter this code in /admin > استعادة دخول الإدارة. Do not share the code.');
+}
+app.post('/api/admin/recover', (req,res)=>{
+  if(!recoveryEnabled||!recoveryCode||recoveryUsed||Date.now()>recoveryExpires){
+    res.status(404).json({detail:'الاستعادة غير مفعّلة. شغّل خيار الاستعادة محلياً على خادم الشركة'});
+    return;
+  }
+  if(recoveryFailures>=5){
+    res.status(429).json({detail:'انتهت محاولات الاستعادة. أعد تشغيل وضع الاستعادة من الخادم'});
+    return;
+  }
+  const provided=req.body?.recovery_code;
+  if(typeof provided!=='string' ||
+     !/^[A-Za-z0-9_-]{24}$/.test(provided) ||
+     !crypto.timingSafeEqual(Buffer.from(tokenDigest(provided),'hex'),Buffer.from(tokenDigest(recoveryCode),'hex'))){
+    recoveryFailures++;
+    res.status(403).json({detail:'رمز الاستعادة غير صحيح'});
+    return;
+  }
+  const newUsername=req.body?.username,newPassword=req.body?.new_password;
+  if(typeof newUsername!=='string'||!/^[A-Za-z0-9_.-]{3,60}$/.test(newUsername.trim())||
+     typeof newPassword!=='string'||newPassword.length<10||newPassword.length>128){
+    res.status(422).json({detail:'اختر اسم دخول صالحاً وكلمة مرور جديدة من 10 إلى 128 رمزاً'});
+    return;
+  }
+  const admin=Array.from(users.values()).find(u=>u.role==='admin');
+  if(!admin){
+    res.status(404).json({detail:'لا يوجد حساب إدارة لاستعادته'});
+    return;
+  }
+  const normalized=newUsername.trim().toLowerCase();
+  if(Array.from(users.values()).some(u=>u.id!==admin.id&&u.username===normalized)){
+    res.status(409).json({detail:'اسم الدخول مستخدم من حساب آخر'});
+    return;
+  }
+  admin.username=normalized;
+  admin.password=hashPassword(newPassword);
+  admin.is_active=true;
+  users.set(admin.id,admin);
+  revokeOtherUserSessions(admin.id);
+  recoveryUsed=true;
+  recoveryExpires=0;
+  const {rawToken,csrf}=createAuthSession(admin);
+  sendAuthSession(res,admin,rawToken,csrf);
+});
+
 // Admin-only session verification. Does not return any data to a staff session.
 app.get('/api/admin/me', requireAuth, requireAdmin, (req, res) => {
   const ctx=(req as any).auth as AuthContext;
