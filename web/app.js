@@ -168,7 +168,7 @@ document.addEventListener('submit',async e=>{
  submit.disabled=true;submit.textContent='جارٍ التحقق...';
  try{
   const data=new FormData(form);
-  const result=await api('/auth/login',{method:'POST',data:{username:String(data.get('username')||'').trim(),password:String(data.get('password')||'')}});
+  const result=await api('/staff/auth/login',{method:'POST',data:{username:String(data.get('username')||'').trim(),password:String(data.get('password')||'')}});
   if(result.user?.role!=='staff'){
    await api('/auth/logout',{method:'POST'}).catch(()=>{});
    throw Error('هذا حساب الإدارة. استخدم بوابة الإدارة المنفصلة.');
