@@ -290,10 +290,11 @@ const upload = multer({
   },
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, imagesDir),
-    filename: (_req, _file, cb) => {
-      const ext = '.webp';
-      const name = crypto.randomBytes(16).toString('hex') + ext;
-      cb(null, name);
+    filename: (_req, file, cb) => {
+      // Preserve the real media type; renaming JPEG/PNG to .webp broke images.
+      const ext = ({'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp'} as Record<string,string>)[file.mimetype];
+      if (!ext) return cb(new Error('نوع الصورة غير مدعوم'), '');
+      cb(null, crypto.randomBytes(16).toString('hex') + ext);
     },
   }),
 });
@@ -546,6 +547,19 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
     res.status(400).json({ detail: 'لم يتم إرسال ملف' });
     return;
   }
+  // Confirm the file's signature, not just the browser-supplied MIME type.
+  const head=Buffer.alloc(16);
+  const handle=fs.openSync(req.file.path,'r');
+  try {fs.readSync(handle,head,0,16,0);} finally {fs.closeSync(handle);}
+  const mime=req.file.mimetype;
+  const valid=mime==='image/jpeg'?head[0]===0xff&&head[1]===0xd8&&head[2]===0xff:
+    mime==='image/png'?head.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):
+    mime==='image/webp'?head.toString('ascii',0,4)==='RIFF'&&head.toString('ascii',8,12)==='WEBP':false;
+  if (!valid) {
+    fs.unlinkSync(req.file.path);
+    res.status(422).json({detail:'ملف الصورة غير صالح أو امتداده لا يطابق محتواه'});
+    return;
+  }
   p.image_name = req.file.filename;
   p.updated_at = new Date().toISOString();
   res.json({ image_url: `/api/images/${req.file.filename}` });
@@ -553,7 +567,7 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
 
 app.get('/api/images/:filename', requireAuth, (req, res) => {
   const filename = String(req.params.filename || '');
-  if (!/^[0-9a-f]{32}\.webp$/i.test(filename)) {
+  if (!/^[0-9a-f]{32}\.(?:webp|png|jpg)$/i.test(filename)) {
     res.status(404).json({ detail: 'الصورة غير موجودة' });
     return;
   }
@@ -562,6 +576,7 @@ app.get('/api/images/:filename', requireAuth, (req, res) => {
     res.status(404).json({ detail: 'الصورة غير موجودة' });
     return;
   }
+  res.type(filename.endsWith('.png')?'image/png':filename.endsWith('.jpg')?'image/jpeg':'image/webp');
   res.sendFile(filePath);
 });
 
