@@ -314,6 +314,7 @@ function drawPreparedGrid() {
   prepareTable=new window.Tabulator(host,{
     data:entries,index:'id',layout:'fitDataStretch',textDirection:'rtl',
     placeholder:'ماكو مواد بالقائمة. ابحث عن مادة وأضفها للجدول.',
+    rowFormatter:()=>{queueMicrotask(()=>{void hydrateImages(host);});},
     columns:[
       {title:'ت',formatter:'rownum',width:51,hozAlign:'center',headerSort:false,resizable:false},
       {title:'الصورة',field:'image_url',width:84,headerSort:false,formatter(cell){return image(cell.getRow().getData(),'af-grid-photo')}},
