@@ -123,38 +123,36 @@ function pageTitle(title, subtitle, buttons='') {
 function primaryButton(action, label, plus=true) { return `<button type="button" class="btn primary btn-primary" data-action="${action}">${icon(plus?'plus':'check',18)} ${label}</button>`; }
 function homeView() {
   const total = state.products.reduce((n,p)=>n+p.quantity,0);
-  return `<div class="home-head page-header">
-    <div><span class="home-overline">لوحة الرئيسية</span><h1>أهلاً بعودتك</h1><p>كل ما تحتاجه لإدارة مواد شركة أفراح الوطن في مكان واحد.</p></div>
-  </div>
-  <section class="hero" aria-label="الترحيب">
-    <div class="hero-decoration hero-decoration-one"></div>
-    <div class="hero-decoration hero-decoration-two"></div>
-    <div class="hero-text">
-      <span class="hero-kicker"><span class="hero-kicker-dot"></span> نظام أفراح الوطن</span>
-      <h2>يــا هـلا و مـرحـبـا</h2>
-      <p>شركة أفراح الوطن للتجارة العامة</p>
-    </div>
-    <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello" class="hero-logo">
-  </section>
-  <div class="section-intro"><h2>نظرة على المخزون</h2><span>ملخص المواد والكميات</span></div>
-  <div class="stat-grid">
-    <button type="button" class="stat-card card" data-action="nav" data-section="products">
-      <span class="stat-icon blue">${icon('package',25)}</span>
-      <div><small>المواد المسجّلة</small><strong>${number(state.products.length)}</strong><em>عرض المواد</em></div>
-      <span class="stat-arrow">${icon('arrow',18)}</span>
-    </button>
-    <button type="button" class="stat-card card" data-action="nav" data-section="inventory">
-      <span class="stat-icon teal">${icon('clipboard',25)}</span>
-      <div><small>إجمالي القطع المتوفرة</small><strong>${number(total)}</strong><em>عرض الجرد</em></div>
-      <span class="stat-arrow">${icon('arrow',18)}</span>
-    </button>
-    <button type="button" class="stat-card card" data-action="nav" data-section="alerts">
-      <span class="stat-icon amber">${icon('alert',25)}</span>
-      <div><small>مواد تحتاج انتباهاً</small><strong>${number(state.alerts.length)}</strong><em>عرض التنبيهات</em></div>
-      <span class="stat-arrow">${icon('arrow',18)}</span>
-    </button>
-  </div>`;
+  const alertRows = state.alerts.slice(0,3).map(a=>
+    '<div class="koa-alert-row"><span class="koa-alert-indicator '+(a.quantity===0?'koa-empty':'')+'"></span>'+
+    '<span class="koa-alert-name">'+safe(a.name)+'</span><span class="koa-alert-quantity">'+
+    (a.quantity===0?'نفدت المادة':'المتوفر: '+number(a.quantity))+'</span></div>'
+  ).join('');
+  return '<div class="koa-home">'+
+    '<div class="koa-page-heading"><div><span class="koa-page-eyebrow">شركة أفراح الوطن للتجارة العامة</span><h1>الرئيسية</h1></div><span class="koa-page-label">إدارة المواد والمخزون</span></div>'+
+    '<section class="koa-hero" aria-label="رسالة الترحيب">'+
+      '<div class="koa-hero-copy"><span class="koa-hero-kicker"><span class="koa-dot"></span> مرحباً بك في أفراح الوطن</span>'+
+      '<h2>يــا هـلا و مـرحـبـا</h2><p>مواد وتجهيزات المطاعم، والجرد، وعروض الأسعار في مكان واحد.</p>'+
+      '<div class="koa-hero-actions">'+
+        '<button type="button" class="koa-action koa-action-primary" data-action="nav" data-section="products">'+icon('package',19)+'<span>عرض المواد</span>'+icon('arrow',17)+'</button>'+
+        '<button type="button" class="koa-action koa-action-outline" data-action="nav" data-section="inventory">'+icon('clipboard',19)+'<span>الجرد</span></button>'+
+        (isAdmin()?'<button type="button" class="koa-action koa-action-outline" data-action="nav" data-section="quotes">'+icon('file',19)+'<span>عروض الأسعار</span></button>':'')+
+      '</div></div>'+
+      '<div class="koa-brand-area"><img src="/assets/tapello.svg?v=20261105-pdf-logo" class="koa-brand-logo" alt="شعار Tapello" loading="eager"></div>'+
+    '</section>'+
+    '<div class="koa-section-heading"><h2>نظرة على المخزون</h2><span>ملخص الكميات الحالية</span></div>'+
+    '<div class="koa-stats">'+
+      '<button type="button" class="koa-stat" data-action="nav" data-section="products"><span class="koa-stat-icon koa-stat-blue">'+icon('package',26)+'</span><span class="koa-stat-body"><small>المواد المسجلة</small><strong>'+number(state.products.length)+'</strong><em>عرض المواد '+icon('arrow',16)+'</em></span></button>'+
+      '<button type="button" class="koa-stat" data-action="nav" data-section="inventory"><span class="koa-stat-icon koa-stat-cyan">'+icon('clipboard',26)+'</span><span class="koa-stat-body"><small>إجمالي العدد المتوفر</small><strong>'+number(total)+'</strong><em>عرض الجرد '+icon('arrow',16)+'</em></span></button>'+
+      '<button type="button" class="koa-stat" data-action="nav" data-section="alerts"><span class="koa-stat-icon koa-stat-gold">'+icon('bell',26)+'</span><span class="koa-stat-body"><small>مواد تحتاج انتباهاً</small><strong>'+number(state.alerts.length)+'</strong><em>عرض التنبيهات '+icon('arrow',16)+'</em></span></button>'+
+    '</div>'+
+    '<section class="koa-stock-alerts" aria-label="تنبيهات المخزون">'+
+      '<div class="koa-alerts-heading"><div><span class="koa-alerts-symbol">'+icon('alert',21)+'</span><div><h2>تنبيهات المخزون</h2><p>المواد القريبة من النفاد</p></div></div>'+
+      '<button type="button" data-action="nav" data-section="alerts" class="koa-view-all">عرض الكل '+icon('arrow',17)+'</button></div>'+
+      '<div class="koa-alerts-content">'+(alertRows||'<div class="koa-stock-ok">'+icon('check',20)+' لا توجد مواد وصلت إلى حد التنبيه.</div>')+'</div>'+
+    '</section></div>';
 }
+
 function productTable(rows, inventory=false) {
   if (!rows.length) return emptyState('لا توجد مواد لعرضها','ابدأ بإضافة المواد من حساب الإدارة.','package');
   return `<div class="table-wrap"><table class="data-table">
