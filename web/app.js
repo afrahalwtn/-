@@ -3,7 +3,7 @@ import {icon} from './icons.js?v=20261105-tabler';
 
 const state = {
   user:null, section:'home', products:[], alerts:[], users:[], quotes:[],
-  search:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false,
+  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false,
 };
 const app = document.getElementById('app');
 const printRoot = document.getElementById('print-root');
@@ -121,36 +121,52 @@ function pageTitle(title, subtitle, buttons='') {
   return `<div class="page-title"><div><div class="eyebrow">شركة أفراح الوطن للتجارة العامة</div><h1>${title}</h1><p>${subtitle}</p></div><div class="page-buttons">${buttons}</div></div>`;
 }
 function primaryButton(action, label, plus=true) { return `<button type="button" class="btn primary btn-primary" data-action="${action}">${icon(plus?'plus':'check',18)} ${label}</button>`; }
-function homeView() {
-  const total = state.products.reduce((n,p)=>n+p.quantity,0);
-  const alertRows = state.alerts.slice(0,3).map(a=>
-    '<div class="koa-alert-row"><span class="koa-alert-indicator '+(a.quantity===0?'koa-empty':'')+'"></span>'+
-    '<span class="koa-alert-name">'+safe(a.name)+'</span><span class="koa-alert-quantity">'+
-    (a.quantity===0?'نفدت المادة':'المتوفر: '+number(a.quantity))+'</span></div>'
+function searchableProductList(query, context) {
+  const q=query.trim().toLocaleLowerCase('ar');
+  if (!q) return '';
+  const results=state.products.filter(p=>
+    (p.name+' '+p.description+' '+p.manufacture).toLocaleLowerCase('ar').includes(q)).slice(0,12);
+  if (!results.length) return '<p class="search-empty">ماكو مواد مطابقة للبحث.</p>';
+  return results.map(p=>
+    '<article class="search-product">'+
+    image(p,'search-product-photo')+
+    '<div class="search-product-info"><strong>'+safe(p.name)+'</strong>'+
+    '<span>'+safe(p.description||'')+'</span>'+
+    '<small>الصنع: '+safe(p.manufacture||'—')+(canSale()?' · '+money(p.sale_price):'')+'</small></div>'+
+    (isAdmin()?'<button class="btn primary quote-add-result" type="button" data-action="quote-add-item" data-id="'+p.id+'" aria-label="إضافة '+safe(p.name)+' لعرض الأسعار">'+icon('plus',17)+' إضافة للوَصل</button>':
+      '<button class="btn quiet" type="button" data-action="nav" data-section="products">عرض المواد</button>')+
+    '</article>'
   ).join('');
-  return '<div class="koa-home">'+
-    '<div class="koa-page-heading"><div><span class="koa-page-eyebrow">شركة أفراح الوطن للتجارة العامة</span><h1>الرئيسية</h1></div><span class="koa-page-label">إدارة المواد والمخزون</span></div>'+
-    '<section class="koa-hero" aria-label="رسالة الترحيب">'+
-      '<div class="koa-hero-copy"><span class="koa-hero-kicker"><span class="koa-dot"></span> مرحباً بك في أفراح الوطن</span>'+
-      '<h2>يــا هـلا و مـرحـبـا</h2><p>مواد وتجهيزات المطاعم، والجرد، وعروض الأسعار في مكان واحد.</p>'+
-      '<div class="koa-hero-actions">'+
-        '<button type="button" class="koa-action koa-action-primary" data-action="nav" data-section="products">'+icon('package',19)+'<span>عرض المواد</span>'+icon('arrow',17)+'</button>'+
-        '<button type="button" class="koa-action koa-action-outline" data-action="nav" data-section="inventory">'+icon('clipboard',19)+'<span>الجرد</span></button>'+
-        (isAdmin()?'<button type="button" class="koa-action koa-action-outline" data-action="nav" data-section="quotes">'+icon('file',19)+'<span>عروض الأسعار</span></button>':'')+
-      '</div></div>'+
-      '<div class="koa-brand-area"><img src="/assets/tapello.svg?v=20261105-pdf-logo" class="koa-brand-logo" alt="شعار Tapello" loading="eager"></div>'+
+}
+function homeView() {
+  const alerts = state.alerts.slice(0,5);
+  return '<div class="af-home">'+
+    '<section class="af-welcome" aria-label="رسالة الترحيب">'+
+      '<div class="af-welcome-copy">'+
+        '<span class="af-welcome-tag">شركة أفراح الوطن للتجارة العامة</span>'+
+        '<h1>يــا هـلا و مـرحـبـا</h1>'+
+        '<p>نظام تجهيزات المطاعم والمواد الاستهلاكية</p>'+
+      '</div>'+
+      '<div class="af-welcome-brand"><img alt="Tapello" src="/assets/tapello.svg?v=20261105-pdf-logo" class="af-welcome-logo"></div>'+
     '</section>'+
-    '<div class="koa-section-heading"><h2>نظرة على المخزون</h2><span>ملخص الكميات الحالية</span></div>'+
-    '<div class="koa-stats">'+
-      '<button type="button" class="koa-stat" data-action="nav" data-section="products"><span class="koa-stat-icon koa-stat-blue">'+icon('package',26)+'</span><span class="koa-stat-body"><small>المواد المسجلة</small><strong>'+number(state.products.length)+'</strong><em>عرض المواد '+icon('arrow',16)+'</em></span></button>'+
-      '<button type="button" class="koa-stat" data-action="nav" data-section="inventory"><span class="koa-stat-icon koa-stat-cyan">'+icon('clipboard',26)+'</span><span class="koa-stat-body"><small>إجمالي العدد المتوفر</small><strong>'+number(total)+'</strong><em>عرض الجرد '+icon('arrow',16)+'</em></span></button>'+
-      '<button type="button" class="koa-stat" data-action="nav" data-section="alerts"><span class="koa-stat-icon koa-stat-gold">'+icon('bell',26)+'</span><span class="koa-stat-body"><small>مواد تحتاج انتباهاً</small><strong>'+number(state.alerts.length)+'</strong><em>عرض التنبيهات '+icon('arrow',16)+'</em></span></button>'+
-    '</div>'+
-    '<section class="koa-stock-alerts" aria-label="تنبيهات المخزون">'+
-      '<div class="koa-alerts-heading"><div><span class="koa-alerts-symbol">'+icon('alert',21)+'</span><div><h2>تنبيهات المخزون</h2><p>المواد القريبة من النفاد</p></div></div>'+
-      '<button type="button" data-action="nav" data-section="alerts" class="koa-view-all">عرض الكل '+icon('arrow',17)+'</button></div>'+
-      '<div class="koa-alerts-content">'+(alertRows||'<div class="koa-stock-ok">'+icon('check',20)+' لا توجد مواد وصلت إلى حد التنبيه.</div>')+'</div>'+
-    '</section></div>';
+    '<section class="af-home-search" aria-label="البحث عن المواد">'+
+      '<label for="home-search" class="af-home-search-label">ابحث عن مادة</label>'+
+      '<div class="af-search-input">'+icon('search',23)+'<input id="home-search" type="search" autocomplete="off" placeholder="اكتب اسم المنتج أو وصفه أو بلد الصنع..." value="'+safe(state.homeSearch)+'"></div>'+
+      '<div id="home-search-results" class="af-search-results" aria-live="polite">'+searchableProductList(state.homeSearch,'home')+'</div>'+
+    '</section>'+
+    '<section class="af-home-alerts">'+
+      '<div class="af-home-alert-heading"><div><span class="af-alert-ico">'+icon('bell',20)+'</span><h2>تنبيهات المواد</h2>'+
+        (state.alerts.length?'<span class="af-alert-count">'+number(state.alerts.length)+'</span>':'')+
+      '</div><button type="button" data-action="nav" data-section="alerts" class="af-link">عرض جميع التنبيهات '+icon('arrow',16)+'</button></div>'+
+      '<div class="af-home-alert-list">'+
+      (alerts.length?alerts.map(a=>
+        '<div class="af-home-alert-row"><span class="af-alert-dot '+(a.quantity===0?'out':'')+'"></span>'+
+        '<strong>'+safe(a.name)+'</strong>'+
+        '<span class="af-alert-value">'+(a.quantity===0?'نفدت الكمية':'المتوفر: '+number(a.quantity))+'</span></div>'
+      ).join(''):'<div class="af-all-good">'+icon('check',20)+' لا توجد مواد وصلت إلى حد التنبيه.</div>')+
+      '</div>'+
+    '</section>'+
+  '</div>';
 }
 
 function productTable(rows, inventory=false) {
