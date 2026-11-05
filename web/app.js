@@ -113,10 +113,10 @@ function loginView() {
 }
 const navItems = [
   ['home','الرئيسية','home'], ['products','المواد','package'], ['inventory','الجرد','clipboard'],
-  ['alerts','التنبيهات','bell'], ['quotes','عروض الأسعار','tag'], ['users','المستخدمون','users'],
+  ['alerts','التنبيهات','bell'], ['prepare','جهّز قائمة','table'], ['quotes','عروض الأسعار','tag'], ['users','المستخدمون','users'],
 ];
 function renderShell() {
-  const nav = navItems.filter(([key])=> isAdmin() || !['quotes','users'].includes(key));
+  const nav = navItems.filter(([key])=> isAdmin() || !['prepare','quotes','users'].includes(key));
   return `<div class="shell shell-v6 page ${state.sidebarOpen?'':'sidebar-narrow'}">
     <aside class="sidebar navbar navbar-vertical ${state.sidebarOpen?'':'collapsed'}" id="sidebar">
       <div class="sidebar-head">
@@ -212,11 +212,15 @@ function productTable(rows, inventory=false) {
     </tr>`).join('')}</tbody></table></div>`;
 }
 function productsView() {
-  const q = state.search.trim().toLowerCase();
-  const rows = q?state.products.filter(p=>(p.name+' '+p.description+' '+p.manufacture).toLowerCase().includes(q)):state.products;
-  return `${pageTitle('المواد','إدارة مواد تجهيز المطاعم وأسعارها وصورها.',isAdmin()?primaryButton('new-product','إضافة مادة'): '')}
+  const q = state.search.trim().toLocaleLowerCase('ar');
+  const rows=q?state.products.filter(p=>(p.name+' '+p.description+' '+p.manufacture).toLocaleLowerCase('ar').includes(q)):state.products;
+  return `${pageTitle('المواد','إدارة مواد تجهيز المطاعم وأسعارها وصورها.',isAdmin()?primaryButton('new-product','إضافة مادة'):'')}
+    <div class="products-searchbar"><label for="products-search">البحث في المواد</label><div class="af-search-input">
+      ${icon('search',21)}<input id="products-search" type="search" autocomplete="off" value="${safe(state.search)}" placeholder="اسم المادة أو الوصف أو بلد الصنع..." />
+    </div></div>
     <section class="panel card"><div class="panel-head"><h2>المواد المسجّلة</h2><span class="count-label">${number(rows.length)} مادة</span></div>${productTable(rows)}</section>`;
 }
+
 function inventoryView() {
   return `${pageTitle('الجرد','متابعة العدد الفعلي لكل مادة وحدّ التنبيه عند النقص.')}
     <section class="panel card"><div class="panel-head"><h2>الكميات الحالية</h2><span class="count-label">${number(state.products.length)} مادة</span></div>${productTable(state.products,true)}</section>`;
@@ -453,7 +457,7 @@ async function handleAction(action, el) {
   switch(action) {
     case 'nav': {
       const section=el.dataset.section;
-      if (!isAdmin()&&['users','quotes'].includes(section)) return;
+      if (!isAdmin()&&['users','quotes','prepare'].includes(section)) return;
       state.section=section;state.selectedQuote=null;
       if (window.innerWidth<950) {state.sidebarOpen=false;document.getElementById('sidebar')?.classList.add('collapsed');document.querySelector('.mobile-scrim')?.classList.remove('show');}
       renderWorkspace();window.scrollTo(0,0);return;
@@ -552,10 +556,14 @@ document.addEventListener('input',(e)=>{
     if (results) void hydrateImages(results);
     return;
   }
-  if(e.target.id==='global-search') {
+  if (e.target.id==='products-search') {
+    const cursor=e.target.selectionStart;
     state.search=e.target.value;
-    if(state.section!=='products') state.section='products';
     renderWorkspace();
+    const field=document.getElementById('products-search');
+    field?.focus();
+    if (cursor!==null) field?.setSelectionRange(cursor,cursor);
+    return;
   }
 });
 document.addEventListener('change',(e)=>{
