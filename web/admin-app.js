@@ -418,16 +418,64 @@ function render() {
   app.innerHTML=state.user?renderShell():loginView();
   if (state.user) { renderWorkspace(); renderModal(); }
 }
+function extraAttributeRow(entry={label:'',value:''}){
+  return '<div class="af-extra-row"><label>اسم التفصيل<input name="extra_label" maxlength="80" value="'+safe(entry.label)+'" placeholder="السماكة"></label>'+
+    '<label>قيمة التفصيل<input name="extra_value" maxlength="400" value="'+safe(entry.value)+'" placeholder="35 مايكرون"></label>'+
+    '<button type="button" class="af-extra-remove" data-action="remove-extra-field" aria-label="حذف التفصيل">'+icon('trash',17)+'</button></div>';
+}
+function itemDecimal(v){return v===null||v===undefined?'':String(v);}
 function productModal(p) {
-  return `<div class="modal-head"><div><p class="eyebrow">إدارة المواد</p><h2>${p?'تعديل المادة':'إضافة مادة جديدة'}</h2></div><button class="icon-btn" data-action="close-modal" aria-label="إغلاق">${icon('x')}</button></div>
-    <form class="modal-form" data-form="product" data-id="${p?.id||''}">
-      <div class="form-grid"><label>اسم المنتج *<input name="name" required maxlength="140" value="${safe(p?.name||'')}" placeholder="مثال: رول نايلون"></label><label>الصنع / المنشأ<input name="manufacture" maxlength="140" value="${safe(p?.manufacture||'')}" placeholder="بلد الصنع"></label></div>
-      <label>وصف المنتج<textarea name="description" maxlength="1500" rows="2" placeholder="وصف مختصر للمنتج">${safe(p?.description||'')}</textarea></label>
-      <div class="form-grid"><label>العدد المتوفر *<input type="number" name="quantity" min="0" step="1" required value="${p?.quantity??0}"></label><label>حد التنبيه *<input type="number" name="min_quantity" min="0" step="1" required value="${p?.min_quantity??5}"></label></div>
-      <div class="form-grid"><label>سعر الشراء (د.ع) *<input type="number" name="purchase_price" min="0" step="1" required value="${p?.purchase_price??0}"></label><label>سعر البيع (د.ع) *<input type="number" name="sale_price" min="0" step="1" required value="${p?.sale_price??0}"></label></div>
-      <label>صورة المنتج <span class="field-note">اختياري — JPG / PNG / WebP بحد أقصى 3 ميغابايت</span><input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label>
-      ${p?.image_url?`<div class="image-current">${image(p)}<small>الصورة الحالية (تُستبدل عند رفع صورة جديدة)</small></div>`:''}
-      <div class="modal-actions"><button type="button" class="btn quiet" data-action="close-modal">إلغاء</button><button type="submit" class="btn primary">${icon('save',17)} حفظ المادة</button></div>
+  const field=(name,title,val)=>`<label>${title}<input type="number" name="${name}" min="0" max="1000000000000" step="0.01" inputmode="decimal" placeholder="اختياري" value="${itemDecimal(val)}"></label>`;
+  return `<div class="modal-head"><div><p class="eyebrow">إدارة الايتمات</p><h2>${p?'تعديل الايتم':'إضافة ايتم جديد'}</h2></div>
+    <button type="button" class="icon-btn" data-action="close-modal" aria-label="إغلاق">${icon('x',19)}</button></div>
+    <form class="modal-form af-item-form" data-form="product" data-id="${p?.id||''}">
+      <section class="af-item-section"><h3>معلومات الايتم</h3>
+        <div class="form-grid"><label>اسم الايتم *<input name="name" maxlength="140" required value="${safe(p?.name||'')}"></label>
+        <label>رمز الايتم أو الباركود<input name="sku" maxlength="120" value="${safe(p?.sku||'')}"></label></div>
+        <div class="form-grid">
+          <label>نوع الايتم<input name="item_type" list="af-product-types" maxlength="120" placeholder="ورقي، بلاستك، أو غيرها" value="${safe(p?.item_type||'')}">
+            <datalist id="af-product-types"><option value="ورقي"><option value="بلاستك"><option value="كارتون"><option value="معدني"><option value="زجاجي"></datalist></label>
+          <label>التصنيف<input name="category" maxlength="120" placeholder="أكواب، تغليف، أكياس..." value="${safe(p?.category||'')}"></label>
+        </div>
+        <div class="form-grid"><label>بلد الصنع<input name="manufacture" maxlength="140" value="${safe(p?.manufacture||'')}"></label>
+          <label>وحدة البيع<input name="unit" maxlength="120" placeholder="حبة، كارتون، رول..." value="${safe(p?.unit||'')}"></label></div>
+        <label>وصف الايتم<textarea name="description" maxlength="1500" rows="3">${safe(p?.description||'')}</textarea></label>
+      </section>
+      <section class="af-item-section"><h3>المخزون والجرد</h3>
+        <div class="form-grid"><label>العدد المتوفر *<input type="number" name="quantity" min="0" step="1" required value="${p?.quantity??0}"></label>
+        <label>حد التنبيه *<input type="number" name="min_quantity" min="0" step="1" required value="${p?.min_quantity??5}"></label></div>
+      </section>
+      <section class="af-item-section"><h3>الأسعار بالدينار العراقي</h3>
+        <div class="form-grid"><label>سعر الشراء (د.ع) *<input type="number" name="purchase_price" min="0" step="0.01" required value="${p?.purchase_price??0}"></label>
+          <label>سعر المفرد (د.ع) *<input type="number" name="sale_price" min="0" step="0.01" required value="${p?.sale_price??0}"></label></div>
+        <div class="form-grid">${field('wholesale_price_iqd','سعر الجملة (د.ع)',p?.wholesale_price_iqd)}</div>
+      </section>
+      <section class="af-item-section"><h3>الأسعار بالدولار</h3>
+        <div class="form-grid">${field('purchase_price_usd','سعر الشراء ($)',p?.purchase_price_usd)}
+          ${field('retail_price_usd','سعر المفرد ($)',p?.retail_price_usd)}</div>
+        <div class="form-grid">${field('wholesale_price_usd','سعر الجملة ($)',p?.wholesale_price_usd)}</div>
+        <p class="af-item-hint">الأسعار بالدولار مستقلة وتُكتب يدوياً، بدون تحويل تلقائي.</p>
+      </section>
+      <section class="af-item-section"><h3>الأبعاد والقياسات</h3>
+        <div class="form-grid">${field('length_cm','الطول (سم)',p?.length_cm)}
+          ${field('width_cm','العرض (سم)',p?.width_cm)}</div>
+        <div class="form-grid">${field('height_cm','الارتفاع (سم)',p?.height_cm)}
+          ${field('weight_g','الوزن (غرام)',p?.weight_g)}</div>
+      </section>
+      <section class="af-item-section"><h3>تفاصيل إضافية</h3>
+        <div id="af-extra-fields" class="af-extra-fields">${(p?.custom_fields||[]).map(extraAttributeRow).join('')}</div>
+        <button type="button" class="btn quiet af-add-extra" data-action="add-extra-field">${icon('plus',17)} إضافة تفصيل جديد</button>
+        <p class="af-item-hint">تگدر تضيف أي معلومة إضافية، وتعدّلها أو تحذفها لاحقاً.</p>
+      </section>
+      <section class="af-item-section"><h3>صورة الايتم</h3>
+        <label>صورة الايتم <span class="field-note">JPG / PNG / WebP، حتى 3 ميغابايت</span>
+          <input type="file" name="image" accept="image/jpeg,image/png,image/webp"></label>
+        <div id="af-item-image-preview" class="af-item-image-preview">${p?.image_url?image(p,'af-item-photo'):'<span class="af-item-image-placeholder">'+icon('package',25)+' لا توجد صورة بعد</span>'}</div>
+      </section>
+      <div class="modal-actions af-item-save">
+        <button type="button" class="btn quiet" data-action="close-modal">إلغاء</button>
+        <button type="submit" class="btn primary">${icon('save',17)} حفظ الايتم</button>
+      </div>
     </form>`;
 }
 function stockModal(p) {
@@ -471,7 +519,7 @@ function renderModal() {
   if (type==='stock') content=stockModal(state.products.find(p=>p.id===id));
   if (type==='user') content=userModal(state.users.find(u=>u.id===id));
   if (type==='delete-user') content=deleteUserModal(state.users.find(u=>u.id===id));
-  layer.innerHTML=`<div class="af-modal-backdrop" data-action="backdrop"><section class="af-dialog" role="dialog" aria-modal="true">${content}</section></div>`;
+  layer.innerHTML=`<div class="af-modal-backdrop" data-action="backdrop"><section class="af-dialog ${type==='product'?'af-item-dialog':''}" role="dialog" aria-modal="true">${content}</section></div>`;
   void hydrateImages(layer);
   document.querySelector('.af-dialog input:not([disabled])')?.focus();
 }
@@ -549,6 +597,16 @@ async function handleForm(form) {
     if (type==='product') {
       const values={name:String(fields.get('name')||''),description:String(fields.get('description')||''),manufacture:String(fields.get('manufacture')||'')};
       for (const field of ['quantity','min_quantity','purchase_price','sale_price']) values[field]=Number(fields.get(field));
+      for(const field of ['sku','category','unit','item_type'])values[field]=String(fields.get(field)||'').trim();
+      for(const field of ['length_cm','width_cm','height_cm','weight_g','purchase_price_usd','retail_price_usd','wholesale_price_iqd','wholesale_price_usd']){
+        const raw=String(fields.get(field)||'').trim();
+        values[field]=raw===''?null:Number(raw);
+      }
+      values.custom_fields=Array.from(form.querySelectorAll('.af-extra-row')).map(node=>({
+        label:String(node.querySelector('[name="extra_label"]')?.value||'').trim(),
+        value:String(node.querySelector('[name="extra_value"]')?.value||'').trim(),
+      })).filter(row=>row.label||row.value);
+      if(values.custom_fields.some(row=>!row.label||!row.value))throw new Error('اكتب اسم وقيمة كل تفصيل إضافي');
       const id=Number(form.dataset.id||0);
       const p=await api(id?`/products/${id}`:'/products',{method:id?'PUT':'POST',data:values});
       const file=fields.get('image');
@@ -630,6 +688,15 @@ async function handleAction(action, el) {
     case 'logout':
       try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);}
       state.user=null;setCsrf(null);setAccessToken(null);forgetPrivateImages();state.draft=[];render();return;
+    case 'add-extra-field': {
+      const holder=document.getElementById('af-extra-fields');
+      if(!holder)return;
+      if(holder.children.length>=25){showToast('الحد الأقصى 25 تفصيلاً إضافياً',true);return;}
+      holder.insertAdjacentHTML('beforeend',extraAttributeRow());
+      holder.lastElementChild?.querySelector('[name="extra_label"]')?.focus();
+      return;
+    }
+    case 'remove-extra-field': el.closest('.af-extra-row')?.remove();return;
     case 'new-product': state.modal={type:'product',id:0};renderModal();return;
     case 'edit-product': state.modal={type:'product',id:Number(el.dataset.id)};renderModal();return;
     case 'count': state.modal={type:'stock',id:Number(el.dataset.id)};renderModal();return;
@@ -737,6 +804,18 @@ document.addEventListener('input',(e)=>{
     if (cursor!==null) field?.setSelectionRange(cursor,cursor);
     return;
   }
+});
+document.addEventListener('change',e=>{
+  const input=e.target;
+  if(!(input instanceof HTMLInputElement)||input.name!=='image'||!input.closest('.af-item-form'))return;
+  const target=document.getElementById('af-item-image-preview');
+  if(!target||!input.files?.length)return;
+  const src=URL.createObjectURL(input.files[0]);
+  const imageNode=document.createElement('img');
+  imageNode.className='af-item-photo';imageNode.alt='معاينة صورة الايتم';
+  imageNode.src=src;imageNode.addEventListener('load',()=>URL.revokeObjectURL(src),{once:true});
+  imageNode.addEventListener('error',()=>URL.revokeObjectURL(src),{once:true});
+  target.replaceChildren(imageNode);
 });
 document.addEventListener('change',(e)=>{
   const input=e.target.closest('.af-qty-input');
