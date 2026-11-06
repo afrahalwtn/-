@@ -4,7 +4,7 @@ import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const state = {
-  user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[],
+  user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[], accountAudit:[],
   search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false,
 };
 const app = document.getElementById('app');
@@ -72,9 +72,9 @@ async function refresh() {
   state.products = products;
   state.alerts = alerts;
   if (isAdmin()) {
-    const [users, quotes] = await Promise.all([api('/users'), api('/quotes')]);
-    state.users=users; state.quotes=quotes;
-  } else { state.users=[]; state.quotes=[]; }
+    const [users, quotes, audit] = await Promise.all([api('/users'), api('/quotes'), api('/users/audit')]);
+    state.users=users; state.quotes=quotes; state.accountAudit=audit;
+  } else { state.users=[]; state.quotes=[]; state.accountAudit=[]; }
 }
 async function boot() {
   try {
@@ -271,10 +271,37 @@ function accountView() {
 }
 function usersView() {
   if (!isAdmin()) return '';
-  return `${pageTitle('المستخدمون','حساب الإدارة والتحكم بصلاحيات الاطلاع على الأسعار.',primaryButton('new-user','إضافة مستخدم'))}
-    <div class="user-cards">${state.users.map(u=>`<section class="user-card panel"><div class="user-avatar">${icon(u.role==='admin'?'user-check':'users',26)}</div><div class="user-info"><h3>${safe(u.full_name)}</h3><p dir="ltr">${safe(u.username)}</p><span class="chip ${u.is_active?'success':'danger'}">${u.role==='admin'?'الإدارة':u.is_active?'مستخدم مفعّل':'الحساب معطّل'}</span></div>
-      <div class="permission-list"><div>عرض سعر الشراء <b class="${u.can_view_purchase?'allowed':'forbidden'}">${u.can_view_purchase?'مسموح':'ممنوع'}</b></div><div>عرض سعر البيع <b class="${u.can_view_sale?'allowed':'forbidden'}">${u.can_view_sale?'مسموح':'ممنوع'}</b></div></div>
-      ${u.role==='staff'?`<button type="button" class="btn quiet small" data-action="edit-user" data-id="${u.id}">${icon('edit',16)} ضبط الصلاحيات</button>`:''}</section>`).join('')}</div>`;
+  const actionLabels={create:'إنشاء حساب',update:'تعديل الحساب',revoke_sessions:'تسجيل خروج جميع الأجهزة',delete:'حذف الحساب نهائياً'};
+  const activeCount=state.users.filter(u=>u.role==='staff'&&u.is_active).length;
+  return `${pageTitle('إدارة الحسابات','إنشاء بيانات الدخول للموظفين والتحكم بالصلاحيات والجلسات، من لوحة الإدارة فقط.',primaryButton('new-user','إنشاء حساب موظف'))}
+    <section class="af-accounts-overview" aria-label="ملخص الحسابات">
+      <div><strong>${number(state.users.filter(u=>u.role==='staff').length)}</strong><span>حسابات الموظفين</span></div>
+      <div><strong>${number(activeCount)}</strong><span>حسابات مفعّلة</span></div>
+      <div><strong>${number(state.users.reduce((sum,u)=>sum+(u.active_sessions||0),0))}</strong><span>جلسات متصلة حالياً</span></div>
+    </section>
+    <div class="user-cards">${state.users.map(u=>`<section class="user-card panel af-managed-user">
+      <div class="af-user-heading"><div class="user-avatar">${icon(u.role==='admin'?'user-check':'users',25)}</div>
+        <div class="user-info"><h3>${safe(u.full_name)}</h3><p dir="ltr">${safe(u.username)}</p></div>
+        <span class="chip ${u.is_active?'success':'danger'}">${u.role==='admin'?'الإدارة':u.is_active?'مفعّل':'معطّل'}</span></div>
+      <div class="permission-list">
+        <div>عرض سعر الشراء <b class="${u.can_view_purchase?'allowed':'forbidden'}">${u.can_view_purchase?'مسموح':'ممنوع'}</b></div>
+        <div>عرض سعر البيع <b class="${u.can_view_sale?'allowed':'forbidden'}">${u.can_view_sale?'مسموح':'ممنوع'}</b></div>
+        <div>الجلسات الحالية <b>${number(u.active_sessions||0)}</b></div>
+      </div>
+      ${u.role==='staff'?`<div class="af-user-actions">
+        <button type="button" class="btn quiet small" data-action="edit-user" data-id="${u.id}">${icon('edit',17)} تعديل الحساب</button>
+        <button type="button" class="btn quiet small" data-action="revoke-user" data-id="${u.id}" ${u.active_sessions?'':'disabled'}>${icon('logout',17)} تسجيل خروجه</button>
+        <button type="button" class="btn small af-delete-user-trigger" data-action="delete-user" data-id="${u.id}">${icon('trash',17)} حذف نهائي</button>
+      </div>`:'<p class="af-owner-protected">حساب الإدارة محمي ولا يمكن حذفه من إدارة الموظفين.</p>'}
+    </section>`).join('')}</div>
+    <section class="panel card af-security-audit"><div class="panel-head"><h2>آخر عمليات إدارة الحسابات</h2>
+      <span class="count-label">سجل أمني</span></div>
+      ${state.accountAudit.length?`<div class="af-audit-list">${state.accountAudit.slice(0,20).map(entry=>`
+        <div class="af-audit-row"><span class="af-audit-ico">${icon('shield',17)}</span>
+        <div><strong>${safe(actionLabels[entry.action]||'إجراء إداري')}</strong>
+        <small>${safe(entry.detail||'حساب رقم '+entry.target_id)} — ${safe(new Date(entry.created_at).toLocaleString('ar-IQ'))}</small></div></div>`).join('')}</div>`:
+      '<p class="af-audit-empty">لا توجد عمليات إدارية مسجلة بعد.</p>'}
+    </section>`;
 }
 function prepareView(){
   if(!isAdmin()) return '';
@@ -408,7 +435,7 @@ function stockModal(p) {
     <p class="muted">${safe(p.name)}</p><form data-form="stock" data-id="${p.id}" class="modal-form"><label>العدد الفعلي الموجود<input name="quantity" required type="number" step="1" min="0" value="${p.quantity}"></label><div class="modal-actions"><button type="button" class="btn quiet" data-action="close-modal">إلغاء</button><button type="submit" class="btn primary">حفظ الجرد</button></div></form>`;
 }
 function userModal(u) {
-  return `<div class="modal-head"><div><p class="eyebrow">إدارة الصلاحيات</p><h2>${u?'تعديل صلاحيات المستخدم':'إضافة المستخدم الثاني'}</h2></div><button class="icon-btn" data-action="close-modal">${icon('x')}</button></div>
+  return `<div class="modal-head"><div><p class="eyebrow">إدارة الصلاحيات</p><h2>${u?'إدارة حساب الموظف':'إنشاء حساب موظف'}</h2></div><button class="icon-btn" data-action="close-modal">${icon('x')}</button></div>
     <form data-form="user" data-id="${u?.id||''}" class="modal-form">
       <div class="form-grid"><label>اسم الشخص *<input name="full_name" required minlength="2" maxlength="120" value="${safe(u?.full_name||'')}"></label>
       <label>اسم الدخول (إنجليزي) *<input name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" value="${safe(u?.username||'')}" placeholder="employee" dir="ltr"></label></div>
@@ -416,7 +443,22 @@ function userModal(u) {
       <div class="switch-block"><label class="switch-line"><span><b>إظهار سعر الشراء</b><small>يسمح بعرض تكلفة شراء المنتجات</small></span><input type="checkbox" name="can_view_purchase" ${u?.can_view_purchase?'checked':''}></label>
       <label class="switch-line"><span><b>إظهار سعر البيع</b><small>يسمح بعرض سعر بيع المنتجات</small></span><input type="checkbox" name="can_view_sale" ${u?.can_view_sale?'checked':''}></label>
       ${u?`<label class="switch-line"><span><b>الحساب مفعل</b><small>إيقاف الحساب يمنع تسجيل الدخول</small></span><input type="checkbox" name="is_active" ${u.is_active?'checked':''}></label>`:''}</div>
-      <div class="modal-actions"><button type="button" class="btn quiet" data-action="close-modal">إلغاء</button><button type="submit" class="btn primary">${icon('shield',18)} حفظ الصلاحيات</button></div>
+      <div class="modal-actions"><button type="button" class="btn quiet" data-action="close-modal">إلغاء</button><button type="submit" class="btn primary">${icon('shield',18)} حفظ الحساب</button></div>
+    </form>`;
+}
+function deleteUserModal(u) {
+  if (!u || u.role!=='staff') return '<p>المستخدم غير موجود أو لا يمكن حذفه.</p>';
+  return `<div class="modal-head"><h2>حذف حساب الموظف نهائياً</h2>
+    <button class="icon-btn" type="button" data-action="close-modal" aria-label="إغلاق">${icon('x',20)}</button></div>
+    <p class="af-delete-warning">سيُحذف حساب <strong>${safe(u.full_name)}</strong> (${safe(u.username)}) نهائياً،
+      وتُلغى كل جلساته. تبقى قوائم التنفيذ السابقة محفوظة كسجل للشركة.</p>
+    <form data-form="delete-user" data-id="${u.id}" class="modal-form">
+      <label>اكتب اسم الدخول للتأكيد<input required name="confirm_username" autocomplete="off" dir="ltr" placeholder="${safe(u.username)}"></label>
+      <label>كلمة مرور الإدارة الحالية<input required name="current_password" type="password" autocomplete="current-password"></label>
+      <div class="modal-actions">
+        <button type="button" class="btn quiet" data-action="close-modal">إلغاء</button>
+        <button type="submit" class="btn af-danger-confirm">${icon('trash',17)} تأكيد الحذف النهائي</button>
+      </div>
     </form>`;
 }
 function renderModal() {
@@ -428,6 +470,7 @@ function renderModal() {
   if (type==='product') content=productModal(state.products.find(p=>p.id===id));
   if (type==='stock') content=stockModal(state.products.find(p=>p.id===id));
   if (type==='user') content=userModal(state.users.find(u=>u.id===id));
+  if (type==='delete-user') content=deleteUserModal(state.users.find(u=>u.id===id));
   layer.innerHTML=`<div class="af-modal-backdrop" data-action="backdrop"><section class="af-dialog" role="dialog" aria-modal="true">${content}</section></div>`;
   void hydrateImages(layer);
   document.querySelector('.af-dialog input:not([disabled])')?.focus();
@@ -521,6 +564,15 @@ async function handleForm(form) {
       await api(`/products/${Number(form.dataset.id)}/stock`,{method:'PATCH',data:{quantity:Number(fields.get('quantity'))}});
       await syncAndShow('تم تحديث الجرد');
     }
+    if (type==='delete-user') {
+      const id=Number(form.dataset.id||0);
+      const u=state.users.find(record=>record.id===id);
+      if(!u || u.role!=='staff')throw new Error('الحساب غير متاح للحذف');
+      if(String(fields.get('confirm_username')||'').trim()!==u.username)throw new Error('اسم الدخول للتأكيد غير مطابق');
+      await api(`/users/${id}`,{method:'DELETE',data:{current_password:String(fields.get('current_password')||'')}});
+      await syncAndShow('حُذف الحساب نهائياً وأُلغيت جلساته');
+      return;
+    }
     if (type==='user') {
       const id=Number(form.dataset.id||0);
       const data={full_name:String(fields.get('full_name')||''),can_view_purchase:fields.has('can_view_purchase'),can_view_sale:fields.has('can_view_sale')};
@@ -583,6 +635,18 @@ async function handleAction(action, el) {
     case 'count': state.modal={type:'stock',id:Number(el.dataset.id)};renderModal();return;
     case 'new-user': state.modal={type:'user',id:0};renderModal();return;
     case 'edit-user': state.modal={type:'user',id:Number(el.dataset.id)};renderModal();return;
+    case 'delete-user': state.modal={type:'delete-user',id:Number(el.dataset.id)};renderModal();return;
+    case 'revoke-user': {
+      const id=Number(el.dataset.id);
+      const target=state.users.find(u=>u.id===id&&u.role==='staff');
+      if(!target)return;
+      if(!confirm('تسجيل خروج '+target.full_name+' من جميع أجهزته الآن؟'))return;
+      try{
+        await api(`/users/${id}/revoke-sessions`,{method:'POST',data:{}});
+        await syncAndShow('أُلغيت كل جلسات المستخدم النشطة');
+      }catch(err){errorToast(err);}
+      return;
+    }
     case 'close-modal': closeModal();return;
     case 'backdrop': closeModal();return;
     case 'delete-product': {
