@@ -23,7 +23,7 @@
   padding:7px clamp(20px,3.1vw,48px) 9px;
   border-bottom:3px solid transparent;
   background:
-    linear-gradient(100deg,#dce5ff 0%,#edf2ff 48%,#fffefd 100%) padding-box,
+    linear-gradient(100deg,#d5e2ff 0%,#e9e7ff 49%,#fff8f6 100%) padding-box,
     linear-gradient(90deg,#263b87,#f63d48 84%,#f63d48) border-box;
   isolation:isolate;
 }
@@ -135,7 +135,7 @@
   --af-band-padding:12px;
   height:89px;gap:11px;padding:4px 15px 6px;
   background:
-    linear-gradient(100deg,#dce5ff 0%,#edf2ff 48%,#fffefd 100%) padding-box,
+    linear-gradient(100deg,#d5e2ff 0%,#e9e7ff 49%,#fff8f6 100%) padding-box,
     linear-gradient(90deg,#263b87,#f63d48 84%,#f63d48) border-box
  }
  .af-brand-primary{flex:0 0 clamp(169px,52vw,229px);height:78px}
