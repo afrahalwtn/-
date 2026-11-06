@@ -92,7 +92,7 @@ function loginView() {
   return `<div class="auth-page auth-v6 page page-center">
     <div class="auth-visual" aria-hidden="true">
       <div class="auth-visual-inner">
-        <div class="auth-brand-mark"><span class="auth-brand-dot"></span> شركة أفراح الوطن <small>للتجارة العامة</small></div>
+        <div class="auth-brand-mark"><img class="af-auth-main-logo" src="/assets/afrah-alwatan.svg?v=20261106" alt="أفراح الوطن"></div>
         <div class="auth-preview">
           <span class="auth-preview-top">بوابة الإدارة</span>
           <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="" class="auth-logo">
