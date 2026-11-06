@@ -14,7 +14,7 @@ const canPurchase = () => state.user?.can_view_purchase;
 const canSale = () => state.user?.can_view_sale;
 
 function status(product) {
-  if (product.quantity === 0) return '<span class="chip danger">نفدت المادة</span>';
+  if (product.quantity === 0) return '<span class="chip danger">نفد الايتم</span>';
   if (product.low_stock) return '<span class="chip warning">قريبة من النفاد</span>';
   return '<span class="chip success">متوفرة</span>';
 }
@@ -96,7 +96,7 @@ function loginView() {
         <div class="auth-preview">
           <span class="auth-preview-top">بوابة الإدارة</span>
           <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="" class="auth-logo">
-          <span class="auth-preview-bottom">المواد <i></i> الجرد <i></i> عروض الأسعار</span>
+          <span class="auth-preview-bottom">الايتمات <i></i> الجرد <i></i> عروض الأسعار</span>
         </div>
       </div>
     </div>
@@ -104,7 +104,7 @@ function loginView() {
       <div class="auth-box card">
         <span class="auth-kicker">أفراح الوطن للتجارة العامة</span>
         <h1>أهلاً بك في أفراح الوطن</h1>
-        <p class="muted">سجّل دخول الإدارة للوصول إلى المواد والجرد والصلاحيات وعروض الأسعار.</p>
+        <p class="muted">سجّل دخول الإدارة للوصول إلى الايتمات والجرد والصلاحيات وعروض الأسعار.</p>
         ${state.showRecovery? `<form data-form="recovery" class="stack-form card-body">
           <p class="auth-help">إذا فقدت رمز الإدارة، فعّل وضع الاستعادة على خادم الشركة وخذ الرمز المؤقت من شاشة الخادم. الاستعادة موقوفة افتراضياً.</p>
           <label>رمز الاستعادة من شاشة الخادم<input class="form-control" name="recovery_code" required autocomplete="off" maxlength="24" dir="ltr"></label>
@@ -125,7 +125,7 @@ function loginView() {
   </div><div id="toast" class="toast" role="status"></div>`;
 }
 const navItems = [
-  ['home','الرئيسية','home'], ['products','المواد','package'], ['inventory','الجرد','clipboard'],
+  ['home','الرئيسية','home'], ['products','الايتمات','package'], ['inventory','الجرد','clipboard'],
   ['alerts','التنبيهات','bell'], ['prepare','جهّز قائمة','table'], ['quotes','عروض الأسعار','tag'], ['users','المستخدمون','users'], ['account','بيانات الدخول','shield'],
 ];
 function renderShell() {
@@ -153,7 +153,7 @@ function renderShell() {
         <div class="topbar-start">
           <button type="button" class="icon-btn sidebar-toggle" data-action="toggle-sidebar" aria-label="فتح وإغلاق القائمة">${icon('menu',22)}</button>
         </div>
-        <div class="af-utility-intro"><strong>لوحة الإدارة</strong><span>نظام تجهيز المواد والمخزون</span></div>
+        <div class="af-utility-intro"><strong>لوحة الإدارة</strong><span>نظام تجهيز الايتمات والمخزون</span></div>
         <div class="topbar-actions">
           <button type="button" class="top-alert" data-action="nav" data-section="alerts" title="تنبيهات المخزون">${icon('bell',20)}${state.alerts.length?'<span>'+number(state.alerts.length)+'</span>':''}</button>
           <details class="af-account-menu">
@@ -177,7 +177,7 @@ function primaryButton(action, label, plus=true) { return `<button type="button"
 function searchableProductList(query, context) {
   if (!query.trim()) return '';
   const results=filterArabicProducts(state.products, query, 12);
-  if (!results.length) return '<p class="search-empty">ماكو مواد مطابقة للبحث.</p>';
+  if (!results.length) return '<p class="search-empty">ماكو ايتمات مطابقة للبحث.</p>';
   return results.map(p=>
     '<article class="search-product">'+
     image(p,'search-product-photo')+
@@ -185,7 +185,7 @@ function searchableProductList(query, context) {
     '<span>'+safe(p.description||'')+'</span>'+
     '<small>الصنع: '+safe(p.manufacture||'—')+(canSale()?' · '+money(p.sale_price):'')+'</small></div>'+
     (isAdmin()?'<button class="btn primary quote-add-result" type="button" data-action="quote-add-item" data-id="'+p.id+'" aria-label="إضافة '+safe(p.name)+' لعرض الأسعار">'+icon('plus',17)+' إضافة للقائمة</button>':
-      '<button class="btn quiet" type="button" data-action="nav" data-section="products">عرض المواد</button>')+
+      '<button class="btn quiet" type="button" data-action="nav" data-section="products">عرض الايتمات</button>')+
     '</article>'
   ).join('');
 }
@@ -197,16 +197,16 @@ function homeView() {
       <div class="card-body af-greeting-body">
         <div class="af-greeting-tag">شركة أفراح الوطن للتجارة العامة</div>
         <h1>يــا هـلا و مـرحـبـا</h1>
-        <p>اكتشف المواد، تابع المخزون، وجهّز طلباتك بسهولة من مكان واحد.</p>
+        <p>اكتشف الايتمات، تابع المخزون، وجهّز طلباتك بسهولة من مكان واحد.</p>
       </div>
     </section>
-    <section class="af-home-search" aria-label="البحث عن المواد">
-      <label for="home-search" class="af-home-search-label">ابحث عن مادة</label>
+    <section class="af-home-search" aria-label="البحث عن الايتمات">
+      <label for="home-search" class="af-home-search-label">ابحث عن ايتم</label>
       <div class="af-search-input">${icon('search',23)}<input id="home-search" type="search" autocomplete="off" placeholder="اكتب اسم المنتج أو وصفه أو بلد الصنع..." value="${safe(state.homeSearch)}"></div>
       <div id="home-search-results" class="af-search-results" aria-live="polite">${searchableProductList(state.homeSearch,'home')}</div>
     </section>
     <section class="af-home-alerts">
-      <div class="af-home-alert-heading"><div><span class="af-alert-ico">${icon('bell',20)}</span><h2>تنبيهات المواد</h2>
+      <div class="af-home-alert-heading"><div><span class="af-alert-ico">${icon('bell',20)}</span><h2>تنبيهات الايتمات</h2>
         ${state.alerts.length?`<span class="af-alert-count">${number(state.alerts.length)}</span>`:''}
         </div><button type="button" data-action="nav" data-section="alerts" class="af-link">عرض جميع التنبيهات ${icon('arrow',16)}</button></div>
       <div class="af-home-alert-list">
@@ -214,44 +214,56 @@ function homeView() {
           <span class="af-alert-dot ${a.quantity===0?'out':''}"></span>
           <strong>${safe(a.name)}</strong>
           <span class="af-alert-value">${a.quantity===0?'نفدت الكمية':'المتوفر: '+number(a.quantity)}</span>
-        </div>`).join(''):`<div class="af-all-good">${icon('check',20)} لا توجد مواد وصلت إلى حد التنبيه.</div>`}
+        </div>`).join(''):`<div class="af-all-good">${icon('check',20)} لا توجد ايتمات وصلت إلى حد التنبيه.</div>`}
       </div>
     </section>
   </div>`;
 }
 
+function priceUsd(value){return value===null||value===undefined?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(value)+' $';}
+function itemSummary(p){
+  const bits=[p.item_type,p.category,p.unit,p.sku?( 'رمز: '+p.sku ):null].filter(Boolean);
+  const dimensions=[p.length_cm,p.width_cm,p.height_cm].filter(x=>x!==null&&x!==undefined);
+  if(dimensions.length)bits.push('أبعاد: '+dimensions.join(' × ')+' سم');
+  return bits.join(' • ');
+}
 function productTable(rows, inventory=false) {
-  if (!rows.length) return emptyState('لا توجد مواد لعرضها','ابدأ بإضافة المواد من حساب الإدارة.','package');
-  return `<div class="table-wrap"><table class="data-table">
-    <thead><tr><th>المادة</th><th>الصنع</th><th>العدد</th>${inventory?'<th>حد التنبيه</th>':''}<th>الحالة</th>${!inventory&&canPurchase()?'<th>سعر الشراء</th>':''}${!inventory&&canSale()?'<th>سعر البيع</th>':''}${isAdmin()?'<th>الإجراء</th>':''}</tr></thead>
+  if (!rows.length) return emptyState('لا توجد ايتمات لعرضها','ابدأ بإضافة ايتمات من حساب الإدارة.','package');
+  return `<div class="table-wrap"><table class="data-table af-item-table">
+    <thead><tr><th>الايتم</th><th>الصنع</th><th>العدد</th>${inventory?'<th>حد التنبيه</th>':''}<th>الحالة</th>${!inventory&&canPurchase()?'<th>الشراء</th>':''}${!inventory&&canSale()?'<th>المفرد</th><th>الجملة</th>':''}${isAdmin()?'<th>الإجراء</th>':''}</tr></thead>
     <tbody>${rows.map(p=>`<tr>
-      <td><div class="product-name">${image(p)}<div><strong>${safe(p.name)}</strong><small>${safe(p.description||'—')}</small></div></div></td>
+      <td><div class="product-name">${image(p)}<div><strong>${safe(p.name)}</strong><small>${safe(p.description||'—')}</small>
+        ${itemSummary(p)?`<small class="af-item-meta">${safe(itemSummary(p))}</small>`:''}
+        ${(p.custom_fields||[]).length?`<small class="af-item-meta">${safe(p.custom_fields.slice(0,3).map(x=>x.label+': '+x.value).join(' • '))}</small>`:''}
+        </div></div></td>
       <td>${safe(p.manufacture||'—')}</td><td class="num strong">${number(p.quantity)}</td>
       ${inventory?`<td class="num">${number(p.min_quantity)}</td>`:''}
       <td>${status(p)}</td>
-      ${!inventory&&canPurchase()?`<td class="num">${money(p.purchase_price)}</td>`:''}
-      ${!inventory&&canSale()?`<td class="num">${money(p.sale_price)}</td>`:''}
-      ${isAdmin()?`<td><div class="table-actions">${inventory?`<button class="tiny-btn" title="تعديل العدد" data-action="count" data-id="${p.id}">${icon('clipboard',17)}</button>`:`<button class="tiny-btn" title="تعديل المادة" data-action="edit-product" data-id="${p.id}">${icon('edit',17)}</button><button class="tiny-btn red" title="حذف المادة" data-action="delete-product" data-id="${p.id}">${icon('trash',16)}</button>`}</div></td>`:''}
+      ${!inventory&&canPurchase()?`<td class="num"><b>${money(p.purchase_price)}</b><small class="af-price-alt">${priceUsd(p.purchase_price_usd)}</small></td>`:''}
+      ${!inventory&&canSale()?`<td class="num"><b>${money(p.sale_price)}</b><small class="af-price-alt">${priceUsd(p.retail_price_usd)}</small></td>
+        <td class="num"><b>${p.wholesale_price_iqd===null||p.wholesale_price_iqd===undefined?'—':money(p.wholesale_price_iqd)}</b>
+        <small class="af-price-alt">${priceUsd(p.wholesale_price_usd)}</small></td>`:''}
+      ${isAdmin()?`<td><div class="table-actions">${inventory?`<button class="tiny-btn" title="تعديل العدد" data-action="count" data-id="${p.id}">${icon('clipboard',17)}</button>`:`<button class="tiny-btn" title="تعديل الايتم" data-action="edit-product" data-id="${p.id}">${icon('edit',17)}</button><button class="tiny-btn red" title="حذف الايتم" data-action="delete-product" data-id="${p.id}">${icon('trash',16)}</button>`}</div></td>`:''}
     </tr>`).join('')}</tbody></table></div>`;
 }
 function productsView() {
   const rows=filterArabicProducts(state.products,state.search);
-  return `${pageTitle('المواد','إدارة مواد تجهيز المطاعم وأسعارها وصورها.',isAdmin()?primaryButton('new-product','إضافة مادة'):'')}
-    <div class="products-searchbar"><label for="products-search">البحث في المواد</label><div class="af-search-input">
-      ${icon('search',21)}<input id="products-search" type="search" autocomplete="off" value="${safe(state.search)}" placeholder="اسم المادة أو الوصف أو بلد الصنع..." />
+  return `${pageTitle('الايتمات','إدارة ايتمات تجهيز المطاعم وأسعارها وصورها.',isAdmin()?primaryButton('new-product','إضافة ايتم'):'')}
+    <div class="products-searchbar"><label for="products-search">البحث في الايتمات</label><div class="af-search-input">
+      ${icon('search',21)}<input id="products-search" type="search" autocomplete="off" value="${safe(state.search)}" placeholder="اسم الايتم أو الوصف أو بلد الصنع..." />
     </div></div>
-    <section class="panel card"><div class="panel-head"><h2>المواد المسجّلة</h2><span class="count-label">${number(rows.length)} مادة</span></div>${productTable(rows)}</section>`;
+    <section class="panel card"><div class="panel-head"><h2>الايتمات المسجّلة</h2><span class="count-label">${number(rows.length)} ايتم</span></div>${productTable(rows)}</section>`;
 }
 
 function inventoryView() {
-  return `${pageTitle('الجرد','متابعة العدد الفعلي لكل مادة وحدّ التنبيه عند النقص.')}
-    <section class="panel card"><div class="panel-head"><h2>الكميات الحالية</h2><span class="count-label">${number(state.products.length)} مادة</span></div>${productTable(state.products,true)}</section>`;
+  return `${pageTitle('الجرد','متابعة العدد الفعلي لكل ايتم وحدّ التنبيه عند النقص.')}
+    <section class="panel card"><div class="panel-head"><h2>الكميات الحالية</h2><span class="count-label">${number(state.products.length)} ايتم</span></div>${productTable(state.products,true)}</section>`;
 }
 function alertsView() {
-  return `${pageTitle('التنبيهات','المواد التي وصلت إلى الحد الأدنى أو نفدت من المخزون.')}
+  return `${pageTitle('التنبيهات','الايتمات التي وصلت إلى الحد الأدنى أو نفدت من المخزون.')}
     <section class="panel card"><div class="panel-head"><h2>تنبيهات المخزون</h2><span class="count-label">${number(state.alerts.length)} تنبيه</span></div>
-      ${!state.alerts.length?emptyState('المخزون بحالة جيدة','لا توجد مواد وصلت إلى حد التنبيه.','check'):
-      `<div class="alert-list">${state.alerts.map(a=>`<div class="alert-line"><span class="alert-badge">${icon('alert',21)}</span><div><strong>${safe(a.name)}</strong><small>${a.quantity===0?'نفدت المادة':'اقتربت من النفاد'} — المتوفر: ${number(a.quantity)} / حد التنبيه: ${number(a.min_quantity)}</small></div>${isAdmin()?`<button class="btn quiet small" data-action="count" data-id="${a.product_id}">تعديل العدد ${icon('arrow',16)}</button>`:''}</div>`).join('')}</div>`}
+      ${!state.alerts.length?emptyState('المخزون بحالة جيدة','لا توجد ايتمات وصلت إلى حد التنبيه.','check'):
+      `<div class="alert-list">${state.alerts.map(a=>`<div class="alert-line"><span class="alert-badge">${icon('alert',21)}</span><div><strong>${safe(a.name)}</strong><small>${a.quantity===0?'نفد الايتم':'اقتربت من النفاد'} — المتوفر: ${number(a.quantity)} / حد التنبيه: ${number(a.min_quantity)}</small></div>${isAdmin()?`<button class="btn quiet small" data-action="count" data-id="${a.product_id}">تعديل العدد ${icon('arrow',16)}</button>`:''}</div>`).join('')}</div>`}
     </section>`;
 }
 function emptyState(head,sub,glyph) { return `<div class="empty">${icon(glyph,32)}<h3>${head}</h3><p>${sub}</p></div>`; }
@@ -308,18 +320,18 @@ function prepareView(){
   const rows=state.draft.map((d,idx)=>({d,idx,p:state.products.find(p=>p.id===d.product_id)})).filter(r=>r.p);
   const sum=rows.reduce((n,r)=>n+r.d.quantity*r.p.sale_price,0);
   return `<div class="af-prep">
-    <div class="af-prep-heading"><div><span class="af-prep-overline">شركة أفراح الوطن للتجارة العامة</span><h1>جهّز قائمة</h1><p>ابحث عن المواد وأضفها للجدول، ثم عدّل العدد واحفظ عرض الأسعار.</p></div></div>
+    <div class="af-prep-heading"><div><span class="af-prep-overline">شركة أفراح الوطن للتجارة العامة</span><h1>جهّز قائمة</h1><p>ابحث عن الايتمات وأضفها للجدول، ثم عدّل العدد واحفظ عرض الأسعار.</p></div></div>
     <section class="card af-prep-search-card">
       <div class="card-body">
-        <label for="quote-search" class="af-input-label">ابحث عن مادة لإضافتها إلى القائمة</label>
+        <label for="quote-search" class="af-input-label">ابحث عن ايتم لإضافتها إلى القائمة</label>
         <div class="af-search-input">${icon('search',21)}<input id="quote-search" type="search" autocomplete="off" placeholder="اسم المنتج أو الوصف أو بلد الصنع..." value="${safe(state.quoteSearch)}"></div>
-        <div id="quote-search-results" class="af-search-results" aria-live="polite">${state.quoteSearch.trim()?searchableProductList(state.quoteSearch,'prepare'):'<p class="af-search-hint">ابحث عن المادة ثم اضغط «إضافة للقائمة». المواد المختارة تبقى بالجدول أثناء البحث عن غيرها.</p>'}</div>
+        <div id="quote-search-results" class="af-search-results" aria-live="polite">${state.quoteSearch.trim()?searchableProductList(state.quoteSearch,'prepare'):'<p class="af-search-hint">ابحث عن الايتم ثم اضغط «إضافة للقائمة». الايتمات المختارة تبقى بالجدول أثناء البحث عن غيرها.</p>'}</div>
       </div>
     </section>
     <section class="card af-prep-sheet">
       <header class="af-prep-sheet-header">
-        <div><span class="af-prep-sheet-title">${icon('table',23)}<h2>قائمة المواد المختارة</h2></span><p>جدول قابل للترتيب وتعديل الأعداد، مثل جداول إكسل.</p></div>
-        <span class="af-prep-count" id="prepare-count">${number(rows.length)} مادة</span>
+        <div><span class="af-prep-sheet-title">${icon('table',23)}<h2>قائمة الايتمات المختارة</h2></span><p>جدول قابل للترتيب وتعديل الأعداد، مثل جداول إكسل.</p></div>
+        <span class="af-prep-count" id="prepare-count">${number(rows.length)} ايتم</span>
       </header>
       <p class="af-prep-scroll-tip">يمكنك تمرير الجدول أفقياً على الموبايل لرؤية بقية الأعمدة.</p>
       <div class="af-tabulator-wrap"><div id="prepare-grid" aria-label="جدول تجهيز القائمة"></div></div>
@@ -337,7 +349,7 @@ function quotesView(){
     ${pageTitle('عروض الأسعار','العروض المحفوظة وصورها وأسعارها.',`<button class="btn primary" type="button" data-action="nav" data-section="prepare">${icon('table',19)} جهّز قائمة جديدة</button>`)}
     <section class="af-quotes-archive">
       <div class="af-archive-heading"><h2>عروض الأسعار المحفوظة</h2><span>${number(state.quotes.length)} عرض</span></div>
-      ${state.quotes.length?`<div class="af-archive-list">${state.quotes.map(q=>`<button class="af-archive-row" type="button" data-action="quote-open" data-id="${q.id}"><span class="af-archive-icon">${icon('tag',20)}</span><span><strong>عرض رقم ${number(q.id)}</strong><small>${new Date(q.date).toLocaleDateString('ar-IQ')} • ${number(q.items.length)} مادة</small></span><b>${money(q.total)}</b>${icon('arrow',16)}</button>`).join('')}</div>`:'<p class="af-no-quotes">لا توجد عروض أسعار محفوظة بعد.</p>'}
+      ${state.quotes.length?`<div class="af-archive-list">${state.quotes.map(q=>`<button class="af-archive-row" type="button" data-action="quote-open" data-id="${q.id}"><span class="af-archive-icon">${icon('tag',20)}</span><span><strong>عرض رقم ${number(q.id)}</strong><small>${new Date(q.date).toLocaleDateString('ar-IQ')} • ${number(q.items.length)} ايتم</small></span><b>${money(q.total)}</b>${icon('arrow',16)}</button>`).join('')}</div>`:'<p class="af-no-quotes">لا توجد عروض أسعار محفوظة بعد.</p>'}
     </section>
     ${state.selectedQuote?quotePreview(state.selectedQuote):''}
   </div>`;
@@ -346,7 +358,7 @@ function quotesView(){
 function quotePreview(q) {
   return `<section class="panel quote-preview"><div class="panel-head"><h2>عرض أسعار رقم ${number(q.id)}</h2><button class="btn secondary" data-action="quote-print">${icon('printer',18)} طباعة / حفظ PDF</button></div>
     <div class="quote-meta"><b>شركة أفراح الوطن للتجارة العامة</b><span>التاريخ: ${new Date(q.date).toLocaleDateString('ar-IQ')}</span></div>
-    <div class="table-wrap"><table class="data-table quote-table"><thead><tr><th>الصورة</th><th>المادة والوصف</th><th>الصنع</th><th>العدد</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>
+    <div class="table-wrap"><table class="data-table quote-table"><thead><tr><th>الصورة</th><th>الايتم والوصف</th><th>الصنع</th><th>العدد</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>
     ${q.items.map(i=>`<tr><td>${image({...i,name:i.product_name})}</td><td><b>${safe(i.product_name)}</b><small class="subtext">${safe(i.description)}</small></td><td>${safe(i.manufacture||'—')}</td><td>${number(i.quantity)}</td><td>${money(i.unit_price)}</td><td class="strong">${money(i.total)}</td></tr>`).join('')}
     </tbody></table></div><div class="quote-sum">المجموع الكلي <strong>${money(q.total)}</strong></div></section>`;
 }
@@ -366,7 +378,7 @@ function drawPreparedGrid() {
   const syncSummary=()=>{
     const count=document.getElementById('prepare-count');
     const total=document.getElementById('prepare-total');
-    if(count)count.textContent=number(state.draft.length)+' مادة';
+    if(count)count.textContent=number(state.draft.length)+' ايتم';
     if(total)total.textContent=money(sum());
   };
   if(typeof window.Tabulator!=='function'){
@@ -376,18 +388,18 @@ function drawPreparedGrid() {
   }
   prepareTable=new window.Tabulator(host,{
     data:entries,index:'id',layout:'fitDataStretch',textDirection:'rtl',editTriggerEvent:'click',
-    placeholder:'ماكو مواد بالقائمة. ابحث عن مادة وأضفها للجدول.',
+    placeholder:'ماكو ايتمات بالقائمة. ابحث عن ايتم وأضفها للجدول.',
     rowFormatter:()=>{queueMicrotask(()=>{void hydrateImages(host);});},
     columns:[
       {title:'ت',formatter:'rownum',width:51,hozAlign:'center',headerSort:false,resizable:false},
       {title:'الصورة',field:'image_url',width:84,headerSort:false,formatter(cell){return image(cell.getRow().getData(),'af-grid-photo')}},
-      {title:'اسم المادة',field:'name',width:188,minWidth:170,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>'}},
+      {title:'اسم الايتم',field:'name',width:188,minWidth:170,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>'}},
       {title:'الوصف',field:'description',width:200,minWidth:170,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>'},variableHeight:true},
       {title:'الصنع',field:'manufacture',width:135,minWidth:110,formatter(cell){return safe(cell.getValue()||'—')}},
       {title:'العدد',field:'quantity',width:99,hozAlign:'center',editor:'number',editorParams:{min:1,max:100000000,step:1},validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>'}},
       {title:'سعر الوحدة',field:'unit_price',width:142,hozAlign:'left',formatter(cell){return '<span class="af-grid-currency">'+money(cell.getValue())+'</span>'}},
       {title:'الإجمالي',field:'total',width:152,hozAlign:'left',formatter(cell){return '<b class="af-grid-currency">'+money(cell.getValue())+'</b>'},bottomCalc:'sum',bottomCalcFormatter(cell){return '<strong class="af-grid-total">'+money(cell.getValue()||0)+'</strong>'}},
-      {title:'حذف',width:71,hozAlign:'center',headerSort:false,formatter(cell){return '<button class="af-grid-remove" type="button" data-action="quote-remove" data-idx="'+cell.getRow().getData().idx+'" aria-label="حذف المادة">'+icon('x',17)+'</button>'}}
+      {title:'حذف',width:71,hozAlign:'center',headerSort:false,formatter(cell){return '<button class="af-grid-remove" type="button" data-action="quote-remove" data-idx="'+cell.getRow().getData().idx+'" aria-label="حذف الايتم">'+icon('x',17)+'</button>'}}
     ]
   });
   prepareTable.on('renderComplete',()=>{void hydrateImages(host)});
@@ -611,12 +623,12 @@ async function handleForm(form) {
       const p=await api(id?`/products/${id}`:'/products',{method:id?'PUT':'POST',data:values});
       const file=fields.get('image');
       if (file instanceof File && file.size) {
-        if (file.size>3*1024*1024) { await syncAndShow('تم حفظ المادة، لكن حجم الصورة أكبر من المسموح');return; }
+        if (file.size>3*1024*1024) { await syncAndShow('تم حفظ الايتم، لكن حجم الصورة أكبر من المسموح');return; }
         const formFile=new FormData();formFile.set('file',file);
         try {await api(`/products/${p.id}/image`,{method:'POST',file:formFile});}
-        catch(err) {await syncAndShow('تم حفظ المادة، لكن تعذّر رفع الصورة: '+err.message);return;}
+        catch(err) {await syncAndShow('تم حفظ الايتم، لكن تعذّر رفع الصورة: '+err.message);return;}
       }
-      await syncAndShow('تم حفظ المادة بنجاح');
+      await syncAndShow('تم حفظ الايتم بنجاح');
     }
     if (type==='stock') {
       await api(`/products/${Number(form.dataset.id)}/stock`,{method:'PATCH',data:{quantity:Number(fields.get('quantity'))}});
@@ -718,14 +730,14 @@ async function handleAction(action, el) {
     case 'backdrop': closeModal();return;
     case 'delete-product': {
       const id=Number(el.dataset.id);
-      if (!confirm('تأكيد حذف المادة؟ ستبقى عروض الأسعار المحفوظة كما كانت.')) return;
-      try {await api(`/products/${id}`,{method:'DELETE'});await syncAndShow('تم حذف المادة');}catch(err){errorToast(err);}return;
+      if (!confirm('تأكيد حذف الايتم؟ ستبقى عروض الأسعار المحفوظة كما كانت.')) return;
+      try {await api(`/products/${id}`,{method:'DELETE'});await syncAndShow('تم حذف الايتم');}catch(err){errorToast(err);}return;
     }
     case 'quote-add-item': {
       if (!isAdmin()) return;
       const id=Number(el.dataset.id);
       const p=state.products.find(p=>p.id===id);
-      if (!p) {showToast('المادة غير موجودة',true);return;}
+      if (!p) {showToast('الايتم غير موجودة',true);return;}
       const existing=state.draft.find(item=>item.product_id===id);
       if (existing) {
         if (existing.quantity>=100000000) {showToast('بلغ العدد الحد المسموح',true);return;}
@@ -734,7 +746,7 @@ async function handleAction(action, el) {
       state.quoteSearch='';state.homeSearch='';state.section='prepare';state.selectedQuote=null;
       renderWorkspace();
       document.getElementById('quote-search')?.focus();
-      showToast('تمت إضافة المادة إلى نفس الوصل');
+      showToast('تمت إضافة الايتم إلى نفس الوصل');
       return;
     }
     case 'quote-increase':
@@ -749,7 +761,7 @@ async function handleAction(action, el) {
     case 'quote-add': {
       const id=Number(document.getElementById('quote-product')?.value);
       const qty=Number(document.getElementById('quote-qty')?.value);
-      if (!id||!Number.isSafeInteger(qty)||qty<1||qty>100000000) {showToast('اختر مادة وأدخل عدداً صحيحاً',true);return;}
+      if (!id||!Number.isSafeInteger(qty)||qty<1||qty>100000000) {showToast('اختر ايتم وأدخل عدداً صحيحاً',true);return;}
       const found=state.draft.find(i=>i.product_id===id);
       if (found) found.quantity+=qty; else state.draft.push({product_id:id,quantity:qty});
       renderWorkspace();return;
@@ -791,7 +803,7 @@ document.addEventListener('input',(e)=>{
     const results=document.getElementById('quote-search-results');
     if (results) results.innerHTML=state.quoteSearch.trim()?
       searchableProductList(state.quoteSearch,'quote'):
-      '<p class="af-search-hint">اكتب اسم المادة، ثم اضغط «إضافة للقائمة».</p>';
+      '<p class="af-search-hint">اكتب اسم الايتم، ثم اضغط «إضافة للقائمة».</p>';
     if (results) void hydrateImages(results);
     return;
   }
