@@ -63,9 +63,29 @@ try {
   await page.locator('.nav-link[data-section="products"]').click();
   await page.locator('[data-action="edit-product"][data-id="1"]').click();
   await page.locator('.af-dialog').waitFor({state:'visible'});
+  // Product editor must expose all item attributes and support extra rows.
+  await page.locator('.af-item-form input[name="item_type"]').fill('بلاستك');
+  await page.locator('.af-item-form input[name="wholesale_price_iqd"]').fill('9000');
+  await page.locator('.af-item-form input[name="retail_price_usd"]').fill('7.5');
+  await page.locator('.af-item-form input[name="length_cm"]').fill('28');
+  await page.locator('.af-item-form [data-action="add-extra-field"]').click();
+  await page.locator('.af-extra-row [name="extra_label"]').fill('السماكة');
+  await page.locator('.af-extra-row [name="extra_value"]').fill('30 مايكرون');
+  assert.equal(await page.locator('.af-extra-row').count(),1,'Item custom field added');
+  await page.screenshot({path:'screenshots/mobile-item-editor.png',fullPage:true});
+
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPUqDjBwMDAxMDAwMDAAAAQagFs+4JkhgAAAABJRU5ErkJggg==','base64');
   await page.locator('.af-dialog input[name="image"]').setInputFiles({name:'test-product.png',mimeType:'image/png',buffer:png});
   await page.locator('.af-dialog button[type="submit"]').click();
+  await page.locator('[data-action="edit-product"][data-id="1"]').click();
+  await page.locator('.af-item-form').waitFor({state:'visible'});
+  assert.equal(await page.locator('.af-item-form input[name="item_type"]').inputValue(),'بلاستك');
+  assert.equal(await page.locator('.af-item-form input[name="wholesale_price_iqd"]').inputValue(),'9000');
+  assert.equal(await page.locator('.af-extra-row [name="extra_value"]').inputValue(),'30 مايكرون');
+  await page.locator('.af-extra-row [data-action="remove-extra-field"]').click();
+  assert.equal(await page.locator('.af-extra-row').count(),0,'Admin can remove a custom detail');
+  await page.locator('.af-dialog [data-action="close-modal"]').first().click();
+
   await page.waitForFunction(
     ()=>Array.from(document.querySelectorAll('img.product-thumb[data-private-image]')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),
     null,{timeout:15000}
