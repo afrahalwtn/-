@@ -152,6 +152,46 @@ try {
   assert.equal((await request('/admin/me',{headers:employeeHeader})).status,403,'Staff cannot enter admin API');
   assert.equal((await request('/users',{headers:employeeHeader})).status,403,'Staff cannot manage users');
   assert.equal((await request('/quotes',{headers:employeeHeader})).status,403,'Staff cannot read management quotations');
+  // Item editor: separate IQD/USD values, dimensions, arbitrary specifications and server-side permissions.
+  const itemCreation=await request('/products',{
+    method:'POST',headers:{...auth,'Content-Type':'application/json','X-CSRF-Token':session.csrf},
+    body:JSON.stringify({
+      name:'ايتم ورقي جديد',description:'اختبار تفاصيل الايتم',manufacture:'العراق',
+      quantity:13,min_quantity:3,purchase_price:8000,sale_price:11000,
+      item_type:'ورقي',category:'تغليف',sku:'TEST-ITEM-2026',unit:'كارتون',
+      length_cm:42,width_cm:33,height_cm:11,weight_g:850,
+      wholesale_price_iqd:9500,purchase_price_usd:6.1,
+      retail_price_usd:8.5,wholesale_price_usd:7.2,
+      custom_fields:[{label:'السماكة',value:'40 مايكرون'}],
+    }),
+  });
+  assert.equal(itemCreation.status,201,'Manager can create a complete item');
+  const item=await itemCreation.json();
+  assert.equal(item.item_type,'ورقي');
+  assert.equal(item.retail_price_usd,8.5);
+  assert.equal(item.wholesale_price_iqd,9500);
+  assert.equal(item.length_cm,42);
+  assert.equal(item.custom_fields[0].value,'40 مايكرون');
+  const staffItems=await request('/products',{headers:employeeHeader});
+  const visibleItem=(await staffItems.json()).find(p=>p.id===item.id);
+  assert(visibleItem,'New item is available to staff');
+  assert.equal(visibleItem.purchase_price_usd,undefined,'Staff cannot see hidden purchase USD prices');
+  assert.equal(visibleItem.retail_price_usd,8.5,'Staff sale USD prices follow sale permission');
+  assert.equal((await request('/products?q=%D8%A7%D9%84%D8%B3%D9%85%D8%A7%D9%83%D8%A9',{headers:auth})).status,200,'Extra attributes are searchable');
+  const itemUpdate=await request('/products/'+item.id,{
+    method:'PUT',headers:{...auth,'Content-Type':'application/json','X-CSRF-Token':session.csrf},
+    body:JSON.stringify({wholesale_price_iqd:null,custom_fields:[],item_type:'بلاستك'}),
+  });
+  assert.equal(itemUpdate.status,200,'Manager can modify/remove item details');
+  const changedItem=await itemUpdate.json();
+  assert.equal(changedItem.wholesale_price_iqd,null);
+  assert.equal(changedItem.item_type,'بلاستك');
+  assert.equal(changedItem.custom_fields.length,0);
+  const invalidSpecs=await request('/products/'+item.id,{
+    method:'PUT',headers:{...auth,'Content-Type':'application/json','X-CSRF-Token':session.csrf},
+    body:JSON.stringify({custom_fields:[{label:'',value:'nonempty'}]}),
+  });
+  assert.equal(invalidSpecs.status,422,'Invalid custom details must be rejected');
   const employeeProducts=await request('/products',{headers:employeeHeader});
   assert.equal(employeeProducts.status,200);
   const employeeRows=await employeeProducts.json();
