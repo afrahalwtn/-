@@ -53,6 +53,9 @@ try {
   const mainLogoMobile=await page.locator('.af-brand-primary').boundingBox();
   const tapelloMobile=await page.locator('.af-brand-secondary').boundingBox();
   assert(mainLogoMobile && tapelloMobile && mainLogoMobile.x>=tapelloMobile.x+tapelloMobile.width-2,'RTL mobile logo placement must not overlap');
+  assert(mainLogoMobile.width > tapelloMobile.width * 1.45,'The primary Afrah logo must be substantially larger than Tapello');
+  const gradientBand=await page.locator('.af-brand-row').evaluate(el=>getComputedStyle(el).backgroundImage);
+  assert(gradientBand.includes('linear-gradient'),'Both logos must sit on a shared full-width gradient band');
   await page.screenshot({path:'screenshots/mobile-home.png',fullPage:true});
 
   // Upload a genuine image, check it appears securely when the product is searched.
@@ -117,6 +120,7 @@ try {
   const mainLogoDesktop=await desktop.locator('.af-brand-primary').boundingBox();
   const tapelloDesktop=await desktop.locator('.af-brand-secondary').boundingBox();
   assert(mainLogoDesktop && tapelloDesktop && mainLogoDesktop.x>=tapelloDesktop.x+tapelloDesktop.width-2,'RTL desktop logos must not overlap');
+  assert(mainLogoDesktop.width > tapelloDesktop.width * 1.5,'Desktop main Afrah logo must dominate over the subordinate Tapello brand');
   await desktop.locator('.nav-link[data-section="prepare"]').click();
   await desktop.locator('#prepare-grid').waitFor({timeout:8000});
   await desktop.screenshot({path:'screenshots/desktop-prepare.png',fullPage:true});
