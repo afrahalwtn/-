@@ -167,3 +167,182 @@
  .auth-brand-mark .af-auth-main-logo{width:min(71vw,204px);max-height:93px}
  .auth-preview .auth-logo{width:150px!important;max-height:66px!important;margin:5px auto!important}
 }
+
+/* Mobile refinement v3: preserve tablet and desktop compositions unchanged.
+   Use the same restrained corporate palette on login, home, and navigation. */
+@media(max-width:700px){
+  /* A single horizontal identity band replaces the tall stacked login logos. */
+  .auth-page.auth-v6.page{
+    min-height:100dvh;display:flex;flex-direction:column;
+    background:#fff;overflow-x:clip;
+  }
+  .auth-v6 .auth-visual{
+    flex:0 0 104px;height:104px;min-height:104px!important;max-height:104px!important;
+    padding:9px clamp(16px,5vw,25px)!important;
+    background:linear-gradient(100deg,#d5e2ff 0%,#e9e7ff 49%,#fff8f6 100%)!important;
+    border-bottom:2px solid #a3a4d5;
+    box-shadow:none!important;overflow:hidden;
+  }
+  .auth-v6 .auth-visual-inner{
+    display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,.9fr);
+    align-items:center;justify-content:space-between;direction:rtl;
+    gap:clamp(12px,5vw,28px);width:100%;max-width:430px;margin:0 auto;
+  }
+  .auth-v6 .auth-brand-mark{
+    width:100%;height:82px;padding:0;margin:0;
+    display:flex!important;align-items:center;justify-content:flex-start;
+  }
+  .auth-v6 .auth-brand-mark .af-auth-main-logo{
+    display:block;width:100%!important;max-width:203px!important;
+    height:78px;max-height:78px;object-fit:contain;object-position:right center;
+  }
+  .auth-v6 .auth-preview{
+    width:100%!important;min-width:0;max-width:none!important;min-height:0!important;
+    height:72px;padding:0!important;margin:0!important;
+    border:0!important;box-shadow:none!important;background:transparent!important;
+    display:flex;align-items:center;justify-content:center;gap:0!important;
+  }
+  .auth-v6 .auth-preview .auth-logo{
+    width:100%!important;max-width:132px!important;height:65px!important;
+    max-height:65px!important;object-fit:contain;object-position:left center;
+    margin:0!important;padding:0!important;background:transparent!important;
+  }
+  /* Keep the sign-in controls comfortably above the fold on small phones. */
+  .auth-v6 .auth-content{
+    flex:1 0 auto;min-height:0!important;
+    display:flex;justify-content:center;align-items:flex-start;
+    padding:24px clamp(18px,5vw,26px) 34px!important;background:#fff!important;
+  }
+  .auth-v6 .auth-box.card{
+    width:100%;max-width:410px;padding:0!important;margin:0 auto;
+  }
+  .auth-v6 .auth-kicker{
+    display:inline-flex;align-items:center;
+    font-size:11px;line-height:1.5;font-weight:850;color:#35438e;
+    background:#f0f1ff;border:1px solid #e1e4fb;
+    border-radius:999px;padding:6px 11px;
+  }
+  .auth-v6 .auth-box h1{
+    color:#1f3064!important;font-size:clamp(23px,6.8vw,29px)!important;
+    line-height:1.34;letter-spacing:0;margin:12px 0 7px!important;
+    text-wrap:balance;
+  }
+  .auth-v6 .auth-box>p.muted{
+    font-size:12px;line-height:1.75;color:#687995;margin:0 0 20px!important;
+  }
+  .auth-v6 .stack-form.card-body{gap:15px!important;padding:0!important}
+  .auth-v6 .stack-form label{gap:6px;font-size:13px;color:#24375e}
+  .auth-v6 .stack-form input.form-control{
+    min-height:48px!important;height:48px!important;
+    padding:9px 13px;border:1px solid #dce4f2;
+    border-radius:11px;background:#f8faff;font-size:16px;
+  }
+  .auth-v6 .stack-form input.form-control:focus{
+    background:#fff;border-color:#6975c3;box-shadow:0 0 0 3px #525cb51c;
+  }
+  .auth-v6 .stack-form button.btn-primary{
+    height:50px;min-height:50px;border-radius:11px;
+    margin-top:1px;background:#36469b;border:1px solid #36469b;
+    color:#fff;font-size:14px;box-shadow:0 6px 15px #25357a19;
+  }
+  .auth-v6 .stack-form button.btn-primary:hover{
+    background:#253577;border-color:#253577;
+  }
+  /* Mobile-only soft navigation drawer: belongs to the same identity as the header. */
+  .shell.shell-v6.page .sidebar.navbar.navbar-vertical,
+  .shell.shell-v6.page .sidebar.navbar-vertical{
+    width:min(82vw,286px)!important;
+    max-width:calc(100vw - 38px);
+    background:linear-gradient(165deg,#f1f3ff 0%,#fff 54%,#f7f8ff 100%)!important;
+    color:#203265!important;
+    border:0!important;border-inline-start:1px solid #e2e5f4!important;
+    box-shadow:-15px 0 44px #161f4a33!important;
+    overflow-x:hidden;overflow-y:auto;
+    scrollbar-width:thin;scrollbar-color:#d3d9f1 transparent;
+  }
+  .shell.shell-v6.page .sidebar.navbar-vertical.collapsed{
+    width:min(82vw,286px)!important;transform:translateX(105%);
+  }
+  .shell .sidebar .sidebar-head{
+    border-bottom:1px solid #e2e6f6;
+    padding:15px 9px 20px;min-height:86px;margin-bottom:9px;
+  }
+  .shell .sidebar .sidebar-titles strong{color:#212f6f!important;font-size:17px}
+  .shell .sidebar .sidebar-titles small{color:#7984a6!important}
+  .shell .sidebar .brand-square{
+    color:#344292!important;
+    background:#e8ebff!important;border:1px solid #d5dcfa!important;
+    box-shadow:none!important;
+  }
+  .shell .sidebar .menu-caption{
+    color:#7e88ac!important;font-size:11px;font-weight:800;
+    margin:16px 12px 9px;
+  }
+  .shell .sidebar nav{gap:5px}
+  .shell .sidebar .nav-link{
+    color:#35456c!important;background:transparent!important;
+    border:1px solid transparent!important;border-radius:12px!important;
+    min-height:49px;padding:6px 10px;font-weight:800;font-size:13px;
+    box-shadow:none!important;
+  }
+  .shell .sidebar .nav-link .nav-icon{
+    color:#4b60a0!important;background:#f0f2ff!important;
+    border:1px solid #e5e9fa!important;border-radius:10px;
+  }
+  .shell .sidebar .nav-link:hover{
+    color:#243581!important;background:#eef1ff!important;
+    border-color:#dfe4fa!important;
+  }
+  .shell .sidebar .nav-link.active{
+    color:#26377d!important;
+    background:linear-gradient(100deg,#e6eaff,#f5f5ff)!important;
+    border-color:#d9dffa!important;
+    box-shadow:inset -3px 0 #ef4958!important;
+  }
+  .shell .sidebar .nav-link.active .nav-icon{
+    color:#303e91!important;background:#dce2ff!important;
+    border-color:#cdd6ff!important;
+  }
+  .shell .sidebar .nav-count{background:#ef4958!important;color:white!important}
+  .shell .sidebar .sidebar-bottom{
+    border-top:1px solid #e3e7f3!important;color:#68749b!important;
+    font-size:12px;padding-top:20px;
+  }
+  .shell .sidebar .sidebar-bottom-line{background:#ef4958!important}
+  .mobile-scrim.show{background:#19224879!important;backdrop-filter:blur(2px)}
+  /* Phone home: remove oversized decorative rings and dead vertical space. */
+  .af-home-v4{gap:13px}
+  .af-home-v4 .af-greeting-card.card{min-height:148px!important;border-radius:17px!important}
+  .af-home-v4 .af-greeting-card:before{display:none!important}
+  .af-home-v4 .af-greeting-card:after{
+    top:0;right:0;bottom:auto;width:62px;height:3px;
+    background:linear-gradient(90deg,#4555a3,#ef4958);
+  }
+  .af-home-v4 .af-greeting-body.card-body{
+    min-height:148px!important;padding:18px 19px!important;
+    justify-content:center;align-items:flex-start!important;text-align:right!important;
+  }
+  .af-home-v4 .af-greeting-tag{
+    font-size:10.5px;line-height:1.5;border-radius:9px;
+    padding:5px 9px;
+  }
+  .af-home-v4 .af-greeting-body h1{
+    font-size:clamp(24px,6.8vw,28px)!important;line-height:1.26!important;
+    margin:10px 0 5px!important;
+  }
+  .af-home-v4 .af-greeting-body p{font-size:12px!important;line-height:1.65!important}
+  .af-home-v4 .af-home-search{padding:15px 16px!important;border-radius:16px}
+  .af-home-v4 .af-home-alerts{border-radius:16px}
+  .af-home-v4 .af-home-search-label{margin-bottom:8px}
+  .af-home-v4 .af-search-input{height:47px}
+}
+@media(max-width:360px){
+  .auth-v6 .auth-visual{height:92px;min-height:92px!important;max-height:92px!important}
+  .auth-v6 .auth-visual-inner{grid-template-columns:minmax(0,1.65fr) minmax(0,.83fr);gap:9px}
+  .auth-v6 .auth-brand-mark{height:74px}
+  .auth-v6 .auth-brand-mark .af-auth-main-logo{height:68px;max-height:68px}
+  .auth-v6 .auth-preview .auth-logo{max-height:54px!important;height:54px!important}
+  .auth-v6 .auth-content{padding:18px 17px 28px!important}
+  .auth-v6 .auth-box h1{font-size:23px!important}
+  .af-home-v4 .af-greeting-body.card-body{padding:15px!important}
+}
