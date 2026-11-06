@@ -486,3 +486,111 @@
  .af-accounts-overview>div{padding-inline:5px}
  .af-user-actions>.btn{flex:1 1 100%}
 }
+
+
+/* Structured item editor: fast data entry for large inventories, RTL at every width. */
+.af-dialog.af-item-dialog{
+  width:min(880px,calc(100vw - 26px))!important;
+  max-width:880px!important;
+  max-height:calc(100dvh - 28px)!important;
+  overflow-y:auto;overscroll-behavior:contain;
+  background:#fff;border:1px solid #dfe5f2;
+  border-radius:19px;box-shadow:0 24px 70px #1b275c2f;
+}
+.af-item-dialog .modal-head{
+  padding-bottom:17px;margin-bottom:14px;
+  border-bottom:1px solid #e5e9f3;align-items:flex-start;
+}
+.af-item-dialog .modal-head h2{font-size:23px;line-height:1.4;color:#212d65;margin:4px 0}
+.af-item-dialog .modal-head .eyebrow{color:#5a65a3}
+.af-item-form{gap:0!important;display:flex!important;flex-direction:column;min-width:0}
+.af-item-section{padding:20px 0;border-bottom:1px solid #e7ebf4;min-width:0}
+.af-item-section:first-child{padding-top:8px}
+.af-item-section h3{
+  font-size:15px;font-weight:900;line-height:1.6;color:#27366b;
+  margin:0 0 15px;display:flex;align-items:center;gap:10px
+}
+.af-item-section h3:before{
+  content:"";display:inline-block;width:3px;height:18px;border-radius:4px;
+  background:linear-gradient(180deg,#4a5eb9,#ef5567);flex:none
+}
+.af-item-section .form-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 15px;
+  align-items:start;margin-bottom:12px;min-width:0
+}
+.af-item-form label{
+  display:flex;flex-direction:column;gap:7px;
+  min-width:0;font-size:12px;font-weight:800;color:#394968;
+}
+.af-item-form :is(input:not([type="file"]),textarea){
+  width:100%;min-width:0;min-height:44px!important;
+  height:auto;padding:10px 12px!important;
+  border:1px solid #dce3f1;border-radius:10px;background:#f9fbff;
+  font-size:14px;font-family:inherit;color:#1d315e;box-shadow:none;
+}
+.af-item-form textarea{resize:vertical;min-height:91px!important;line-height:1.7}
+.af-item-form :is(input,textarea):focus{
+  outline:0;border-color:#626db8;box-shadow:0 0 0 3px #6570b61a
+}
+.af-item-form input[type="file"]{
+  border:1px dashed #b8c6ea;min-height:48px;border-radius:10px;
+  padding:10px;font-size:12px;background:#f7f9ff;max-width:100%
+}
+.af-item-form .field-note{font-size:11px;font-weight:500;color:#7785a1}
+.af-item-hint{font-size:11px;line-height:1.75;color:#74819d;margin:3px 0 0}
+.af-item-form .af-extra-fields{display:flex;flex-direction:column;gap:10px}
+.af-item-form .af-extra-row{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 39px;
+  gap:10px;align-items:end;min-width:0;
+}
+.af-item-form .af-extra-remove{
+  width:39px;height:44px;display:grid;place-items:center;padding:0;
+  border:1px solid #f1d6dc;background:#fff4f5;color:#ba4053;
+  border-radius:10px;cursor:pointer
+}
+.af-item-form .af-extra-remove:hover{background:#fce3e8}
+.af-item-form .af-add-extra{
+  min-height:39px;align-self:flex-start;margin-top:12px;
+  border:1px solid #dce2f4;color:#334794;background:#f0f3ff;
+  font-weight:850;display:inline-flex;gap:8px;align-items:center;justify-content:center
+}
+.af-item-form .af-add-extra:hover{background:#e6ebff}
+.af-item-image-preview{
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  min-height:115px;max-width:255px;margin-top:12px;
+  border:1px solid #e2e8f5;border-radius:13px;background:#f8faff;
+}
+.af-item-image-preview .af-item-photo{
+  width:100%;max-height:186px;height:auto;min-height:115px;
+  object-fit:contain;display:block;background:#fff
+}
+.af-item-image-placeholder{
+  min-height:115px;display:flex;gap:10px;align-items:center;justify-content:center;
+  padding:16px;font-size:12px;color:#8590ab
+}
+.af-item-save{
+  position:sticky;bottom:-26px;z-index:2;background:#fff;
+  padding:15px 0 6px!important;margin-top:4px;
+  border-top:1px solid #e7ebf4;display:flex;gap:10px;justify-content:flex-start
+}
+.af-item-save .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:43px}
+.af-item-table .product-name>div{max-width:360px;min-width:0}
+.af-item-meta{display:block!important;font-weight:550;color:#697b9e!important;line-height:1.65;margin-top:5px}
+.af-item-table .af-price-alt{display:block;color:#7584a2;font-size:11px;margin-top:5px;white-space:nowrap}
+.staff-product-info .af-item-meta,.search-product-info .af-item-meta{
+  color:#7282a5!important;display:block;max-width:100%;white-space:normal;
+  overflow-wrap:anywhere;line-height:1.7;font-size:11px
+}
+@media(max-width:700px){
+ .af-dialog.af-item-dialog{width:calc(100vw - 16px)!important;max-height:calc(100dvh - 16px)!important;padding:17px 15px;border-radius:14px}
+ .af-item-dialog .modal-head h2{font-size:19px}
+ .af-item-section{padding:16px 0}
+ .af-item-section h3{font-size:14px;margin-bottom:12px}
+ .af-item-section .form-grid{grid-template-columns:minmax(0,1fr);gap:10px;margin-bottom:10px}
+ .af-item-form .af-extra-row{grid-template-columns:minmax(0,1fr) 39px;gap:8px}
+ .af-item-form .af-extra-row label:nth-child(2){grid-column:1}
+ .af-item-form .af-extra-remove{grid-column:2;grid-row:1/3;align-self:center}
+ .af-item-save{bottom:-17px;padding:13px 0!important}
+ .af-item-save .btn{flex:1 1 0}
+ .af-item-image-preview{max-width:100%}
+}
