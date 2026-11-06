@@ -151,3 +151,12 @@
 }
 @media(max-width:375px){.af-brand-primary{flex-basis:116px}.af-brand-secondary img{width:105px}.af-utility-intro strong{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.af-dual-header *, .af-home-v4 .af-greeting-card{animation:none!important;transition:none!important}}
+
+/* Sign-in follows the same brand endorsement system; no altered logo artwork. */
+.auth-brand-mark{display:flex!important;align-items:center!important;justify-content:center!important}
+.auth-brand-mark .af-auth-main-logo{display:block;width:min(84%,285px);height:auto;max-height:135px;object-fit:contain;filter:none;background:none;border:0}
+.auth-preview .auth-logo{display:block;width:min(55%,235px)!important;max-width:235px!important;height:auto!important;max-height:100px!important;object-fit:contain;margin:12px auto 18px!important}
+@media(max-width:700px){
+ .auth-brand-mark .af-auth-main-logo{width:min(71vw,204px);max-height:93px}
+ .auth-preview .auth-logo{width:150px!important;max-height:66px!important;margin:5px auto!important}
+}
