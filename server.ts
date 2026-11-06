@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, type ExecutionLine } from './storage.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -269,6 +269,37 @@ function revokeOtherUserSessions(userId:number,keepHash?:string){
     if(sess.user_id===userId && hash!==keepHash)sessions.delete(hash);
   }
 }
+function terminateUserAccess(userId:number):number {
+  let ended=0;
+  for(const [hash,sess] of sessions){
+    if(sess.user_id===userId){sessions.delete(hash);ended++;}
+  }
+  // Invalidate pending one-time portal handoffs as well.
+  for(const [ticket,item] of handoffs){
+    if(item.userId===userId)handoffs.delete(ticket);
+  }
+  return ended;
+}
+// Small single-server failure throttle. Never reveals whether a username exists.
+const loginFailures=new Map<string,{count:number,until:number}>();
+function loginThrottleKey(req:Request):string {
+  return String(req.ip||req.socket.remoteAddress||'unknown').slice(0,120);
+}
+function loginTooFast(key:string):boolean {
+  const now=Date.now(),entry=loginFailures.get(key);
+  if(!entry)return false;
+  if(now>=entry.until){loginFailures.delete(key);return false;}
+  return entry.count>=8;
+}
+function recordLoginFailure(key:string):void {
+  const now=Date.now(),entry=loginFailures.get(key);
+  if(!entry||now>=entry.until)loginFailures.set(key,{count:1,until:now+15*60*1000});
+  else entry.count++;
+  if(loginFailures.size>3000){
+    for(const [k,v] of loginFailures)if(v.until<=now)loginFailures.delete(k);
+  }
+}
+
 
 
 
@@ -438,6 +469,12 @@ app.get('/api/health', (_req, res) => {
 // Auth
 app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (req, res) => {
   const { username, password } = req.body || {};
+  const throttleKey=loginThrottleKey(req);
+  if(loginTooFast(throttleKey)){
+    res.setHeader('Retry-After','900');
+    res.status(429).json({detail:'محاولات دخول كثيرة من هذا الجهاز. حاول لاحقاً'});
+    return;
+  }
   if (!username || !password) {
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     return;
@@ -445,6 +482,7 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (r
   const uname = String(username).toLowerCase().trim();
   const u = Array.from(users.values()).find((user) => user.username.toLowerCase() === uname);
   if (!u || !u.is_active || !verifyPassword(String(password),u.password)) {
+    recordLoginFailure(throttleKey);
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     return;
   }
@@ -452,6 +490,7 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (r
     res.status(403).json({ detail: 'بوابة الإدارة مخصصة للمسؤول فقط' });
     return;
   }
+  loginFailures.delete(throttleKey);
   const {rawToken,csrf}=createAuthSession(u);
   sendAuthSession(res,u,rawToken,csrf);
 });
@@ -763,7 +802,7 @@ app.get('/api/alerts', requireAuth, (_req, res) => {
 // Users
 app.get('/api/users', requireAuth, requireAdmin, (_req, res) => {
   const list = Array.from(users.values()).sort((a, b) => a.id - b.id);
-  res.json(list.map((u) => userDict(u)));
+  res.json(list.map((u) => ({...userDict(u),active_sessions:Array.from(sessions.values()).filter(sess=>sess.user_id===u.id).length})));
 });
 
 app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
@@ -795,6 +834,7 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     created_at: new Date().toISOString(),
   };
   users.set(id, u);
+  recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'create',u.username);
   res.status(201).json(userDict(u));
 });
 
@@ -843,7 +883,41 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
     }
   }
   users.set(u.id,u);
+  recordAccountAudit(((req as any).auth as AuthContext).user.id,u.id,'update',u.username);
   res.json(userDict(u));
+});
+
+// Destructive account controls are always server-side, manager-only and CSRF protected.
+app.get('/api/users/audit',requireAuth,requireAdmin,(_req,res)=>{
+  res.json(listAccountAudit(60));
+});
+app.post('/api/users/:id/revoke-sessions',requireAuth,requireCsrf,requireAdmin,(req,res)=>{
+  const id=Number(req.params.id),u=users.get(id);
+  if(!Number.isSafeInteger(id)||!u||u.role!=='staff'){
+    res.status(404).json({detail:'المستخدم غير موجود أو لا يمكن إنهاء جلساته'});
+    return;
+  }
+  const count=terminateUserAccess(id);
+  recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'revoke_sessions',u.username);
+  res.json({ok:true,revoked_sessions:count,message:'تم تسجيل خروج المستخدم من جميع الأجهزة'});
+});
+app.delete('/api/users/:id',requireAuth,requireCsrf,requireAdmin,(req,res)=>{
+  const id=Number(req.params.id),u=users.get(id);
+  if(!Number.isSafeInteger(id)||!u||u.role!=='staff'){
+    res.status(404).json({detail:'لا يمكن حذف هذا الحساب'});
+    return;
+  }
+  const ctx=(req as any).auth as AuthContext;
+  const confirmation=req.body?.current_password;
+  if(typeof confirmation!=='string'||!verifyPassword(confirmation,ctx.user.password)){
+    res.status(403).json({detail:'يجب إدخال كلمة مرور الإدارة الصحيحة لتأكيد الحذف النهائي'});
+    return;
+  }
+  const count=terminateUserAccess(id);
+  users.delete(id);
+  recordAccountAudit(ctx.user.id,id,'delete',u.username);
+  // Retain business execution lists under their historical author ID for auditability.
+  res.json({ok:true,revoked_sessions:count,message:'حُذف حساب المستخدم نهائياً مع إبقاء سجلات العمل'});
 });
 
 // Execution lists: staff record what they carried out from existing catalogue
