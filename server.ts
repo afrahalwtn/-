@@ -65,6 +65,20 @@ interface Product {
   sale_price: number;
   image_name: string | null;
   updated_at: string;
+  // Optional catalog extensions: existing SQLite items remain compatible.
+  item_type?: string;
+  category?: string;
+  sku?: string;
+  unit?: string;
+  length_cm?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  weight_g?: number | null;
+  purchase_price_usd?: number | null;
+  retail_price_usd?: number | null;
+  wholesale_price_iqd?: number | null;
+  wholesale_price_usd?: number | null;
+  custom_fields?: { label: string; value: string }[];
 }
 
 interface QuoteLine {
@@ -324,16 +338,67 @@ function productDict(p: Product, u: User) {
     manufacture: p.manufacture,
     quantity: p.quantity,
     min_quantity: p.min_quantity,
+    item_type: p.item_type || '',
+    category: p.category || '',
+    sku: p.sku || '',
+    unit: p.unit || '',
+    length_cm: p.length_cm ?? null,
+    width_cm: p.width_cm ?? null,
+    height_cm: p.height_cm ?? null,
+    weight_g: p.weight_g ?? null,
+    custom_fields: p.custom_fields || [],
     image_url: p.image_name ? `/api/images/${p.image_name}` : null,
     low_stock: p.quantity <= p.min_quantity,
   };
+  // Extra prices follow the exact same server-side authorizations as legacy pricing.
   if (u.role === 'admin' || u.can_view_purchase) {
     data.purchase_price = p.purchase_price;
+    data.purchase_price_usd = p.purchase_price_usd ?? null;
   }
   if (u.role === 'admin' || u.can_view_sale) {
     data.sale_price = p.sale_price;
+    data.retail_price_usd = p.retail_price_usd ?? null;
+    data.wholesale_price_iqd = p.wholesale_price_iqd ?? null;
+    data.wholesale_price_usd = p.wholesale_price_usd ?? null;
   }
   return data;
+}
+// Optional per-item specifications are validated and stored together with each item.
+function parseProductExtras(source: Record<string,unknown>): Partial<Product> {
+  const extras: Partial<Product> = {};
+  const textFields = ['item_type','category','sku','unit'] as const;
+  for (const field of textFields) {
+    if (!Object.prototype.hasOwnProperty.call(source,field)) continue;
+    if (source[field] !== null && typeof source[field] !== 'string') throw Error('صيغة حقل الأيتم غير صالحة');
+    const value = String(source[field] ?? '').trim();
+    if (value.length > 120) throw Error('قيمة الحقل طويلة جداً');
+    extras[field] = value;
+  }
+  const numberFields = ['length_cm','width_cm','height_cm','weight_g','purchase_price_usd','retail_price_usd','wholesale_price_iqd','wholesale_price_usd'] as const;
+  for (const field of numberFields) {
+    if (!Object.prototype.hasOwnProperty.call(source,field)) continue;
+    const raw=source[field];
+    if (raw === '' || raw === null || raw === undefined) { extras[field]=null; continue; }
+    if (typeof raw !== 'number' && typeof raw !== 'string') throw Error('يجب إدخال رقم صالح للقياس أو السعر');
+    const value=Number(raw);
+    if (!Number.isFinite(value) || value < 0 || value > 1e12) throw Error('القياس أو السعر خارج الحدود المسموحة');
+    extras[field]=Math.round(value*100)/100;
+  }
+  if (Object.prototype.hasOwnProperty.call(source,'custom_fields')) {
+    const raw=source.custom_fields;
+    if (!Array.isArray(raw) || raw.length>25) throw Error('الحد الأقصى 25 حقلاً إضافياً لكل أيتم');
+    const labels=new Set<string>();
+    extras.custom_fields=raw.map((entry:any)=>{
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+        typeof entry.label !== 'string' || typeof entry.value !== 'string') throw Error('الحقل الإضافي غير صالح');
+      const label=entry.label.trim(),value=entry.value.trim();
+      if (!label || !value || label.length>80 || value.length>400) throw Error('كل حقل إضافي يحتاج عنواناً وقيمة ضمن الحدود');
+      if (labels.has(label.toLocaleLowerCase('ar'))) throw Error('لا تكرر عنوان الحقل الإضافي');
+      labels.add(label.toLocaleLowerCase('ar'));
+      return {label,value};
+    });
+  }
+  return extras;
 }
 
 function quoteDict(q: Quote) {
@@ -662,7 +727,7 @@ app.get('/api/products', requireAuth, (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.slice(0,200) : '';
   let list = Array.from(products.values());
   if (q.trim()) {
-    list = list.filter(p => matchesArabicSearch(q, p.name, p.description, p.manufacture));
+    list = list.filter(p => matchesArabicSearch(q, p.name, p.description, p.manufacture, p.item_type, p.category, p.sku, p.unit, ...(p.custom_fields||[]).flatMap(x=>[x.label,x.value])));
   }
   list.sort((a, b) => b.id - a.id);
   res.json(list.map((p) => productDict(p, ctx.user)));
@@ -672,7 +737,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
   const ctx = (req as any).auth as AuthContext;
   const { name, description = '', manufacture = '', quantity = 0, min_quantity = 0, purchase_price = 0, sale_price = 0 } = req.body;
   if (!name || typeof name !== 'string') {
-    res.status(422).json({ detail: 'اسم المادة مطلوب' });
+    res.status(422).json({ detail: 'اسم الأيتم مطلوب' });
     return;
   }
   const id = allocateRecordId('products');
@@ -688,6 +753,8 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
     image_name: null,
     updated_at: new Date().toISOString(),
   };
+  try { Object.assign(p,parseProductExtras(req.body||{})); }
+  catch(error){res.status(422).json({detail:(error as Error).message});return;}
   products.set(id, p);
   res.status(201).json(productDict(p, ctx.user));
 });
@@ -701,6 +768,12 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
     return;
   }
   const { name, description, manufacture, quantity, min_quantity, purchase_price, sale_price } = req.body;
+  let extras:Partial<Product>;
+  try { extras=parseProductExtras(req.body||{}); }
+  catch(error){res.status(422).json({detail:(error as Error).message});return;}
+  if(name !== undefined && (typeof name !== 'string' || !name.trim())){
+    res.status(422).json({detail:'اسم الأيتم مطلوب'});return;
+  }
   if (name !== undefined) p.name = String(name).trim();
   if (description !== undefined) p.description = String(description);
   if (manufacture !== undefined) p.manufacture = String(manufacture);
@@ -708,6 +781,7 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
   if (min_quantity !== undefined) p.min_quantity = Math.max(0, Number(min_quantity) || 0);
   if (purchase_price !== undefined) p.purchase_price = Math.max(0, Number(purchase_price) || 0);
   if (sale_price !== undefined) p.sale_price = Math.max(0, Number(sale_price) || 0);
+  Object.assign(p,extras);
   p.updated_at = new Date().toISOString();
   products.set(p.id,p);
   res.json(productDict(p, ctx.user));
