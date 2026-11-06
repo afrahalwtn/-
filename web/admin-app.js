@@ -138,7 +138,7 @@ function renderShell() {
       </div>
       <p class="menu-caption">القائمة الرئيسية</p>
       <nav aria-label="التنقل الرئيسي">${nav.map(([key,title,glyph])=>`<button type="button" class="nav-link ${state.section===key?'active':''}" data-action="nav" data-section="${key}" title="${title}"><span class="nav-icon nav-icon-${key}">${icon(glyph,20)}</span><span>${title}</span>${key==='alerts'&&state.alerts.length?`<b class="nav-count">${state.alerts.length}</b>`:''}</button>`).join('')}</nav>
-      <div class="sidebar-bottom"><span class="sidebar-bottom-line"></span><span>Tapello</span></div>
+      
     </aside>
     <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-action="toggle-sidebar"></div>
     <div class="main-shell">
