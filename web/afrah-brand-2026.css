@@ -385,11 +385,11 @@
   width:39px;min-width:39px;height:39px;flex:0 0 39px;
   display:grid!important;place-items:center!important;align-self:center;
   padding:0!important;margin:0!important;
-  color:#485c9c!important;border:0!important;
+  color:inherit!important;border:0!important;
   background:transparent!important;box-shadow:none!important;
 }
 .shell .sidebar .nav-link.active .nav-icon{
-  background:transparent!important;border:0!important;color:#2b3b95!important
+  background:transparent!important;border:0!important;color:inherit!important
 }
 .shell .sidebar .nav-icon .i-tabler{
   display:block;width:22px!important;height:22px!important;
