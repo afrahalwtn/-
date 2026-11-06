@@ -35,7 +35,7 @@ export function filterArabicProducts(products, query, limit = Infinity) {
   if (!terms.length) return products.slice(0, limit);
   const matches = [];
   for (const product of products) {
-    if (matchesArabicSearch(query, product.name, product.description, product.manufacture)) {
+    if (matchesArabicSearch(query, product.name, product.description, product.manufacture, product.item_type, product.category, product.sku, product.unit, ...(product.custom_fields||[]).flatMap(row=>[row.label,row.value]))) {
       matches.push(product);
       if (matches.length >= limit) break;
     }
