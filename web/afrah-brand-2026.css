@@ -310,6 +310,18 @@
   }
   .shell .sidebar .sidebar-bottom-line{background:#ef4958!important}
   .mobile-scrim.show{background:#19224879!important;backdrop-filter:blur(2px)}
+  /* Preserve the tablet header, but give the phone more vertical breathing room. */
+  .af-dual-header.topbar.navbar{
+    grid-template-rows:77px 51px;min-height:128px!important;
+    column-gap:9px;padding-inline:11px!important;
+  }
+  .af-dual-header .af-brand-row{
+    --af-band-padding:11px;height:77px;
+    gap:9px;padding:3px 13px 5px;
+  }
+  .af-brand-primary{flex:0 0 clamp(152px,49vw,191px);height:67px}
+  .af-brand-secondary{flex:0 1 clamp(87px,26vw,119px);height:62px}
+  .af-brand-secondary img{height:50px}
   /* Phone home: remove oversized decorative rings and dead vertical space. */
   .af-home-v4{gap:13px}
   .af-home-v4 .af-greeting-card.card{min-height:148px!important;border-radius:17px!important}
