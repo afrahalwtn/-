@@ -13,42 +13,39 @@
   background:#fff!important;border-bottom:1px solid #e8edf6;
   box-shadow:0 8px 30px #1c2d6210;backdrop-filter:none;
 }
+/* Corporate endorsement band: one uninterrupted three-tone field, NOT two logo cards. */
 .af-dual-header .af-brand-row{
+  --af-band-padding:clamp(16px,2.3vw,34px);
   grid-area:brands;display:flex;direction:rtl;align-items:center;justify-content:space-between;
-  width:100%;min-width:0;gap:clamp(14px,2.5vw,28px);
-  height:118px;border-bottom:1px solid #e8ecf4;padding:8px 0 10px;
+  width:calc(100% + 2 * var(--af-band-padding));min-width:0;
+  margin-inline:calc(-1 * var(--af-band-padding));
+  gap:clamp(18px,4vw,60px);height:118px;
+  padding:7px clamp(20px,3.1vw,48px) 9px;
+  border-bottom:3px solid transparent;
+  background:
+    linear-gradient(100deg,#dce5ff 0%,#edf2ff 48%,#fffefd 100%) padding-box,
+    linear-gradient(90deg,#263b87,#f63d48 84%,#f63d48) border-box;
+  isolation:isolate;
 }
 .af-brand-primary{
-  display:flex;align-items:center;justify-content:center;flex:0 0 clamp(172px,23vw,252px);
-  height:99px;min-width:0;border-radius:14px;background:white;
+  display:flex;align-items:center;justify-content:flex-end;
+  flex:0 0 clamp(230px,30vw,335px);height:98px;min-width:0;
+  border:0;border-radius:0;box-shadow:none;background:transparent;
 }
-.af-brand-primary img{display:block;width:100%;height:100%;object-fit:contain}
+.af-brand-primary img{display:block;width:100%;height:100%;object-fit:contain;object-position:right center}
 .af-brand-secondary{
-  display:flex;align-items:center;justify-content:center;gap:clamp(8px,2vw,22px);
-  flex:1;min-width:0;position:relative;isolation:isolate;overflow:hidden;
-  min-height:92px;padding:13px clamp(18px,2.6vw,40px);
-  border-radius:22px;background:linear-gradient(115deg,#192b5e 0%,#293e82 60%,#122352 100%);
-  color:white;box-shadow:inset 0 1px #ffffff26;
+  display:flex;align-items:center;justify-content:flex-start;
+  flex:0 0 clamp(125px,16vw,177px);min-width:0;
+  height:88px;min-height:0;padding:0;margin:0;
+  border:0;border-radius:0;box-shadow:none;background:none!important;
+  color:#293a7a;overflow:visible;isolation:auto;
 }
-.af-brand-secondary:before{
-  content:"";position:absolute;inset:0 auto 0 0;width:35%;
-  background:radial-gradient(ellipse at 0% 125%,#788ad753,transparent 74%);
-  pointer-events:none;z-index:-1;
-}
-.af-brand-secondary:after{
-  content:"";position:absolute;inset:0 0 0 auto;width:6px;background:var(--af-brand-red);
-  transform:skew(-25deg);transform-origin:top;pointer-events:none;
-}
+.af-brand-secondary::before,.af-brand-secondary::after{content:none!important;display:none!important}
 .af-brand-secondary img{
-  width:clamp(134px,17vw,212px);height:59px;object-fit:contain;
-  filter:brightness(0) invert(1);flex:0 0 auto;
+  display:block;width:100%;height:71px;object-fit:contain;object-position:left center;
+  filter:none!important;flex:0 1 auto;
 }
-.af-brand-secondary-copy{
-  direction:rtl;text-align:right;line-height:1.55;
-  font-size:clamp(11px,1.12vw,14px);font-weight:750;
-  color:#e7edff;border-inline-start:1px solid #ffffff65;
-  padding-inline-start:clamp(10px,1.8vw,22px);
-}
+.af-brand-secondary-copy{display:none!important}
 .af-dual-header .topbar-start{grid-area:toggle;z-index:1;margin:0!important;gap:10px}
 .af-dual-header .af-utility-intro{grid-area:intro;min-width:0;direction:rtl;text-align:right}
 .af-utility-intro strong{display:block;font-size:15px;line-height:1.35;font-weight:900;color:#172c55}
@@ -124,22 +121,26 @@
 .af-dual-header button:focus-visible,.af-dual-header summary:focus-visible{outline:3px solid #7481d1;outline-offset:3px}
 @media(max-width:970px){
  .af-dual-header.topbar.navbar{grid-template-rows:101px 58px;min-height:159px!important}
- .af-dual-header .af-brand-row{height:101px}
- .af-brand-primary{flex-basis:195px;height:81px}
- .af-brand-secondary{min-height:74px;padding:8px 17px}
- .af-brand-secondary img{width:150px;height:54px}
- .af-brand-secondary-copy{font-size:11px}
+ .af-dual-header .af-brand-row{height:101px;gap:20px;padding:7px 22px 8px}
+ .af-brand-primary{flex:0 0 clamp(207px,31vw,275px);height:85px}
+ .af-brand-secondary{flex:0 0 clamp(105px,16vw,145px);height:78px}
+ .af-brand-secondary img{height:63px}
 }
 @media(max-width:700px){
  .af-dual-header.topbar.navbar{
-  grid-template-columns:auto 1fr auto;grid-template-rows:83px 54px;
-  min-height:137px!important;padding:0 12px!important;column-gap:8px
+  grid-template-columns:auto 1fr auto;grid-template-rows:89px 54px;
+  min-height:143px!important;padding:0 12px!important;column-gap:8px
  }
- .af-dual-header .af-brand-row{height:83px;gap:10px;padding:6px 0 7px}
- .af-brand-primary{flex:0 0 clamp(121px,38%,167px);height:68px}
- .af-brand-secondary{min-height:61px;border-radius:15px;padding:6px 10px}
- .af-brand-secondary img{width:min(100%,145px);height:44px}
- .af-brand-secondary-copy{display:none}
+ .af-dual-header .af-brand-row{
+  --af-band-padding:12px;
+  height:89px;gap:11px;padding:4px 15px 6px;
+  background:
+    linear-gradient(100deg,#dce5ff 0%,#edf2ff 48%,#fffefd 100%) padding-box,
+    linear-gradient(90deg,#263b87,#f63d48 84%,#f63d48) border-box
+ }
+ .af-brand-primary{flex:0 0 clamp(169px,52vw,229px);height:78px}
+ .af-brand-secondary{flex:0 1 clamp(97px,28vw,131px);height:73px}
+ .af-brand-secondary img{width:100%;height:59px}
  .af-utility-intro strong{font-size:12px}
  .af-utility-intro span{display:none}
  .af-dual-header .topbar-actions{gap:6px}
@@ -149,7 +150,13 @@
  .af-home-v4 .af-greeting-body.card-body{min-height:178px;padding:25px 20px!important}
  .af-home-v4 .af-greeting-body h1{font-size:27px!important}
 }
-@media(max-width:375px){.af-brand-primary{flex-basis:116px}.af-brand-secondary img{width:105px}.af-utility-intro strong{font-size:11px}}
+@media(max-width:375px){
+ .af-dual-header .af-brand-row{padding-inline:12px;gap:6px}
+ .af-brand-primary{flex-basis:clamp(160px,52vw,193px)}
+ .af-brand-secondary{flex-basis:clamp(82px,27vw,100px)}
+ .af-brand-secondary img{height:54px}
+ .af-utility-intro strong{font-size:11px}
+}
 @media(prefers-reduced-motion:reduce){.af-dual-header *, .af-home-v4 .af-greeting-card{animation:none!important;transition:none!important}}
 
 /* Sign-in follows the same brand endorsement system; no altered logo artwork. */
