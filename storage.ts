@@ -138,3 +138,38 @@ export function allocateRecordId(kind:RecordKind):number {
   metaSet.run(key,String(next));
   return next;
 }
+
+
+/* Account security audit: records administrative actions without passwords or tokens.
+   History is retained separately from user credentials and the business activity ledger. */
+db.exec(`
+CREATE TABLE IF NOT EXISTS account_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_id INTEGER NOT NULL,
+  target_id INTEGER NOT NULL,
+  action TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT ''
+) STRICT;
+CREATE INDEX IF NOT EXISTS account_audit_recent ON account_audit(id DESC);
+`);
+const insertAudit=db.prepare('INSERT INTO account_audit(actor_id,target_id,action,created_at,detail) VALUES(?,?,?,?,?)');
+const recentAudit=db.prepare('SELECT id,actor_id,target_id,action,created_at,detail FROM account_audit ORDER BY id DESC LIMIT ?');
+export interface AccountAuditEvent {
+  id:number;
+  actor_id:number;
+  target_id:number;
+  action:string;
+  created_at:string;
+  detail:string;
+}
+export function recordAccountAudit(actorId:number,targetId:number,action:string,detail=''):void {
+  insertAudit.run(actorId,targetId,action,new Date().toISOString(),detail.slice(0,150));
+}
+export function listAccountAudit(limit=60):AccountAuditEvent[] {
+  return recentAudit.all(Math.min(100,Math.max(1,Math.trunc(limit)))).map((row:any)=>({
+    id:Number(row.id),actor_id:Number(row.actor_id),
+    target_id:Number(row.target_id),action:String(row.action),
+    created_at:String(row.created_at),detail:String(row.detail),
+  }));
+}
