@@ -45,7 +45,7 @@ function pricing(p){
 function loginView(){
   return '<div class="auth-page auth-v6 page page-center">'+
     '<div class="auth-visual"><div class="auth-visual-inner">'+
-      '<div class="auth-brand-mark">شركة أفراح الوطن <small>للتجارة العامة</small></div>'+
+      '<div class="auth-brand-mark"><img class="af-auth-main-logo" src="/assets/afrah-alwatan.svg?v=20261106" alt="أفراح الوطن"></div>'+
       '<div class="auth-preview"><img class="auth-logo" src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></div>'+
     '</div></div>'+
     '<section class="auth-content"><div class="auth-box card"><span class="auth-kicker">بوابة الموظفين</span>'+
