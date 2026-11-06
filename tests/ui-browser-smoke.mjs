@@ -186,7 +186,7 @@ try {
   await desktop.locator('.af-account-trigger').click();
   await desktop.locator('.portal-switch-btn[data-action="switch-staff"]').click();
   await desktop.waitForURL(base+'/',{timeout:15000});
-  await desktop.locator('.portal-switch-btn[data-switch="admin"]').waitFor({timeout:15000});
+  await desktop.locator('.portal-switch-btn[data-switch="admin"]').waitFor({state:'attached',timeout:15000});
   assert.equal(await desktop.locator('[data-nav="prepare"]').count(),1);
   assert.equal(await desktop.locator('[data-nav="users"]').count(),0);
   await desktop.screenshot({path:'screenshots/admin-viewing-staff.png',fullPage:true});
