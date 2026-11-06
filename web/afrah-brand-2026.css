@@ -358,3 +358,131 @@
   .auth-v6 .auth-box h1{font-size:23px!important}
   .af-home-v4 .af-greeting-body.card-body{padding:15px!important}
 }
+
+
+/* November finishing pass: a seamless, low-contrast animated line replaces the
+   clipped corner decoration highlighted in the screenshot. */
+.af-home-v4 .af-greeting-card.card{isolation:isolate}
+.af-home-v4 .af-greeting-card::after{
+  content:""!important;display:block!important;
+  position:absolute!important;top:0!important;right:0!important;left:0!important;bottom:auto!important;
+  width:100%!important;height:2px!important;border:0!important;
+  background:repeating-linear-gradient(90deg,
+    #d9def3 0px,#d9def3 95px,#6c79bd 151px,#ef6371 182px,#d9def3 241px,#d9def3 320px)!important;
+  background-size:320px 2px!important;
+  animation:af-seamless-trace 12s linear infinite!important;
+  pointer-events:none!important;border-radius:0!important;
+}
+@keyframes af-seamless-trace{
+  from{background-position:0 0}
+  to{background-position:320px 0}
+}
+/* Tapello remains a supporting brand: slightly reduce only its artwork. */
+.af-brand-secondary img{transform:scale(.88);transform-origin:left center!important}
+/* Icon system: consistent center alignment and clean SVGs without tiles. */
+.shell .sidebar .nav-link{align-items:center!important}
+.shell .sidebar .nav-link .nav-icon{
+  width:39px;min-width:39px;height:39px;flex:0 0 39px;
+  display:grid!important;place-items:center!important;align-self:center;
+  padding:0!important;margin:0!important;
+  color:#485c9c!important;border:0!important;
+  background:transparent!important;box-shadow:none!important;
+}
+.shell .sidebar .nav-link.active .nav-icon{
+  background:transparent!important;border:0!important;color:#2b3b95!important
+}
+.shell .sidebar .nav-icon .i-tabler{
+  display:block;width:22px!important;height:22px!important;
+  margin:auto;stroke-width:1.85;
+  background:none!important;border:0!important;
+}
+.shell .sidebar .brand-square{
+  display:grid;place-items:center;border:0!important;
+  background:transparent!important;box-shadow:none!important
+}
+.af-dual-header .sidebar-toggle,.af-dual-header .top-alert,.af-dual-header .af-account-trigger{
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  border:1px solid transparent!important;background:transparent!important;
+  box-shadow:none!important;
+}
+.af-dual-header .sidebar-toggle:hover,.af-dual-header .top-alert:hover,
+.af-dual-header .af-account-trigger:hover{background:#e8ebfa!important}
+.af-dual-header .sidebar-toggle .i-tabler,.af-dual-header .top-alert .i-tabler,
+.af-dual-header .af-account-trigger .i-tabler{flex:0 0 auto;display:block}
+@keyframes af-icon-hover-breathe{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-2px)}
+}
+@media(prefers-reduced-motion:no-preference){
+  .shell .sidebar .nav-link .nav-icon .i-tabler,
+  .af-dual-header .topbar-start .i-tabler,
+  .af-dual-header .top-alert .i-tabler{
+    animation:af-icon-hover-breathe 4.8s ease-in-out infinite!important;
+  }
+  .shell .sidebar .nav-link:nth-child(2n) .i-tabler{animation-delay:-1.6s!important}
+  .shell .sidebar .nav-link:nth-child(3n) .i-tabler{animation-delay:-3.2s!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .af-home-v4 .af-greeting-card::after{animation:none!important}
+  .shell .sidebar .nav-link .i-tabler,.af-dual-header .i-tabler{animation:none!important}
+}
+/* Manager's account center — compact, clear, and responsive. */
+.af-accounts-overview{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px;
+}
+.af-accounts-overview>div{
+  background:#fff;border:1px solid #e0e6f4;border-radius:16px;
+  min-width:0;padding:17px 20px;display:flex;flex-direction:column;gap:6px
+}
+.af-accounts-overview strong{font-size:27px;font-weight:900;color:#303d89;line-height:1}
+.af-accounts-overview span{font-size:12px;color:#707e9d;font-weight:800}
+.af-managed-user.user-card{
+  gap:15px;border:1px solid #e1e6f4;background:#fff;border-radius:17px;
+  box-shadow:0 8px 25px #18295809;min-width:0
+}
+.af-user-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.af-user-heading .user-avatar{flex:0 0 44px;width:44px;height:44px;background:transparent;border:0;color:#3a4b94}
+.af-user-heading .user-info{flex:1 1 125px;min-width:0}
+.af-user-heading .user-info h3{color:#202f62;font-size:15px;overflow-wrap:anywhere}
+.af-user-heading .user-info p{color:#7480a2;margin-bottom:0;overflow-wrap:anywhere}
+.af-managed-user .permission-list{border-top:1px solid #e8ebf5;padding-top:13px;gap:10px}
+.af-managed-user .permission-list>div{color:#526180;gap:8px}
+.af-user-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.af-user-actions>.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border-radius:11px;min-height:38px;padding:8px 10px;font-size:12px;font-weight:800;
+  background:#f4f6ff;border:1px solid #e3e8fb;color:#34458c;box-shadow:none
+}
+.af-user-actions>.btn .i-tabler{flex:0 0 auto}
+.af-user-actions>.btn:hover{background:#e9edfc}
+.af-user-actions>.btn:disabled{opacity:.4;cursor:not-allowed}
+.af-user-actions>.af-delete-user-trigger{background:#fff4f4;border-color:#f4dbdf;color:#b2384c}
+.af-user-actions>.af-delete-user-trigger:hover{background:#ffebed}
+.af-owner-protected{font-size:11px;color:#78849f;line-height:1.75;margin:0}
+.af-security-audit{margin-top:21px;border-radius:16px;overflow:hidden;border:1px solid #e1e6f4}
+.af-audit-list{padding:1px 20px 8px}
+.af-audit-row{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid #eef0f7}
+.af-audit-row:last-child{border:0}
+.af-audit-ico{width:32px;height:32px;display:grid;place-items:center;color:#485aa0;flex:0 0 32px}
+.af-audit-row>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.af-audit-row strong{font-size:12px;color:#26376c;font-weight:900}
+.af-audit-row small{font-size:11px;color:#77839b;overflow-wrap:anywhere}
+.af-audit-empty{padding:19px;color:#79849b;font-size:12px}
+.af-delete-warning{background:#fff6f6;border:1px solid #f1d3d7;border-radius:12px;color:#a83c4a;font-size:13px;line-height:1.8;padding:15px;margin-bottom:15px}
+.af-danger-confirm.btn{background:#bb3548!important;border-color:#bb3548!important;color:#fff!important;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.af-danger-confirm.btn:hover{background:#982a3c!important}
+@media(max-width:700px){
+ .af-accounts-overview{gap:7px;margin-bottom:14px}
+ .af-accounts-overview>div{padding:12px 9px;border-radius:12px}
+ .af-accounts-overview strong{font-size:22px}
+ .af-accounts-overview span{font-size:10px;line-height:1.55}
+ .af-managed-user.user-card{padding:17px;gap:13px}
+ .af-user-actions>.btn{flex:1 1 43%;white-space:normal;line-height:1.4}
+ .af-security-audit .panel-head{padding:15px}
+ .af-audit-list{padding-inline:14px}
+}
+@media(max-width:355px){
+ .af-accounts-overview{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .af-accounts-overview>div{padding-inline:5px}
+ .af-user-actions>.btn{flex:1 1 100%}
+}
