@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/supabase-cloud-connection
+      - main
     paths:
       - cloud.ts
       - server.ts
