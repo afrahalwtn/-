@@ -49,8 +49,8 @@ export async function flushCloudWrites():Promise<void> {
 export function cloudStorageHealthy():boolean {return !cloudFailure;}
 export {cloudEnabled};
 const seedIds:Record<RecordKind,number>={users:1,products:2,quotes:3};
-const counterIds:Record<RecordKind|'execution_lists'|'account_audit',number>={
-  users:101,products:102,quotes:103,execution_lists:104,account_audit:105
+const counterIds:Record<RecordKind|'execution_lists'|'account_audit'|'sessions',number>={
+  users:101,products:102,quotes:103,execution_lists:104,account_audit:105,sessions:106
 };
 function cloudValue(kind:string,id:number):any{return cloudRows.get(kind)?.get(id);}
 function nextCloudId(kind: keyof typeof counterIds):number {
@@ -79,6 +79,10 @@ CREATE TABLE IF NOT EXISTS app_metadata(
   value TEXT NOT NULL
 ) STRICT;
 CREATE INDEX IF NOT EXISTS app_records_by_kind ON app_records(kind);
+CREATE TABLE IF NOT EXISTS auth_sessions(
+ token_hash TEXT PRIMARY KEY,
+ payload TEXT NOT NULL
+) STRICT;
 `);
 
 const selectRecords=db.prepare('SELECT id,payload FROM app_records WHERE kind=? ORDER BY id');
@@ -87,6 +91,52 @@ const deleteRecord=db.prepare('DELETE FROM app_records WHERE kind=? AND id=?');
 const metaGet=db.prepare('SELECT value FROM app_metadata WHERE key=?');
 const metaSet=db.prepare('INSERT INTO app_metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
 const maxRecord=db.prepare('SELECT COALESCE(MAX(id),0) as id FROM app_records WHERE kind=?');
+
+// Sessions persist only SHA-256 token digests, NEVER raw login tokens.
+// Cloud mode: saved in app_records (service-role-only). Local mode: SQLite.
+// A single Node server is assumed; multi-server access requires central session lookups.
+const selectSessions=db.prepare('SELECT token_hash,payload FROM auth_sessions');
+const saveSession=db.prepare('INSERT INTO auth_sessions(token_hash,payload) VALUES(?,?) ON CONFLICT(token_hash) DO UPDATE SET payload=excluded.payload');
+const dropSession=db.prepare('DELETE FROM auth_sessions WHERE token_hash=?');
+export class PersistentSessionMap<T extends {token_hash:string;expires_at:number}> extends Map<string,T> {
+  private cloudIds=new Map<string,number>();
+  constructor(){
+    super();
+    if(cloudEnabled){
+      for(const [id,payload] of cloudRows.get('sessions')||[]){
+        if(typeof payload?.token_hash!=='string'||!Number.isSafeInteger(payload.expires_at))continue;
+        this.cloudIds.set(payload.token_hash,id);
+        if(payload.expires_at>Date.now())super.set(payload.token_hash,payload as T);
+        else removeCloud('sessions',id);
+      }
+    } else {
+      for(const row of selectSessions.all() as Array<{token_hash:string;payload:string}>){
+        try{
+          const payload=JSON.parse(row.payload) as T;
+          if(payload.token_hash===row.token_hash&&payload.expires_at>Date.now()){
+            super.set(row.token_hash,payload);
+          } else dropSession.run(row.token_hash);
+        } catch{ dropSession.run(row.token_hash); }
+      }
+    }
+  }
+  override set(hash:string,value:T):this{
+    if(!/^[a-f0-9]{64}$/.test(hash)||value.token_hash!==hash)throw Error('Invalid session digest');
+    if(cloudEnabled){
+      let id=this.cloudIds.get(hash);
+      if(!id){id=nextCloudId('sessions');this.cloudIds.set(hash,id);}
+      putCloud('sessions',id,value);
+    } else saveSession.run(hash,JSON.stringify(value));
+    return super.set(hash,value);
+  }
+  override delete(hash:string):boolean{
+    if(cloudEnabled){
+      const id=this.cloudIds.get(hash);
+      if(id){removeCloud('sessions',id);this.cloudIds.delete(hash);}
+    } else dropSession.run(hash);
+    return super.delete(hash);
+  }
+}
 
 export function hasStoredKind(kind:RecordKind):boolean {
   if (cloudEnabled) return Boolean(cloudValue('metadata',seedIds[kind]) || cloudRows.get(kind)?.size);
