@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -36,6 +36,16 @@ function tokenDigest(token: string): string {
 function csrfForToken(token: string): string {
   return crypto.createHmac('sha256', secretKey).update('csrf:' + token).digest('hex');
 }
+
+// Arabic and Latin usernames; reject spaces, invisible/control characters and emoji.
+function normalizeUsername(input:string):string{
+  return input.normalize('NFKC').trim().toLocaleLowerCase('ar');
+}
+function validUsername(value:unknown):value is string{
+  if(typeof value!=='string')return false;
+  return /^[\\p{L}\\p{N}_.-]{3,60}$/u.test(normalizeUsername(value));
+}
+const REMEMBER_LOGIN_MS=30*24*60*60*1000;
 
 // Models & In-Memory Storage
 interface User {
@@ -118,8 +128,8 @@ const users: Map<number, User> = new PersistentMap<User>('users', new Map([
     1,
     {
       id: 1,
-      username: 'admin',
-      full_name: 'المسؤول العام',
+      username: cloudEnabled ? 'يوسف' : 'admin',
+      full_name: cloudEnabled ? 'يوسف' : 'المسؤول العام',
       password: hashPassword(process.env.AFRAH_ADMIN_PASSWORD || 'admin123456'),
       role: 'admin',
       can_view_purchase: true,
@@ -264,7 +274,7 @@ const quotes: Map<number, Quote> = new PersistentMap<Quote>('quotes', new Map([
 ]));
 
 
-const sessions: Map<string, Session> = new Map();
+const sessions: Map<string, Session> = new PersistentSessionMap<Session>();
 // One-use, 30-second handoffs between the two same-origin portals.
 // The ticket is passed in sessionStorage and deleted before redemption,
 // never embedded in an address, URL, query string, or long-term storage.
@@ -274,14 +284,14 @@ function createAuthSession(u:User) {
   const now=Date.now();
   sessions.set(tokenDigest(rawToken),{
     token_hash:tokenDigest(rawToken),user_id:u.id,
-    created_at:now,last_seen_at:now,expires_at:now+12*3600*1000,
+    created_at:now,last_seen_at:now,expires_at:now+REMEMBER_LOGIN_MS,
   });
   return {rawToken,csrf:csrfForToken(rawToken)};
 }
 function sendAuthSession(res:Response,u:User,rawToken:string,csrf:string) {
   const secure=process.env.AFRAH_SECURE_COOKIES==='true';
   res.cookie('afrah_session',rawToken,{
-    httpOnly:true,secure,sameSite:'strict',path:'/',maxAge:12*3600*1000,
+    httpOnly:true,secure,sameSite:'strict',path:'/',maxAge:REMEMBER_LOGIN_MS,
   });
   res.setHeader('Cache-Control','no-store');
   res.json({user:userDict(u),csrf,access_token:rawToken});
@@ -514,7 +524,7 @@ function getSessionContext(req: Request): AuthContext | null {
   const sess = sessions.get(hash);
   if (!sess) return null;
   const now = Date.now();
-  if (sess.expires_at <= now || now - sess.last_seen_at > 2 * 3600 * 1000) {
+  if (sess.expires_at <= now) {
     sessions.delete(hash);
     return null;
   }
@@ -523,7 +533,6 @@ function getSessionContext(req: Request): AuthContext | null {
     sessions.delete(hash);
     return null;
   }
-  sess.last_seen_at = now;
   return { user, session: sess, rawToken: raw };
 }
 
@@ -579,8 +588,8 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (r
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     return;
   }
-  const uname = String(username).toLowerCase().trim();
-  const u = Array.from(users.values()).find((user) => user.username.toLowerCase() === uname);
+  const uname = normalizeUsername(String(username));
+  const u = Array.from(users.values()).find((user) => normalizeUsername(user.username) === uname);
   if (!u || !u.is_active || !verifyPassword(String(password),u.password)) {
     recordLoginFailure(throttleKey);
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
@@ -645,11 +654,11 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
     return;
   }
   if(username!==undefined){
-    if(typeof username!=='string'||!/^[a-zA-Z0-9_.-]{3,60}$/.test(username.trim())){
-      res.status(422).json({detail:'اسم الدخول يجب أن يكون 3–60 رمزاً إنجليزياً'});
+    if(!validUsername(username)){
+      res.status(422).json({detail:'اسم الدخول يجب أن يكون 3–60 حرفاً أو رقماً بالعربي أو الإنجليزي، بدون مسافات'});
       return;
     }
-    const normalized=username.trim().toLowerCase();
+    const normalized=normalizeUsername(username);
     if(Array.from(users.values()).some(u=>u.id!==ctx.user.id&&u.username===normalized)){
       res.status(409).json({detail:'اسم الدخول مستخدم من قبل'});
       return;
@@ -669,7 +678,7 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
     res.status(422).json({detail:'أدخل اسماً جديداً أو كلمة مرور جديدة'});
     return;
   }
-  if(username!==undefined)ctx.user.username=username.trim().toLowerCase();
+  if(username!==undefined)ctx.user.username=normalizeUsername(username);
   if(desired)ctx.user.password=hashPassword(desired);
   users.set(ctx.user.id,ctx.user);
   // Log out other devices after credential change; keep the current session.
@@ -706,7 +715,7 @@ app.post('/api/admin/recover', (req,res)=>{
     return;
   }
   const newUsername=req.body?.username,newPassword=req.body?.new_password;
-  if(typeof newUsername!=='string'||!/^[A-Za-z0-9_.-]{3,60}$/.test(newUsername.trim())||
+  if(!validUsername(newUsername)||
      typeof newPassword!=='string'||newPassword.length<10||newPassword.length>128){
     res.status(422).json({detail:'اختر اسم دخول صالحاً وكلمة مرور جديدة من 10 إلى 128 رمزاً'});
     return;
@@ -716,7 +725,7 @@ app.post('/api/admin/recover', (req,res)=>{
     res.status(404).json({detail:'لا يوجد حساب إدارة لاستعادته'});
     return;
   }
-  const normalized=newUsername.trim().toLowerCase();
+  const normalized=normalizeUsername(newUsername);
   if(Array.from(users.values()).some(u=>u.id!==admin.id&&u.username===normalized)){
     res.status(409).json({detail:'اسم الدخول مستخدم من حساب آخر'});
     return;
@@ -942,8 +951,8 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     res.status(422).json({ detail: 'جميع الحقول مطلوبة' });
     return;
   }
-  const uname = String(username).toLowerCase().trim();
-  if(!/^[a-z0-9_.-]{3,60}$/.test(uname) || typeof password!=='string'||password.length<10||password.length>128){
+  const uname = normalizeUsername(String(username));
+  if(!validUsername(username) || typeof password!=='string'||password.length<10||password.length>128){
     res.status(422).json({detail:'اسم الدخول أو كلمة المرور غير صالحة (10 رموز على الأقل)'});
     return;
   }
@@ -978,11 +987,11 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
   }
   const { username, full_name, password, can_view_purchase, can_view_sale, is_active } = req.body;
   if(username!==undefined){
-    if(typeof username!=='string'||!/^[a-zA-Z0-9_.-]{3,60}$/.test(username.trim())){
-      res.status(422).json({detail:'اسم الدخول غير صالح'});
+    if(!validUsername(username)){
+      res.status(422).json({detail:'اسم الدخول يجب أن يكون بالعربي أو الإنجليزي، من 3 إلى 60 رمزاً'});
       return;
     }
-    const normalized=username.trim().toLowerCase();
+    const normalized=normalizeUsername(username);
     if(Array.from(users.values()).some(x=>x.id!==u.id&&x.username===normalized)){
       res.status(409).json({detail:'اسم الدخول مستخدم'});
       return;
