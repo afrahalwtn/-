@@ -30,9 +30,11 @@ let cloudQueue:Promise<void>=Promise.resolve();
 let cloudFailure:Error|null=null;
 function putCloud(kind:string,id:number,payload:any):void {
   if (!cloudEnabled)return;
+  // Snapshot each write: later in-memory edits must not mutate queued commits.
+  const snapshot=JSON.parse(JSON.stringify(payload));
   if (!cloudRows.has(kind))cloudRows.set(kind,new Map());
-  cloudRows.get(kind)!.set(id,payload);
-  cloudQueue=cloudQueue.then(()=>saveCloudRecord(kind,id,payload));
+  cloudRows.get(kind)!.set(id,snapshot);
+  cloudQueue=cloudQueue.then(()=>saveCloudRecord(kind,id,snapshot));
   void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
 }
 function removeCloud(kind:string,id:number):void {
