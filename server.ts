@@ -1190,6 +1190,16 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(err.status || 500).json({ detail: err.message || 'حدث خطأ في الخادم' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on http://0.0.0.0:${PORT}`);
-});
+// Finish initial account/metadata writes BEFORE accepting any requests.
+// If cloud storage is unavailable, do not start an unsynchronised server.
+void (async ()=>{
+  try {
+    await flushCloudWrites();
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server is running on http://0.0.0.0:${PORT}; storage=${cloudEnabled?'supabase':'sqlite'}`);
+    });
+  } catch (error) {
+    console.error('Cannot start server: cloud data could not be confirmed',error instanceof Error?error.message:'unknown');
+    process.exitCode=1;
+  }
+})();
