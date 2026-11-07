@@ -2,13 +2,16 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 import { cloudEnabled, loadCloudRecords, saveCloudRecord, deleteCloudRecord } from './cloud.js';
 
 // Single central SQLite database on the company's computer.
 // Node >=22.13 includes this driver. No server subscription or native npm module.
 export type RecordKind = 'users' | 'products' | 'quotes';
 export const storageDirectory = path.resolve(
-  process.env.AFRAH_DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), 'data'),
+  process.env.AFRAH_DATA_DIR || (cloudEnabled
+    ? path.join(os.tmpdir(), 'afrah-cloud-runtime')
+    : path.join(path.dirname(fileURLToPath(import.meta.url)), 'data')),
 );
 fs.mkdirSync(storageDirectory,{recursive:true});
 export const databasePath=path.join(storageDirectory,'afrah.sqlite');
