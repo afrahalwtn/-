@@ -150,6 +150,12 @@ try{
   assert.deepEqual(Buffer.from(await retrieved.arrayBuffer()),png);
 
   const sessionBeforeRestart=admin.access_token;
+  const staffBeforeRevoke=staff.access_token;
+  // The owner can revoke a remembered employee login from all devices.
+  let revoke=await api('/users/'+employee.id+'/revoke-sessions',admin,'POST',{});
+  assert.equal(revoke.status,200,'Only management can revoke a staff session');
+  let blocked=await api('/products',staff);
+  assert.equal(blocked.status,401,'A revoked employee token must immediately stop working');
   await stop();
   // Simulate >1000 records to exercise remote pagination (4000+ compatible).
   for(let i=2000;i<3060;i++)store.set('products:'+i,{
@@ -163,6 +169,8 @@ try{
   let restored=await fetch(root+'/me',{headers:{Authorization:'Bearer '+sessionBeforeRestart}});
   assert.equal(restored.status,200,'Cloud login must persist across server restart');
   assert.equal((await restored.json()).user.username,'يوسف','Arabic admin username must survive restart');
+  let revokedAfterRestart=await fetch(root+'/me',{headers:{Authorization:'Bearer '+staffBeforeRevoke}});
+  assert.equal(revokedAfterRestart.status,401,'Admin revocation must persist after restart');
   admin=await signIn('يوسف','CloudTestOnly.Admin.2026');
   result=await api('/products?q='+encodeURIComponent('اكواب'),admin);
   assert.equal(result.status,200);
