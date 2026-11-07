@@ -104,9 +104,13 @@ interface Quote {
 
 // First-run demo data. In production, provide two strong passwords via environment
 // before the first database creation. Do not reset existing stored users on restart.
-if (!hasStoredKind('users') && (cloudEnabled || process.env.NODE_ENV === 'production') &&
-   (!process.env.AFRAH_ADMIN_PASSWORD || !process.env.AFRAH_STAFF_PASSWORD)) {
-  throw new Error('Set AFRAH_ADMIN_PASSWORD and AFRAH_STAFF_PASSWORD before the first production startup');
+if (!hasStoredKind('users') && (
+    (cloudEnabled && !process.env.AFRAH_ADMIN_PASSWORD) ||
+    (!cloudEnabled && process.env.NODE_ENV === 'production' &&
+       (!process.env.AFRAH_ADMIN_PASSWORD || !process.env.AFRAH_STAFF_PASSWORD)))) {
+  throw new Error(cloudEnabled
+    ? 'Set a strong AFRAH_ADMIN_PASSWORD before the first cloud startup'
+    : 'Set AFRAH_ADMIN_PASSWORD and AFRAH_STAFF_PASSWORD before the first production startup');
 }
 // Initial Data Seed
 const users: Map<number, User> = new PersistentMap<User>('users', new Map([
