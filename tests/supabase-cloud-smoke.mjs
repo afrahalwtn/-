@@ -112,6 +112,7 @@ try{
     username:'علي',full_name:'موظف الاختبار',password:'CloudTestOnly.Staff.2026',
     can_view_purchase:false,can_view_sale:true});
   assert.equal(employee.status,201,'Admin must be able to create new employee');
+  const staffAccount=await employee.json();
   let staff=await signIn('علي','CloudTestOnly.Staff.2026');
   let result=await api('/products',admin);assert.equal(result.status,200);
   assert.equal((await result.json()).length,0,'Fresh cloud project must not import demo products');
@@ -152,7 +153,7 @@ try{
   const sessionBeforeRestart=admin.access_token;
   const staffBeforeRevoke=staff.access_token;
   // The owner can revoke a remembered employee login from all devices.
-  let revoke=await api('/users/'+employee.id+'/revoke-sessions',admin,'POST',{});
+  let revoke=await api('/users/'+staffAccount.id+'/revoke-sessions',admin,'POST',{});
   assert.equal(revoke.status,200,'Only management can revoke a staff session');
   let blocked=await api('/products',staff);
   assert.equal(blocked.status,401,'A revoked employee token must immediately stop working');
