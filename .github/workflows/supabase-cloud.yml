@@ -1,0 +1,35 @@
+name: Verify Supabase cloud connection (no real secrets)
+on:
+  push:
+    branches:
+      - feature/supabase-cloud-connection
+      - main
+    paths:
+      - cloud.ts
+      - server.ts
+      - storage.ts
+      - tests/supabase-cloud-smoke.mjs
+      - .github/workflows/supabase-cloud.yml
+      - package.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: TypeScript compile
+        run: npm run build
+      - name: Cloud storage and authorization smoke
+        run: node tests/supabase-cloud-smoke.mjs
+      - name: Ensure legacy local storage still works
+        run: node tests/sqlite-server-restart.mjs

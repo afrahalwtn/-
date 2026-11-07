@@ -1,0 +1,91 @@
+/**
+ * Afrah Al Watan: private SERVER-ONLY transport to Supabase.
+ * This module is intentionally never served from /web, never bundled in the UI.
+ * The secret key is read only from the backend process environment.
+ */
+import fs from 'node:fs/promises';
+
+const url = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+const key = (process.env.SUPABASE_SECRET_KEY || '').trim();
+if (Boolean(url) !== Boolean(key)) {
+  throw new Error('Configure both SUPABASE_URL and SUPABASE_SECRET_KEY or neither');
+}
+export const cloudEnabled = Boolean(url && key);
+if (cloudEnabled) {
+  const target = new URL(url);
+  if (target.protocol !== 'https:' && !(target.hostname === 'localhost' || target.hostname === '127.0.0.1')) {
+    throw new Error('Supabase backend must use HTTPS');
+  }
+  if (!/^(sb_secret_|eyJ)/.test(key)) throw new Error('Invalid Supabase secret key format');
+}
+
+const headers = (): Record<string,string> => {
+  const h: Record<string,string> = { apikey: key, Accept: 'application/json' };
+  // Legacy service_role JWTs use bearer auth; modern sb_secret keys go
+  // in the apikey header only (they are NOT JWTs).
+  if (key.startsWith('eyJ')) h.Authorization = 'Bearer ' + key;
+  return h;
+};
+async function request(endpoint: string, init: RequestInit = {}): Promise<Response> {
+  if (!cloudEnabled) throw new Error('Supabase is not configured');
+  const response = await fetch(url + endpoint, {
+    ...init,
+    signal: AbortSignal.timeout(20000),
+    headers: { ...headers(), ...(init.headers || {}) }
+  });
+  if (!response.ok) {
+    // Do not log credentials or response bodies that could contain sensitive data.
+    throw new Error('Supabase request failed: HTTP ' + response.status + ' (' + endpoint.split('?')[0] + ')');
+  }
+  return response;
+}
+
+export interface CloudRecord {
+  kind: string;
+  id: number;
+  payload: Record<string,unknown>;
+}
+
+/** Download ALL pages; Supabase limits a single API response to 1000 rows. */
+export async function loadCloudRecords(): Promise<CloudRecord[]> {
+  if (!cloudEnabled) return [];
+  const result: CloudRecord[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const response = await request('/rest/v1/app_records?select=kind,id,payload&order=kind.asc,id.asc&limit=500&offset=' + offset);
+    const page = await response.json();
+    if (!Array.isArray(page)) throw new Error('Supabase returned invalid data');
+    for (const row of page) {
+      if (!row || typeof row.kind !== 'string' || !Number.isSafeInteger(row.id) ||
+          row.id < 1 || !row.payload || typeof row.payload !== 'object' ||
+          Array.isArray(row.payload)) throw new Error('Invalid Supabase record');
+      result.push(row);
+    }
+    if (page.length < 500) break;
+  }
+  return result;
+}
+
+export async function saveCloudRecord(kind: string, id: number, payload: Record<string,unknown>): Promise<void> {
+  await request('/rest/v1/app_records?on_conflict=kind,id', {
+    method:'POST',
+    headers: { 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
+    body:JSON.stringify([{kind,id,payload}])
+  });
+}
+export async function deleteCloudRecord(kind: string, id: number): Promise<void> {
+  await request('/rest/v1/app_records?kind=eq.' + encodeURIComponent(kind) + '&id=eq.' + id,
+    {method:'DELETE',headers:{Prefer:'return=minimal'}});
+}
+export async function uploadCloudImage(filename: string, filePath: string, mime: string): Promise<void> {
+  const buffer = await fs.readFile(filePath);
+  await request('/storage/v1/object/item-images/' + encodeURIComponent(filename), {
+    method:'POST',
+    headers:{'Content-Type': mime, 'x-upsert':'false'},
+    body:buffer
+  });
+}
+export async function loadCloudImage(filename: string): Promise<{data:Buffer;mime:string}> {
+  const response = await request('/storage/v1/object/item-images/' + encodeURIComponent(filename));
+  return { data:Buffer.from(await response.arrayBuffer()),
+    mime:response.headers.get('content-type') || 'application/octet-stream' };
+}
