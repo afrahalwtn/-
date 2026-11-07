@@ -89,6 +89,7 @@ const signIn=async(username,password)=>{
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username,password})});
   if(r.status!==200)throw Error('login '+username+' failed: HTTP '+r.status+' / '+await r.text());
+  assert.match(r.headers.get('set-cookie')||'',/Max-Age=31536000/,'Remember cookie must last up to one year');
   return r.json();
 };
 const api=async(route,session,method='GET',data)=>{
@@ -100,6 +101,9 @@ try{
   await new Promise(resolve=>mock.listen(mockPort,'127.0.0.1',resolve));
   await start();
   let admin=await signIn('يوسف','CloudTestOnly.Admin.2026');
+  assert([...store.values()].some(row=>row.kind==='sessions'&&
+    row.payload.expires_at===Number.MAX_SAFE_INTEGER),
+    'Cloud session must not have an automatic server expiry');
   // On a fresh cloud account no demo employee has a working login.
   let check=await fetch(root+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username:'staff',password:'CloudTestOnly.Staff.2026'})});
