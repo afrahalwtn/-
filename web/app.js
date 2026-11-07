@@ -73,7 +73,7 @@ function loginView(){
     '<section class="auth-content"><div class="auth-box card"><span class="auth-kicker">بوابة الموظفين</span>'+
       '<h1>أهلاً بك في أفراح الوطن</h1><p class="muted">سجّل الدخول لمشاهدة الايتمات والجرد والتنبيهات حسب صلاحياتك.</p>'+
       '<form id="staff-login" class="stack-form card-body" autocomplete="on">'+
-      '<label>اسم المستخدم<input class="form-control" name="username" maxlength="60" required autocomplete="username" dir="ltr"></label>'+
+      '<label>اسم المستخدم<input class="form-control" name="username" maxlength="60" required autocomplete="username" dir="auto"></label>'+
       '<label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" dir="ltr"></label>'+
       '<button type="submit" class="btn primary btn-primary full">تسجيل الدخول '+icon('arrow',18)+'</button>'+
       '<p id="staff-login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>'+
@@ -286,7 +286,7 @@ function account(){
  return pageHeading('بيانات الدخول','غيّر اسم الدخول أو كلمة المرور الخاصة بحسابك.')+
  '<section class="panel card account-form-card"><div class="panel-head"><h2>إعدادات الحساب</h2></div>'+
  '<form id="staff-account-form" class="account-form">'+
- '<label>اسم الدخول<input class="form-control" name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" value="'+safe(state.user.username)+'" autocomplete="username" dir="ltr"></label>'+
+ '<label>اسم الدخول<input class="form-control" name="username" required minlength="3" maxlength="60" value="'+safe(state.user.username)+'" autocomplete="username" dir="auto"></label>'+
  '<label>كلمة المرور الحالية<input class="form-control" name="current_password" type="password" required autocomplete="current-password" dir="ltr"></label>'+
  '<label>كلمة مرور جديدة (اختياري)<input class="form-control" name="new_password" type="password" minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>'+
  '<label>تأكيد كلمة المرور الجديدة<input class="form-control" name="confirm_password" type="password" autocomplete="new-password" dir="ltr"></label>'+
