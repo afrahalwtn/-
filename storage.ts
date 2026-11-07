@@ -87,7 +87,7 @@ const metaSet=db.prepare('INSERT INTO app_metadata(key,value) VALUES(?,?) ON CON
 const maxRecord=db.prepare('SELECT COALESCE(MAX(id),0) as id FROM app_records WHERE kind=?');
 
 export function hasStoredKind(kind:RecordKind):boolean {
-  if (cloudEnabled) return Boolean(cloudValue('metadata',seedIds[kind]));
+  if (cloudEnabled) return Boolean(cloudValue('metadata',seedIds[kind]) || cloudRows.get(kind)?.size);
   return Boolean(metaGet.get('seed:'+kind));
 }
 
@@ -109,6 +109,9 @@ export class PersistentMap<T> extends Map<number,T> {
         putCloud('metadata',seedIds[kind],{initialized:true});
       } else {
         for (const [id,value] of cloudRows.get(kind)||[])super.set(id,value as T);
+        // If records were imported before this adapter existed, mark as initialized.
+        if (!cloudValue('metadata',seedIds[kind]))
+          putCloud('metadata',seedIds[kind],{initialized:true});
       }
       return;
     }
