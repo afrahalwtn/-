@@ -45,7 +45,11 @@ function validUsername(value:unknown):value is string{
   if(typeof value!=='string')return false;
   return /^[\p{L}\p{N}_.-]{3,60}$/u.test(normalizeUsername(value));
 }
-const REMEMBER_LOGIN_MS=30*24*60*60*1000;
+// Persistent sessions have no automatic backend expiry: only explicit revocation
+// (admin disables/revokes a user, credentials change, or voluntary logout).
+// Browsers cap cookie lifetimes, so refresh the HttpOnly cookie on active use.
+const REMEMBER_COOKIE_MS=365*24*60*60*1000;
+const NO_AUTO_SESSION_EXPIRY=Number.MAX_SAFE_INTEGER;
 
 // Models & In-Memory Storage
 interface User {
@@ -284,15 +288,18 @@ function createAuthSession(u:User) {
   const now=Date.now();
   sessions.set(tokenDigest(rawToken),{
     token_hash:tokenDigest(rawToken),user_id:u.id,
-    created_at:now,last_seen_at:now,expires_at:now+REMEMBER_LOGIN_MS,
+    created_at:now,last_seen_at:now,expires_at:NO_AUTO_SESSION_EXPIRY,
   });
   return {rawToken,csrf:csrfForToken(rawToken)};
 }
-function sendAuthSession(res:Response,u:User,rawToken:string,csrf:string) {
+function refreshLoginCookie(res:Response,rawToken:string) {
   const secure=process.env.AFRAH_SECURE_COOKIES==='true';
   res.cookie('afrah_session',rawToken,{
-    httpOnly:true,secure,sameSite:'strict',path:'/',maxAge:REMEMBER_LOGIN_MS,
+    httpOnly:true,secure,sameSite:'strict',path:'/',maxAge:REMEMBER_COOKIE_MS,
   });
+}
+function sendAuthSession(res:Response,u:User,rawToken:string,csrf:string) {
+  refreshLoginCookie(res,rawToken);
   res.setHeader('Cache-Control','no-store');
   res.json({user:userDict(u),csrf,access_token:rawToken});
 }
@@ -543,6 +550,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
   (req as any).auth = ctx;
+  refreshLoginCookie(res,ctx.rawToken);
   next();
 }
 
@@ -753,6 +761,7 @@ app.get('/api/me', (req, res) => {
     res.status(401).json({ detail: 'يلزم تسجيل الدخول' });
     return;
   }
+  refreshLoginCookie(res,ctx.rawToken);
   res.json({ user: userDict(ctx.user), csrf: csrfForToken(ctx.rawToken) });
 });
 
