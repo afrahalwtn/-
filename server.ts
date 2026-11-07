@@ -6,13 +6,17 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, type ExecutionLine } from './storage.js';
+import { uploadCloudImage, loadCloudImage } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT) || 3000;
+if (cloudEnabled && process.env.NODE_ENV === 'production' && process.env.AFRAH_SECURE_COOKIES !== 'true') {
+  throw new Error('Cloud production requires AFRAH_SECURE_COOKIES=true and HTTPS');
+}
 const app = express();
 
 // Ensure data and images directory
@@ -100,7 +104,7 @@ interface Quote {
 
 // First-run demo data. In production, provide two strong passwords via environment
 // before the first database creation. Do not reset existing stored users on restart.
-if (!hasStoredKind('users') && process.env.NODE_ENV === 'production' &&
+if (!hasStoredKind('users') && (cloudEnabled || process.env.NODE_ENV === 'production') &&
    (!process.env.AFRAH_ADMIN_PASSWORD || !process.env.AFRAH_STAFF_PASSWORD)) {
   throw new Error('Set AFRAH_ADMIN_PASSWORD and AFRAH_STAFF_PASSWORD before the first production startup');
 }
@@ -443,6 +447,33 @@ const upload = multer({
 app.use(express.json());
 app.use(cookieParser());
 
+// For every state-changing request, report success ONLY AFTER Supabase confirms
+// the queued durable write. On error, fail closed instead of replying "saved".
+app.use((req,res,next)=>{
+  if (cloudEnabled && !cloudStorageHealthy()) {
+    res.status(503).json({detail:'الاتصال بالحفظ السحابي متوقف، أعد تشغيل الخادم بعد إصلاح الاتصال'});
+    return;
+  }
+  if (!cloudEnabled || !['POST','PUT','PATCH','DELETE'].includes(req.method)) {
+    next();
+    return;
+  }
+  const sendJson=res.json.bind(res);
+  (res as any).json=(data:any)=>{
+    void flushCloudWrites().then(()=>{
+      if (!res.headersSent)sendJson(data);
+    }).catch((error:unknown)=>{
+      console.error('Supabase cloud save failed:',error instanceof Error?error.message:'unknown');
+      if (!res.headersSent) {
+        res.status(503);
+        sendJson({detail:'تعذر تأكيد الحفظ السحابي؛ لم يتم اعتماد العملية. يرجى التواصل مع الإدارة'});
+      }
+    });
+    return res;
+  };
+  next();
+});
+
 // Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -528,7 +559,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
 // API Routes
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status:cloudStorageHealthy()?'ok':'degraded',storage:cloudEnabled?'supabase':'sqlite' });
 });
 
 // Auth
@@ -812,7 +843,7 @@ app.delete('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, re
   res.json({ ok: true });
 });
 
-app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, upload.single('file'), (req, res) => {
+app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, upload.single('file'), async (req, res) => {
   const id = Number(req.params.id);
   const p = products.get(id);
   if (!p) {
@@ -836,16 +867,38 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
     res.status(422).json({detail:'ملف الصورة غير صالح أو امتداده لا يطابق محتواه'});
     return;
   }
+  if (cloudEnabled) {
+    try {
+      await uploadCloudImage(req.file.filename,req.file.path,mime);
+    } catch (error) {
+      fs.unlinkSync(req.file.path);
+      console.error('Cloud image upload failed:',error instanceof Error?error.message:'unknown');
+      res.status(503).json({detail:'فشل حفظ الصورة سحابياً؛ لم يتم تغيير صورة الأيتم'});
+      return;
+    }
+    fs.unlinkSync(req.file.path);
+  }
   p.image_name = req.file.filename;
   p.updated_at = new Date().toISOString();
   products.set(p.id,p);
   res.json({ image_url: `/api/images/${req.file.filename}` });
 });
 
-app.get('/api/images/:filename', requireAuth, (req, res) => {
+app.get('/api/images/:filename', requireAuth, async (req, res) => {
   const filename = String(req.params.filename || '');
   if (!/^[0-9a-f]{32}\.(?:webp|png|jpg)$/i.test(filename)) {
     res.status(404).json({ detail: 'الصورة غير موجودة' });
+    return;
+  }
+  if (cloudEnabled) {
+    try {
+      const remote = await loadCloudImage(filename);
+      res.setHeader('Cache-Control','private, max-age=300');
+      res.type(filename.endsWith('.png')?'image/png':filename.endsWith('.jpg')?'image/jpeg':'image/webp');
+      res.send(remote.data);
+    } catch (error) {
+      res.status(404).json({detail:'الصورة غير موجودة أو تعذّر تحميلها من السحابة'});
+    }
     return;
   }
   const filePath = path.join(imagesDir, filename);
