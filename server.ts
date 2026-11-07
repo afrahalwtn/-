@@ -43,7 +43,7 @@ function normalizeUsername(input:string):string{
 }
 function validUsername(value:unknown):value is string{
   if(typeof value!=='string')return false;
-  return /^[\\p{L}\\p{N}_.-]{3,60}$/u.test(normalizeUsername(value));
+  return /^[\p{L}\p{N}_.-]{3,60}$/u.test(normalizeUsername(value));
 }
 const REMEMBER_LOGIN_MS=30*24*60*60*1000;
 
