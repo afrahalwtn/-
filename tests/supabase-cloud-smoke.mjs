@@ -100,6 +100,14 @@ try{
   await new Promise(resolve=>mock.listen(mockPort,'127.0.0.1',resolve));
   await start();
   let admin=await signIn('admin','CloudTestOnly.Admin.2026');
+  // On a fresh cloud account no demo employee has a working login.
+  let check=await fetch(root+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'staff',password:'CloudTestOnly.Staff.2026'})});
+  assert.equal(check.status,401,'Never seed a demo staff account automatically');
+  let employee=await api('/users',admin,'POST',{
+    username:'staff',full_name:'موظف الاختبار',password:'CloudTestOnly.Staff.2026',
+    can_view_purchase:false,can_view_sale:true});
+  assert.equal(employee.status,201,'Admin must be able to create new employee');
   let staff=await signIn('staff','CloudTestOnly.Staff.2026');
   let result=await api('/products',admin);assert.equal(result.status,200);
   assert.equal((await result.json()).length,0,'Fresh cloud project must not import demo products');
