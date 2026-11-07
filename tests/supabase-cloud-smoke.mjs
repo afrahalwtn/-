@@ -88,7 +88,7 @@ const signIn=async(username,password)=>{
   const r=await fetch(root+'/auth/login',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username,password})});
-  assert.equal(r.status,200,'login '+username+' failed: '+await r.text().catch(()=>'')); // consumed on error only
+  if(r.status!==200)throw Error('login '+username+' failed: HTTP '+r.status+' / '+await r.text());
   return r.json();
 };
 const api=async(route,session,method='GET',data)=>{
