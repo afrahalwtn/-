@@ -108,13 +108,13 @@ function loginView() {
         ${state.showRecovery? `<form data-form="recovery" class="stack-form card-body">
           <p class="auth-help">إذا فقدت رمز الإدارة، فعّل وضع الاستعادة على خادم الشركة وخذ الرمز المؤقت من شاشة الخادم. الاستعادة موقوفة افتراضياً.</p>
           <label>رمز الاستعادة من شاشة الخادم<input class="form-control" name="recovery_code" required autocomplete="off" maxlength="24" dir="ltr"></label>
-          <label>اسم الدخول الجديد<input class="form-control" name="username" required autocomplete="username" pattern="[a-zA-Z0-9_.-]{3,60}" dir="ltr"></label>
+          <label>اسم الدخول الجديد<input class="form-control" name="username" required autocomplete="username" minlength="3" maxlength="60" dir="auto"></label>
           <label>كلمة المرور الجديدة<input class="form-control" name="new_password" type="password" required minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>
           <label>تأكيد كلمة المرور<input class="form-control" name="confirm_password" type="password" required minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>
           <button type="submit" class="btn primary btn-primary full">استعادة حساب الإدارة</button>
           <p id="recovery-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
         </form>`:`<form data-form="login" class="stack-form card-body">
-          <label>اسم المستخدم<input class="form-control" name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="ltr"></label>
+          <label>اسم المستخدم<input class="form-control" name="username" required autocomplete="username" maxlength="60" placeholder="اسم المستخدم" dir="auto"></label>
           <label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور" dir="ltr"></label>
           <button type="submit" class="btn primary btn-primary full">تسجيل الدخول ${icon('arrow',18)}</button>
           <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
@@ -272,7 +272,7 @@ function accountView() {
   <section class="panel card account-form-card">
     <div class="panel-head"><h2>تغيير بيانات حساب الإدارة</h2></div>
     <form class="account-form" data-form="account">
-      <label>اسم الدخول<input name="username" class="form-control" pattern="[a-zA-Z0-9_.-]{3,60}" maxlength="60" required value="${safe(state.user.username)}" autocomplete="username" dir="ltr"></label>
+      <label>اسم الدخول<input name="username" class="form-control" minlength="3" maxlength="60" maxlength="60" required value="${safe(state.user.username)}" autocomplete="username" dir="auto"></label>
       <label>كلمة المرور الحالية (للتحقق)<input name="current_password" class="form-control" type="password" required autocomplete="current-password" dir="ltr"></label>
       <label>كلمة مرور جديدة (اختياري)<input name="new_password" class="form-control" type="password" minlength="10" maxlength="128" autocomplete="new-password" dir="ltr"></label>
       <label>تأكيد كلمة المرور الجديدة<input name="confirm_password" class="form-control" type="password" autocomplete="new-password" dir="ltr"></label>
@@ -293,7 +293,7 @@ function usersView() {
     </section>
     <div class="user-cards">${state.users.map(u=>`<section class="user-card panel af-managed-user">
       <div class="af-user-heading"><div class="user-avatar">${icon(u.role==='admin'?'user-check':'users',25)}</div>
-        <div class="user-info"><h3>${safe(u.full_name)}</h3><p dir="ltr">${safe(u.username)}</p></div>
+        <div class="user-info"><h3>${safe(u.full_name)}</h3><p dir="auto">${safe(u.username)}</p></div>
         <span class="chip ${u.is_active?'success':'danger'}">${u.role==='admin'?'الإدارة':u.is_active?'مفعّل':'معطّل'}</span></div>
       <div class="permission-list">
         <div>عرض سعر الشراء <b class="${u.can_view_purchase?'allowed':'forbidden'}">${u.can_view_purchase?'مسموح':'ممنوع'}</b></div>
@@ -498,7 +498,7 @@ function userModal(u) {
   return `<div class="modal-head"><div><p class="eyebrow">إدارة الصلاحيات</p><h2>${u?'إدارة حساب الموظف':'إنشاء حساب موظف'}</h2></div><button class="icon-btn" data-action="close-modal">${icon('x')}</button></div>
     <form data-form="user" data-id="${u?.id||''}" class="modal-form">
       <div class="form-grid"><label>اسم الشخص *<input name="full_name" required minlength="2" maxlength="120" value="${safe(u?.full_name||'')}"></label>
-      <label>اسم الدخول (إنجليزي) *<input name="username" required pattern="[a-zA-Z0-9_.-]{3,60}" value="${safe(u?.username||'')}" placeholder="employee" dir="ltr"></label></div>
+      <label>اسم الدخول (عربي أو إنجليزي) *<input name="username" required minlength="3" maxlength="60" value="${safe(u?.username||'')}" placeholder="مثال: أحمد" dir="auto"></label></div>
       <label>${u?'كلمة مرور جديدة (اختياري)':'كلمة المرور *'}<input name="password" type="password" minlength="10" maxlength="128" ${u?'':'required'} placeholder="10 رموز على الأقل" autocomplete="new-password"></label>
       <div class="switch-block"><label class="switch-line"><span><b>إظهار سعر الشراء</b><small>يسمح بعرض تكلفة شراء المنتجات</small></span><input type="checkbox" name="can_view_purchase" ${u?.can_view_purchase?'checked':''}></label>
       <label class="switch-line"><span><b>إظهار سعر البيع</b><small>يسمح بعرض سعر بيع المنتجات</small></span><input type="checkbox" name="can_view_sale" ${u?.can_view_sale?'checked':''}></label>
