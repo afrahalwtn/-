@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { cloudEnabled, loadCloudRecords, saveCloudRecord, deleteCloudRecord } from './cloud.js';
 
 // Single central SQLite database on the company's computer.
 // Node >=22.13 includes this driver. No server subscription or native npm module.
@@ -12,6 +13,50 @@ export const storageDirectory = path.resolve(
 fs.mkdirSync(storageDirectory,{recursive:true});
 export const databasePath=path.join(storageDirectory,'afrah.sqlite');
 const db=new DatabaseSync(databasePath,{timeout:5000});
+
+// Cloud mode reads Supabase FIRST. SQLite is never the source of truth in this mode.
+// An unavailable cloud causes startup to fail rather than silently changing databases.
+const cloudRows = new Map<string,Map<number,any>>();
+if (cloudEnabled) {
+  for (const row of await loadCloudRecords()) {
+    if (!cloudRows.has(row.kind)) cloudRows.set(row.kind,new Map());
+    cloudRows.get(row.kind)!.set(row.id,row.payload);
+  }
+}
+let cloudQueue:Promise<void>=Promise.resolve();
+let cloudFailure:Error|null=null;
+function putCloud(kind:string,id:number,payload:any):void {
+  if (!cloudEnabled)return;
+  if (!cloudRows.has(kind))cloudRows.set(kind,new Map());
+  cloudRows.get(kind)!.set(id,payload);
+  cloudQueue=cloudQueue.then(()=>saveCloudRecord(kind,id,payload));
+  void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
+}
+function removeCloud(kind:string,id:number):void {
+  if (!cloudEnabled)return;
+  cloudRows.get(kind)?.delete(id);
+  cloudQueue=cloudQueue.then(()=>deleteCloudRecord(kind,id));
+  void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
+}
+export async function flushCloudWrites():Promise<void> {
+  if(cloudEnabled)await cloudQueue;
+}
+export function cloudStorageHealthy():boolean {return !cloudFailure;}
+export {cloudEnabled};
+const seedIds:Record<RecordKind,number>={users:1,products:2,quotes:3};
+const counterIds:Record<RecordKind|'execution_lists'|'account_audit',number>={
+  users:101,products:102,quotes:103,execution_lists:104,account_audit:105
+};
+function cloudValue(kind:string,id:number):any{return cloudRows.get(kind)?.get(id);}
+function nextCloudId(kind: keyof typeof counterIds):number {
+  const counterId=counterIds[kind];
+  const last=Number(cloudValue('metadata',counterId)?.last_id||0);
+  const largest=Math.max(0,...Array.from(cloudRows.get(kind)?.keys()||[]));
+  const next=Math.max(last,largest)+1;
+  if(!Number.isSafeInteger(next)||next<1)throw Error('Invalid cloud ID');
+  putCloud('metadata',counterId,{last_id:next});
+  return next;
+}
 db.exec(`
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = FULL;
@@ -39,6 +84,7 @@ const metaSet=db.prepare('INSERT INTO app_metadata(key,value) VALUES(?,?) ON CON
 const maxRecord=db.prepare('SELECT COALESCE(MAX(id),0) as id FROM app_records WHERE kind=?');
 
 export function hasStoredKind(kind:RecordKind):boolean {
+  if (cloudEnabled) return Boolean(cloudValue('metadata',seedIds[kind]));
   return Boolean(metaGet.get('seed:'+kind));
 }
 
@@ -47,6 +93,22 @@ export class PersistentMap<T> extends Map<number,T> {
   constructor(kind:RecordKind, seeds:Map<number,T>) {
     super();
     this.kind=kind;
+    if (cloudEnabled) {
+      if (!hasStoredKind(kind)) {
+        // A new cloud project starts with NO demo products or demo quotes.
+        // Only initial accounts may be seeded using strong env-provided passwords.
+        if (kind === 'users') {
+          for (const [id,value] of seeds) {
+            super.set(id,value);
+            putCloud(kind,id,value);
+          }
+        }
+        putCloud('metadata',seedIds[kind],{initialized:true});
+      } else {
+        for (const [id,value] of cloudRows.get(kind)||[])super.set(id,value as T);
+      }
+      return;
+    }
     if(!hasStoredKind(kind)){
       db.exec('BEGIN IMMEDIATE');
       try {
@@ -66,14 +128,27 @@ export class PersistentMap<T> extends Map<number,T> {
     if(!Number.isSafeInteger(id)||id<1)throw Error('Invalid record ID');
     const encoded=JSON.stringify(value);
     if(encoded===undefined)throw Error('Invalid stored record');
+    if (cloudEnabled) {
+      putCloud(this.kind,id,value);
+      return super.set(id,value);
+    }
     insertRecord.run(this.kind,id,encoded);
     return super.set(id,value);
   }
   override delete(id:number):boolean {
+    if (cloudEnabled) {
+      removeCloud(this.kind,id);
+      return super.delete(id);
+    }
     deleteRecord.run(this.kind,id);
     return super.delete(id);
   }
   override clear():void {
+    if (cloudEnabled) {
+      for (const id of this.keys())removeCloud(this.kind,id);
+      super.clear();
+      return;
+    }
     db.prepare('DELETE FROM app_records WHERE kind=?').run(this.kind);
     super.clear();
   }
@@ -122,14 +197,24 @@ function shapeExecution(row:any):ExecutionList {
 }
 export function createExecutionList(createdById:number,items:ExecutionLine[]):ExecutionList {
  const createdAt=new Date().toISOString();
+ if (cloudEnabled) {
+   const id=nextCloudId('execution_lists');
+   const record={id,created_by_id:createdById,created_at:createdAt,items};
+   putCloud('execution_lists',id,record);
+   return record;
+ }
  const inserted=saveExecution.run(createdById,createdAt,JSON.stringify(items));
  return {id:Number(inserted.lastInsertRowid),created_by_id:createdById,created_at:createdAt,items};
 }
 export function listExecutionLists(userId:number|null):ExecutionList[] {
+ if (cloudEnabled) return Array.from(cloudRows.get('execution_lists')?.values()||[])
+   .filter((row:any)=>userId===null||row.created_by_id===userId)
+   .sort((a:any,b:any)=>b.id-a.id) as ExecutionList[];
  return (userId===null?allExecutions.all():ownExecutions.all(userId)).map(shapeExecution);
 }
 
 export function allocateRecordId(kind:RecordKind):number {
+  if (cloudEnabled)return nextCloudId(kind);
   const key='last-id:'+kind;
   const last=Number((metaGet.get(key) as {value?:string}|undefined)?.value||0);
   const largest=Number((maxRecord.get(kind) as {id:number}).id||0);
@@ -164,9 +249,20 @@ export interface AccountAuditEvent {
   detail:string;
 }
 export function recordAccountAudit(actorId:number,targetId:number,action:string,detail=''):void {
+  if (cloudEnabled) {
+    const id=nextCloudId('account_audit');
+    putCloud('account_audit',id,{
+      id,actor_id:actorId,target_id:targetId,action,
+      created_at:new Date().toISOString(),detail:detail.slice(0,150)
+    });
+    return;
+  }
   insertAudit.run(actorId,targetId,action,new Date().toISOString(),detail.slice(0,150));
 }
 export function listAccountAudit(limit=60):AccountAuditEvent[] {
+  if (cloudEnabled)return Array.from(cloudRows.get('account_audit')?.values()||[])
+    .sort((a:any,b:any)=>b.id-a.id)
+    .slice(0,Math.min(100,Math.max(1,Math.trunc(limit)))) as AccountAuditEvent[];
   return recentAudit.all(Math.min(100,Math.max(1,Math.trunc(limit)))).map((row:any)=>({
     id:Number(row.id),actor_id:Number(row.actor_id),
     target_id:Number(row.target_id),action:String(row.action),
