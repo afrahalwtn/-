@@ -104,6 +104,9 @@ export class PersistentMap<T> extends Map<number,T> {
         // Only initial accounts may be seeded using strong env-provided passwords.
         if (kind === 'users') {
           for (const [id,value] of seeds) {
+            // Create ONLY the company administrator on first cloud startup.
+            // Never create an active demo employee automatically.
+            if ((value as any)?.role !== 'admin') continue;
             super.set(id,value);
             putCloud(kind,id,value);
           }
