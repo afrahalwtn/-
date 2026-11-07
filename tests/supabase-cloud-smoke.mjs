@@ -99,16 +99,16 @@ const api=async(route,session,method='GET',data)=>{
 try{
   await new Promise(resolve=>mock.listen(mockPort,'127.0.0.1',resolve));
   await start();
-  let admin=await signIn('admin','CloudTestOnly.Admin.2026');
+  let admin=await signIn('يوسف','CloudTestOnly.Admin.2026');
   // On a fresh cloud account no demo employee has a working login.
   let check=await fetch(root+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username:'staff',password:'CloudTestOnly.Staff.2026'})});
   assert.equal(check.status,401,'Never seed a demo staff account automatically');
   let employee=await api('/users',admin,'POST',{
-    username:'staff',full_name:'موظف الاختبار',password:'CloudTestOnly.Staff.2026',
+    username:'علي',full_name:'موظف الاختبار',password:'CloudTestOnly.Staff.2026',
     can_view_purchase:false,can_view_sale:true});
   assert.equal(employee.status,201,'Admin must be able to create new employee');
-  let staff=await signIn('staff','CloudTestOnly.Staff.2026');
+  let staff=await signIn('علي','CloudTestOnly.Staff.2026');
   let result=await api('/products',admin);assert.equal(result.status,200);
   assert.equal((await result.json()).length,0,'Fresh cloud project must not import demo products');
   result=await api('/products',admin,'POST',{name:'أكواب ورقية',description:'صناعة محلية',
@@ -145,6 +145,7 @@ try{
   assert.equal(retrieved.status,200);
   assert.deepEqual(Buffer.from(await retrieved.arrayBuffer()),png);
 
+  const sessionBeforeRestart=admin.access_token;
   await stop();
   // Simulate >1000 records to exercise remote pagination (4000+ compatible).
   for(let i=2000;i<3060;i++)store.set('products:'+i,{
@@ -155,7 +156,10 @@ try{
   cloudLoadPages=0;
   await start();
   assert(cloudLoadPages>=3,'Must read more than first Supabase page');
-  admin=await signIn('admin','CloudTestOnly.Admin.2026');
+  let restored=await fetch(root+'/me',{headers:{Authorization:'Bearer '+sessionBeforeRestart}});
+  assert.equal(restored.status,200,'Cloud login must persist across server restart');
+  assert.equal((await restored.json()).user.username,'يوسف','Arabic admin username must survive restart');
+  admin=await signIn('يوسف','CloudTestOnly.Admin.2026');
   result=await api('/products?q='+encodeURIComponent('اكواب'),admin);
   assert.equal(result.status,200);
   const found=await result.json();
