@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/supabase-cloud-connection
+      - feature/arabic-usernames-remember-login
       - main
     paths:
       - cloud.ts
