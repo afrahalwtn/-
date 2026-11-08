@@ -14,7 +14,7 @@ const mockPort=44882,appPort=44883;
 const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
 let mockFailWrites=false,mockTransientFailures=0,raceNextProductWrite=false,proc,secondProc,logs='';
-let cloudLoadPages=0;
+let cloudLoadPages=0,shiftAfterFirstPage=false;
 let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
   if(req.headers.apikey!==secret || req.headers.authorization?.includes('sb_secret_')){
@@ -29,7 +29,8 @@ const mock=http.createServer(async (req,res)=>{
       const id=(u.searchParams.get('id')||'').replace(/^eq\./,'');
       const sessionHash=(u.searchParams.get('payload->>token_hash')||'').replace(/^eq\./,'');
       if(kind)all=all.filter(row=>row.kind===kind);
-      if(id)all=all.filter(row=>row.id===Number(id));
+      if(id.startsWith('gt.'))all=all.filter(row=>row.id>Number(id.slice(3)));
+      else if(id)all=all.filter(row=>row.id===Number(id));
       if(sessionHash)all=all.filter(row=>row.payload?.token_hash===sessionHash);
       const offset=Number(u.searchParams.get('offset')||0),limit=Number(u.searchParams.get('limit')||500);
       const select=u.searchParams.get('select');
@@ -37,6 +38,12 @@ const mock=http.createServer(async (req,res)=>{
         select==='payload'?{payload:row.payload}:row);
       res.writeHead(200,{'content-type':'application/json'});
       res.end(JSON.stringify(filtered));
+      // Deleting an early row between pages makes offset-based paging skip
+      // the next row. ID-keyset paging must still read the boundary safely.
+      if(shiftAfterFirstPage && kind==='products' && id==='gt.0' && limit===1000){
+        shiftAfterFirstPage=false;
+        store.delete('products:2000');
+      }
       return;
     }
     if(mockFailWrites||mockTransientFailures>0){
@@ -288,8 +295,8 @@ try{
     'Fresh staff login must work again after a cross-node revocation');
   await stopSecond();
   await stop();
-  // Simulate >1000 records to exercise remote pagination (4000+ compatible).
-  for(let i=2000;i<3060;i++)store.set('products:'+i,{
+  // Simulate 4200 products to exercise large catalogue pagination and compression.
+  for(let i=2000;i<6200;i++)store.set('products:'+i,{
     kind:'products',id:i,updated_at:new Date().toISOString(),payload:{id:i,name:'قنينة رقم '+i,
     description:'',manufacture:'',quantity:1,min_quantity:0,
     purchase_price:5,sale_price:6,image_name:null,updated_at:new Date().toISOString()}
@@ -308,7 +315,28 @@ try{
   const found=await result.json();
   assert(found.some(x=>x.id===item.id&&x.quantity===32),'Must survive a server reboot');
   result=await api('/products',admin);
-  assert((await result.json()).length>=1061,'No records may be lost after pagination');
+  assert((await result.json()).length>=4203,'No records may be lost after pagination');
+  // Simulate another node deleting an early item after the first batch.
+  shiftAfterFirstPage=true;
+  const largeGzip=await fetch(root+'/products',{
+    headers:{Authorization:'Bearer '+admin.access_token,'Accept-Encoding':'gzip'}
+  });
+  assert.equal(largeGzip.status,200);
+  assert.equal(largeGzip.headers.get('content-encoding'),'gzip',
+    'Large authenticated catalogue should be compressed');
+  const zippedData=await largeGzip.json();
+  assert(zippedData.some(p=>p.id===2997)&&zippedData.some(p=>p.id===6199),
+    'Keyset scan must not skip records after concurrent deletion');
+  assert(zippedData.every(p=>typeof p.id==='number'));
+  const identity=await fetch(root+'/products',{
+    headers:{Authorization:'Bearer '+admin.access_token,'Accept-Encoding':'identity'}
+  });
+  assert.equal(identity.status,200);
+  assert.equal(identity.headers.get('content-encoding'),null,
+    'Client opting out of gzip must get plain JSON');
+  const uncompressed=await identity.json();
+  assert(uncompressed.some(p=>p.id===6199),'Uncompressed catalogue must remain intact');
+  assert(!uncompressed.some(p=>p.id===2000),'Next refresh must reflect deleted items');
 
   // Owner recovers an existing account without deleting catalogue items.
   const previousToken=admin.access_token;
