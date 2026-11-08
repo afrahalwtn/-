@@ -19,11 +19,11 @@ try {
  assert.equal(first.get(1).quantity,8);
  first.set(1,{...first.get(1),quantity:4});
  assert.equal(new PersistentMap('products',seeds).get(1).quantity,4,'Stock persists when storage reloads');
- const second=allocateRecordId('products');
+ const second=await allocateRecordId('products');
  first.set(second,{id:second,name:'علبة طعام',description:'',manufacture:'تركي',quantity:10});
  first.delete(1);
  assert(!new PersistentMap('products',seeds).has(1),'Deleted demo data must not be restored');
- const id=allocateRecordId('products');
+ const id=await allocateRecordId('products');
  assert(id>second);
  const db=new DatabaseSync(databasePath);
  db.exec('BEGIN IMMEDIATE');
