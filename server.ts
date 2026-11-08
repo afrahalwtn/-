@@ -45,8 +45,9 @@ function tokenDigest(token: string): string {
 // Revocation on any server makes previously issued tokens fail on every node,
 // even if their session rows have not yet been physically removed.
 function authGeneration(value:{auth_generation?:number}):number{
-  return Number.isSafeInteger(value.auth_generation)&&value.auth_generation!>=0?
-    value.auth_generation!:0;
+  const generation=value.auth_generation;
+  return typeof generation==='number'&&Number.isSafeInteger(generation)&&generation>=0?
+    generation:0;
 }
 function rotateAuthGeneration(user:User):void{
   user.auth_generation=Math.max(Date.now(),authGeneration(user)+1);
