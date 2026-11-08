@@ -50,6 +50,7 @@ function authGeneration(value:{auth_generation?:number}):number{
 }
 function rotateAuthGeneration(user:User):void{
   user.auth_generation=Math.max(Date.now(),authGeneration(user)+1);
+  delete user.auth_generation_keep_hash;
 }
 
 function csrfForToken(token: string): string {
@@ -83,6 +84,8 @@ interface User {
   created_at: string;
   // Monotonic credential/session generation stored in the shared cloud row.
   auth_generation?: number;
+  // Preserve only the current session after a self-service password change.
+  auth_generation_keep_hash?: string;
 }
 
 interface Session {
@@ -580,7 +583,8 @@ async function getSessionContext(req: Request): Promise<AuthContext|null> {
   const user = (cloudEnabled?await readCloudUser(sess.user_id):users.get(sess.user_id)) as User|undefined|null;
   if(!user || user.id!==sess.user_id || !user.is_active ||
      (user.role!=='admin'&&user.role!=='staff') ||
-     authGeneration(sess)!==authGeneration(user)) return null;
+     (authGeneration(sess)!==authGeneration(user) &&
+      user.auth_generation_keep_hash!==hash)) return null;
   return { user, session:sess, rawToken:raw };
 }
 
@@ -744,11 +748,10 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
   if(username!==undefined)ctx.user.username=normalizeUsername(username);
   if(desired)ctx.user.password=hashPassword(desired);
   rotateAuthGeneration(ctx.user);
+  // This works for sessions created on other app servers too, without
+  // accidentally inserting a duplicate session under a different cloud ID.
+  ctx.user.auth_generation_keep_hash=ctx.session.token_hash;
   users.set(ctx.user.id,ctx.user);
-  // Preserve this device's current session but invalidate every older version
-  // on every cloud instance, including those not loaded on this app server.
-  ctx.session.auth_generation=authGeneration(ctx.user);
-  sessions.set(ctx.session.token_hash,ctx.session);
   revokeOtherUserSessions(ctx.user.id,ctx.session.token_hash);
   res.json({user:userDict(ctx.user),message:'تم تحديث بيانات الدخول'});
 });
