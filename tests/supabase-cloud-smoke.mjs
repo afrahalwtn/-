@@ -13,7 +13,7 @@ const secret='sb_secret_mock_000000000000000';
 const mockPort=44882,appPort=44883;
 const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
-let mockFailWrites=false,mockTransientFailures=0,proc,logs='';
+let mockFailWrites=false,mockTransientFailures=0,proc,secondProc,logs='';
 let cloudLoadPages=0;
 let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
@@ -125,6 +125,33 @@ const stop=async()=>{
   await Promise.race([ended,delay(4000)]);
   if(p.exitCode===null&&p.signalCode===null)p.kill('SIGKILL');
 };
+// A second, independent Node process simulates a load-balanced cloud deployment.
+const secondPort=44884,secondRoot='http://127.0.0.1:'+secondPort+'/api';
+const startSecond=async()=>{
+  secondProc=spawn(process.execPath,['--import','tsx','server.ts'],{
+    env:{...process.env,PORT:String(secondPort),AFRAH_DATA_DIR:folder+'-node-b',
+      SUPABASE_URL:'http://127.0.0.1:'+mockPort,SUPABASE_SECRET_KEY:secret,
+      AFRAH_ADMIN_PASSWORD:'CloudTestOnly.Admin.2026',
+      AFRAH_ADMIN_RESET_PASSWORD:'',AFRAH_SECURE_COOKIES:'false',NODE_ENV:'test'},
+    stdio:['ignore','pipe','pipe']
+  });
+  secondProc.stdout.on('data',x=>logs+=x.toString());
+  secondProc.stderr.on('data',x=>logs+=x.toString());
+  for(let i=0;i<90;i++){
+    if(secondProc.exitCode!==null)break;
+    try{const response=await fetch(secondRoot+'/health');if(response.ok)return;}catch{}
+    await delay(180);
+  }
+  throw Error('Second cloud node failed: '+logs.slice(-3500));
+};
+const stopSecond=async()=>{
+  const child=secondProc;if(!child)return;
+  secondProc=null;
+  if(child.exitCode!==null||child.signalCode!==null)return;
+  const ended=once(child,'exit');child.kill('SIGTERM');
+  await Promise.race([ended,delay(4000)]);
+  if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
+};
 const signIn=async(username,password)=>{
   const r=await fetch(root+'/auth/login',{method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -162,6 +189,29 @@ try{
   assert.equal(result.status,201);
   const item=await result.json();
   assert(store.has('products:'+item.id),'Item must be confirmed persisted before HTTP 201');
+
+  // A newly created session on node A must work on node B, without reload or
+  // a sticky load-balancer cookie; logout on B must revoke it for node A.
+  await startSecond();
+  const crossNode=await signIn('يوسف','CloudTestOnly.Admin.2026');
+  let remoteMe=await fetch(secondRoot+'/me',{
+    headers:{Authorization:'Bearer '+crossNode.access_token}});
+  assert.equal(remoteMe.status,200,'New session from node A must be accepted by node B');
+  assert.equal((await remoteMe.json()).csrf,crossNode.csrf,
+    'CSRF proof must stay consistent across nodes');
+  const remoteItems=await fetch(secondRoot+'/products',{
+    headers:{Authorization:'Bearer '+staff.access_token}});
+  assert.equal(remoteItems.status,200,'Existing staff session works on second node');
+  assert((await remoteItems.json()).every(p=>!('purchase_price' in p)),
+    'Cross-node staff authorization cannot expose purchase prices');
+  const loggedOut=await fetch(secondRoot+'/auth/logout',{
+    method:'POST',headers:{Authorization:'Bearer '+crossNode.access_token}});
+  assert.equal(loggedOut.status,200,'Logout from any node must invalidate stored token');
+  assert.equal((await fetch(root+'/me',{
+    headers:{Authorization:'Bearer '+crossNode.access_token}})).status,401,
+    'Remote logout must invalidate the session on its original node');
+  await stopSecond();
+
   result=await api('/products',staff);
   assert.equal(result.status,200);
   let visible=(await result.json()).find(p=>p.id===item.id);
@@ -265,5 +315,6 @@ try{
   assert.equal(unhealthy.status,503,'Conflicted app server should fail readiness for a fresh restart');
   console.log('PASS Supabase: new cloud / permissions / durable products / cloud images / employee lists / pagination / restart / fail-closed');
 } finally {
-  await stop();mock.close();rmSync(folder,{recursive:true,force:true});
+  await stopSecond();await stop();mock.close();rmSync(folder,{recursive:true,force:true});
+  rmSync(folder+'-node-b',{recursive:true,force:true});
 }
