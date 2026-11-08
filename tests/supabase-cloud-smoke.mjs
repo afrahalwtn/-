@@ -332,7 +332,7 @@ try{
   mockFailWrites=true;
   result=await api('/products',admin,'POST',{name:'لن يحفظ',
     manufacture:'',quantity:5,purchase_price:1,sale_price:2});
-  assert.equal(result.status,503,'Never claim success when cloud rejects a write');
+  assert.equal(result.status,503,'Never claim success when cloud rejects a write: '+await result.clone().text());
   result=await api('/products',admin);
   assert.equal(result.status,503,'Fail closed once cloud is unhealthy');
   mockFailWrites=false;
