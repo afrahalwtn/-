@@ -11,6 +11,9 @@ on:
       - main
     paths:
       - cloud.ts
+      - scripts/backup-cloud.mjs
+      - tests/independent-backup.mjs
+      - .github/workflows/independent-backup.yml
       - server.ts
       - storage.ts
       - tests/supabase-cloud-smoke.mjs
@@ -36,5 +39,7 @@ jobs:
         run: npm run build
       - name: Cloud storage and authorization smoke
         run: node tests/supabase-cloud-smoke.mjs
+      - name: Verify independent encrypted snapshot and offline extraction
+        run: node tests/independent-backup.mjs
       - name: Ensure legacy local storage still works
         run: node tests/sqlite-server-restart.mjs
