@@ -1397,13 +1397,14 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const invalidImage=err?.message==='الملف ليس صورة صالحة';
   const status=uploadError?(code==='LIMIT_FILE_SIZE'?413:422):
     invalidImage?422:(err?.type==='entity.too.large'?413:
-    (Number.isInteger(err?.status)&&err.status>=400&&err.status<500?err.status:500));
+    (Number.isInteger(err?.status)&&err.status>=400&&err.status<600?err.status:500));
   console.error('Request failed:',{status,code:typeof code==='string'?code:'unknown',
     message:err instanceof Error?err.message:'unknown'});
   if(res.headersSent)return;
   const detail=status===413?'حجم البيانات أو الصورة أكبر من المسموح':
     status===422?'الملف أو البيانات المرسلة غير صالحة':
     status===400?'صيغة الطلب غير صحيحة':
+    status===503?'تعذر الاتصال بالحفظ السحابي؛ لم يتم اعتماد العملية':
     status===500?'حدث خطأ داخلي؛ يرجى إعادة المحاولة أو التواصل مع الإدارة':
     'تعذر تنفيذ الطلب';
   res.status(status).json({detail});
