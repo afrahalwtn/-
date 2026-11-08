@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { mkdtempSync,rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
+const testDataDir=mkdtempSync(path.join(tmpdir(),'afrah-auth-preview-'));
 const port = 43187;
 const origin = `http://127.0.0.1:${port}`;
 const server = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], {
-  env: { ...process.env, PORT: String(port), AFRAH_SECURE_COOKIES: 'false' },
+  env: { ...process.env, SUPABASE_URL:'', SUPABASE_SECRET_KEY:'', AFRAH_ADMIN_RESET_PASSWORD:'', AFRAH_ADMIN_PASSWORD:'', AFRAH_STAFF_PASSWORD:'', AFRAH_ENABLE_ADMIN_RECOVERY:'', AFRAH_TRUST_PROXY_HOPS:'0', NODE_ENV:'development', AFRAH_DATA_DIR:testDataDir, PORT: String(port), AFRAH_SECURE_COOKIES: 'false' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
@@ -305,4 +309,6 @@ try {
   console.log('PASS: staff execution lists, no inventory mutation or price leakage, admin/staff permissions, offline grids, auth');
 } finally {
   server.kill('SIGTERM');
+  await delay(250);
+  rmSync(testDataDir,{force:true,recursive:true});
 }
