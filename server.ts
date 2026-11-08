@@ -42,6 +42,17 @@ if (!fs.existsSync(imagesDir)) {
 function tokenDigest(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
+// Revocation on any server makes previously issued tokens fail on every node,
+// even if their session rows have not yet been physically removed.
+function authGeneration(value:{auth_generation?:number}):number{
+  const generation=value.auth_generation;
+  return typeof generation==='number'&&Number.isSafeInteger(generation)&&generation>=0?
+    generation:0;
+}
+function rotateAuthGeneration(user:User):void{
+  user.auth_generation=Math.max(Date.now(),authGeneration(user)+1);
+  delete user.auth_generation_keep_hash;
+}
 
 function csrfForToken(token: string): string {
   return crypto.createHmac('sha256',token).update('afrah-csrf-v2').digest('hex');
@@ -72,6 +83,10 @@ interface User {
   can_view_sale: boolean;
   is_active: boolean;
   created_at: string;
+  // Monotonic credential/session generation stored in the shared cloud row.
+  auth_generation?: number;
+  // Preserve only the current session after a self-service password change.
+  auth_generation_keep_hash?: string;
 }
 
 interface Session {
@@ -80,6 +95,7 @@ interface Session {
   created_at: number;
   last_seen_at: number;
   expires_at: number;
+  auth_generation?: number;
 }
 
 interface Product {
@@ -299,6 +315,7 @@ function createAuthSession(u:User) {
   sessions.set(tokenDigest(rawToken),{
     token_hash:tokenDigest(rawToken),user_id:u.id,
     created_at:now,last_seen_at:now,expires_at:NO_AUTO_SESSION_EXPIRY,
+    auth_generation:authGeneration(u),
   });
   return {rawToken,csrf:csrfForToken(rawToken)};
 }
@@ -566,7 +583,9 @@ async function getSessionContext(req: Request): Promise<AuthContext|null> {
       !Number.isSafeInteger(sess.expires_at)||sess.expires_at<=Date.now()) return null;
   const user = (cloudEnabled?await readCloudUser(sess.user_id):users.get(sess.user_id)) as User|undefined|null;
   if(!user || user.id!==sess.user_id || !user.is_active ||
-     (user.role!=='admin'&&user.role!=='staff')) return null;
+     (user.role!=='admin'&&user.role!=='staff') ||
+     (authGeneration(sess)!==authGeneration(user) &&
+      user.auth_generation_keep_hash!==hash)) return null;
   return { user, session:sess, rawToken:raw };
 }
 
@@ -729,8 +748,11 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
   }
   if(username!==undefined)ctx.user.username=normalizeUsername(username);
   if(desired)ctx.user.password=hashPassword(desired);
+  rotateAuthGeneration(ctx.user);
+  // This works for sessions created on other app servers too, without
+  // accidentally inserting a duplicate session under a different cloud ID.
+  ctx.user.auth_generation_keep_hash=ctx.session.token_hash;
   users.set(ctx.user.id,ctx.user);
-  // Log out other devices after credential change; keep the current session.
   revokeOtherUserSessions(ctx.user.id,ctx.session.token_hash);
   res.json({user:userDict(ctx.user),message:'تم تحديث بيانات الدخول'});
 });
@@ -782,6 +804,7 @@ app.post('/api/admin/recover', (req,res)=>{
   admin.username=normalized;
   admin.password=hashPassword(newPassword);
   admin.is_active=true;
+  rotateAuthGeneration(admin);
   users.set(admin.id,admin);
   revokeOtherUserSessions(admin.id);
   recoveryUsed=true;
@@ -1104,6 +1127,8 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
     }
   }
   if (full_name !== undefined) u.full_name = String(full_name).trim();
+  if ((password !== undefined && password !== '') || is_active===false)
+    rotateAuthGeneration(u);
   if (password !== undefined && password !== '') {
     u.password = hashPassword(String(password));
     // Invalidate sessions for this user
@@ -1136,6 +1161,8 @@ app.post('/api/users/:id/revoke-sessions',requireAuth,requireCsrf,requireAdmin,(
     res.status(404).json({detail:'المستخدم غير موجود أو لا يمكن إنهاء جلساته'});
     return;
   }
+  rotateAuthGeneration(u);
+  users.set(u.id,u);
   const count=terminateUserAccess(id);
   recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'revoke_sessions',u.username);
   res.json({ok:true,revoked_sessions:count,message:'تم تسجيل خروج المستخدم من جميع الأجهزة'});
@@ -1347,7 +1374,9 @@ function applyOwnerAdminPasswordReset():void {
   if(!admin)throw Error('Active administrator missing; owner reset was not applied');
   if(!verifyPassword(desired,admin.password)){
     // Never mutate the stored object in place until its replacement is ready.
-    users.set(admin.id,{...admin,password:hashPassword(desired)});
+    const next={...admin,password:hashPassword(desired)};
+    rotateAuthGeneration(next);
+    users.set(admin.id,next);
     revokeOtherUserSessions(admin.id);
   }
   storeAdminResetMarker(hashPassword(desired));

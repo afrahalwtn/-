@@ -210,8 +210,6 @@ try{
   assert.equal((await fetch(root+'/me',{
     headers:{Authorization:'Bearer '+crossNode.access_token}})).status,401,
     'Remote logout must invalidate the session on its original node');
-  await stopSecond();
-
   result=await api('/products',staff);
   assert.equal(result.status,200);
   let visible=(await result.json()).find(p=>p.id===item.id);
@@ -248,6 +246,17 @@ try{
   assert.equal(revoke.status,200,'Only management can revoke a staff session');
   let blocked=await api('/products',staff);
   assert.equal(blocked.status,401,'A revoked employee token must immediately stop working');
+  // The second node did NOT process the revocation, yet must reject the
+  // old staff session by checking the shared account generation in Supabase.
+  const otherNodeBlocked=await fetch(secondRoot+'/products',{
+    headers:{Authorization:'Bearer '+staff.access_token}});
+  assert.equal(otherNodeBlocked.status,401,
+    'Administrative revoke must immediately invalidate staff on every server');
+  const freshStaff=await signIn('علي','CloudTestOnly.Staff.2026');
+  assert.equal((await fetch(secondRoot+'/me',{
+    headers:{Authorization:'Bearer '+freshStaff.access_token}})).status,200,
+    'Fresh staff login must work again after a cross-node revocation');
+  await stopSecond();
   await stop();
   // Simulate >1000 records to exercise remote pagination (4000+ compatible).
   for(let i=2000;i<3060;i++)store.set('products:'+i,{
