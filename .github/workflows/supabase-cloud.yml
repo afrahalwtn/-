@@ -4,6 +4,7 @@ on:
     branches:
       - feature/supabase-cloud-connection
       - feature/arabic-usernames-remember-login
+      - feature/security-stability-ui-hardening
       - main
     paths:
       - cloud.ts
