@@ -100,6 +100,7 @@ function queueCloudNew(kind:keyof typeof counterIds,payload:any,onSaved?:(id:num
   const snapshot=JSON.parse(JSON.stringify(payload));
   cloudQueue=cloudQueue.then(async()=>{
     const id=await nextCloudId(kind);
+    if(kind==='account_audit')snapshot.id=id;
     const version=await durableCloudWriteWithResult(()=>saveCloudRecord(kind,id,snapshot,null));
     if(!cloudRows.has(kind))cloudRows.set(kind,new Map());
     cloudRows.get(kind)!.set(id,snapshot);
@@ -226,6 +227,7 @@ export class PersistentMap<T> extends Map<number,T> {
   constructor(kind:RecordKind, seeds:Map<number,T>) {
     super();
     this.kind=kind;
+    if(cloudEnabled)businessMaps.set(kind,this);
     if (cloudEnabled) {
       if (!hasStoredKind(kind)) {
         // A new cloud project starts with NO demo products or demo quotes.
@@ -262,6 +264,13 @@ export class PersistentMap<T> extends Map<number,T> {
     for(const row of selectRecords.all(kind)){
       super.set(Number(row.id),JSON.parse(String(row.payload)) as T);
     }
+  }
+  // Replace only memory: an API refresh must never re-save older values.
+  syncFromCloud():void{
+    if(!cloudEnabled)return;
+    super.clear();
+    for(const [id,value] of cloudRows.get(this.kind)||[])
+      super.set(id,value as T);
   }
   override set(id:number,value:T):this {
     if(!Number.isSafeInteger(id)||id<1)throw Error('Invalid record ID');
@@ -352,6 +361,20 @@ export function listExecutionLists(userId:number|null):ExecutionList[] {
  return (userId===null?allExecutions.all():ownExecutions.all(userId)).map(shapeExecution);
 }
 
+// Reconcile a complete collection from the remote source of truth, including
+// deletions. The HTTP middleware serializes catalogue mutations around this.
+const businessMaps=new Map<RecordKind,PersistentMap<any>>();
+export async function refreshCloudKind(kind:RecordKind|'execution_lists'|'account_audit'):Promise<void>{
+  if(!cloudEnabled)return;
+  await flushCloudWrites();
+  const latest=await loadCloudKind(kind);
+  const values=new Map<number,any>(),revisions=new Map<number,string>();
+  for(const row of latest){values.set(row.id,row.payload);revisions.set(row.id,row.updated_at);}
+  cloudRows.set(kind,values);
+  cloudVersions.set(kind,revisions);
+  if(kind==='products'||kind==='users'||kind==='quotes')
+    businessMaps.get(kind)?.syncFromCloud();
+}
 export async function allocateRecordId(kind:RecordKind):Promise<number> {
   if (cloudEnabled)return nextCloudId(kind);
   const key='last-id:'+kind;
