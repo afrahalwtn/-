@@ -13,7 +13,7 @@ const secret='sb_secret_mock_000000000000000';
 const mockPort=44882,appPort=44883;
 const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
-let mockFailWrites=false,mockTransientFailures=0,proc,secondProc,logs='';
+let mockFailWrites=false,mockTransientFailures=0,raceNextProductWrite=false,proc,secondProc,logs='';
 let cloudLoadPages=0;
 let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
@@ -65,7 +65,14 @@ const mock=http.createServer(async (req,res)=>{
         res.writeHead(204);res.end();return;
       }
       const version=(u.searchParams.get('updated_at')||'').replace(/^eq\./,'');
-      const key=kind+':'+id,record=store.get(key);
+      const key=kind+':'+id;
+      let record=store.get(key);
+      if(kind==='products'&&req.method==='PATCH'&&raceNextProductWrite&&record){
+        raceNextProductWrite=false;
+        record={...record,payload:{...record.payload,quantity:77},
+          updated_at:new Date(Date.parse(record.updated_at)+5000).toISOString()};
+        store.set(key,record);
+      }
       if(!record||record.updated_at!==version){
         res.writeHead(200,{'content-type':'application/json'});res.end('[]');return;
       }
@@ -204,6 +211,29 @@ try{
   assert.equal(remoteItems.status,200,'Existing staff session works on second node');
   assert((await remoteItems.json()).every(p=>!('purchase_price' in p)),
     'Cross-node staff authorization cannot expose purchase prices');
+  // Concurrent additions on two real app servers must allocate distinct IDs.
+  const addOn=(origin,name)=>fetch(origin+'/products',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+crossNode.access_token,
+      'X-CSRF-Token':crossNode.csrf,'Content-Type':'application/json'},
+    body:JSON.stringify({name,quantity:9,purchase_price:8,sale_price:10})
+  });
+  const [createdA,createdB]=await Promise.all([
+    addOn(root,'رقم فريد من الخادم الأول'),
+    addOn(secondRoot,'رقم فريد من الخادم الثاني')
+  ]);
+  assert.equal(createdA.status,201,'First node must reserve a unique product ID');
+  assert.equal(createdB.status,201,'Second node must reserve a unique product ID');
+  const idA=(await createdA.json()).id,idB=(await createdB.json()).id;
+  assert.notEqual(idA,idB,'Two independent nodes cannot issue identical IDs');
+  assert(store.has('products:'+idA)&&store.has('products:'+idB),
+    'Both product creations must persist');
+  const refreshed=await fetch(root+'/products',{headers:{
+    Authorization:'Bearer '+crossNode.access_token}});
+  assert.equal(refreshed.status,200);
+  const ids=(await refreshed.json()).map(p=>p.id);
+  assert(ids.includes(idB)&&ids.includes(idA),
+    'First node must display additions from second node without restarting');
   const loggedOut=await fetch(secondRoot+'/auth/logout',{
     method:'POST',headers:{Authorization:'Bearer '+crossNode.access_token}});
   assert.equal(loggedOut.status,200,'Logout from any node must invalidate stored token');
@@ -313,9 +343,9 @@ try{
   // read it. The old server must NOT overwrite newer committed stock.
   const external=store.get('products:'+item.id);
   assert(external && external.updated_at);
-  store.set('products:'+item.id,{...external,
-    payload:{...external.payload,quantity:77},
-    updated_at:new Date(Date.parse(external.updated_at)+5000).toISOString()});
+  // Inject an external edit AFTER node A refreshed but BEFORE its conditional
+  // PATCH commits. The CAS condition must reject the stale update.
+  raceNextProductWrite=true;
   result=await api('/products/'+item.id+'/stock',admin,'PATCH',{quantity:41});
   assert.equal(result.status,409,'Concurrent stale stock update must be refused');
   assert.equal(store.get('products:'+item.id).payload.quantity,77,
