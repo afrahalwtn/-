@@ -142,8 +142,13 @@ export async function claimCloudId(kind:string,counterId:number):Promise<number>
       const conflict=error instanceof Error&&
         (/^Supabase record conflict:/.test(error.message)||
          /^Supabase request failed: HTTP 409/.test(error.message));
-      if(!conflict)throw error;
-      // Another server claimed this number: read the new counter and try again.
+      const transient=error instanceof TypeError ||
+        (error instanceof Error&&(
+          ['TimeoutError','AbortError'].includes(error.name)||
+          /^Supabase request failed: HTTP (?:429|5[0-9]{2})/.test(error.message)));
+      if(!conflict&&!transient)throw error;
+      // Another server won the reservation, or its response was interrupted:
+      // re-read the counter before retrying to prevent reusing an ID.
       if(attempt===13)break;
       await pause(12+attempt*7);
     }
