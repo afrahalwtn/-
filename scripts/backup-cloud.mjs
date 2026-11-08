@@ -31,17 +31,45 @@ function connection(){
 async function api(origin,endpoint,options={}){
   const headers={apikey:origin.token,Accept:'application/json',...(origin.token.startsWith('eyJ')?{Authorization:'Bearer '+origin.token}:{}),...(options.headers||{})};
   for(let attempt=0;attempt<3;attempt++){
+    let response;
     try{
-      const response=await fetch(origin.base+endpoint,{...options,headers,signal:AbortSignal.timeout(30000)});
-      if(response.ok)return response;
-      if(![429,500,502,503,504].includes(response.status)||attempt===2)
-        throw Error('Backup source HTTP '+response.status+' '+endpoint.split('?')[0]);
-    }catch(e){
-      if(attempt===2 || !(e instanceof TypeError || ['TimeoutError','AbortError'].includes(e?.name)))throw e;
+      response=await fetch(origin.base+endpoint,{...options,headers,signal:AbortSignal.timeout(30000)});
+    }catch(error){
+      if(attempt===2||!(error instanceof TypeError||['TimeoutError','AbortError'].includes(error?.name)))
+        throw error;
+      await new Promise(resolve=>setTimeout(resolve,300*(attempt+1)));
+      continue;
     }
+    if(response.ok)return response;
+    const status=response.status;
+    // Drain/cancel unsuccessful responses so their sockets are reusable.
+    await response.body?.cancel().catch(()=>{});
+    if(![429,500,502,503,504].includes(status)||attempt===2)
+      throw Error('Backup source HTTP '+status+' '+endpoint.split('?')[0]);
     await new Promise(resolve=>setTimeout(resolve,300*(attempt+1)));
   }
   throw Error('Backup source unavailable');
+}
+
+// Never materialize an untrusted remote image before checking its size.
+// A missing or dishonest Content-Length must not allow unbounded buffering.
+async function readImageBounded(response,maxBytes=3*1024*1024){
+  const header=response.headers.get('content-length');
+  if(header!==null && (!/^\d+$/.test(header)||Number(header)>maxBytes)){
+    await response.body?.cancel().catch(()=>{});
+    throw Error('Backup source image exceeds permitted size');
+  }
+  if(!response.body)throw Error('Backup source returned an empty image response');
+  const chunks=[];
+  let size=0;
+  for await(const part of response.body){
+    const chunk=Buffer.from(part);
+    size+=chunk.length;
+    if(size>maxBytes)throw Error('Backup source image exceeds permitted size');
+    chunks.push(chunk);
+  }
+  if(size===0)throw Error('Backup source returned an empty image');
+  return Buffer.concat(chunks,size);
 }
 async function records(origin){
   const all=[];
@@ -96,8 +124,9 @@ async function createBackup(filename){
     for(const row of original){itemCount++;yield next({type:'record',row});}
     for(const image of originalImages){
       const response=await api(origin,'/storage/v1/object/item-images/'+encodeURIComponent(image.name));
-      const data=Buffer.from(await response.arrayBuffer());
-      if(data.length>3*1024*1024)throw Error('Image exceeds maximum expected size');
+      const data=await readImageBounded(response);
+      if(image.size!==null && Number(image.size)!==data.length)
+        throw Error('Image changed or has inconsistent size during backup');
       imageCount++;
       yield next({type:'image',name:image.name,sha256:createHash('sha256').update(data).digest('hex'),bytes:data.length,base64:data.toString('base64')});
     }
