@@ -15,6 +15,7 @@ const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
 let mockFailWrites=false,proc,logs='';
 let cloudLoadPages=0;
+let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
   if(req.headers.apikey!==secret || req.headers.authorization?.includes('sb_secret_')){
     res.writeHead(401);res.end('Unauthorized');return;
@@ -64,6 +65,7 @@ const start=async()=>{
       SUPABASE_SECRET_KEY:secret,
       AFRAH_ADMIN_PASSWORD:'CloudTestOnly.Admin.2026',
       AFRAH_STAFF_PASSWORD:'CloudTestOnly.Staff.2026',
+      AFRAH_ADMIN_RESET_PASSWORD:recoverySecret,
       AFRAH_SECURE_COOKIES:'false',
       NODE_ENV:'test'},
     stdio:['ignore','pipe','pipe']
