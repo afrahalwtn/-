@@ -82,6 +82,19 @@ try{
   const restoredRows=(await fs.readFile(path.join(destination,'app_records.ndjson'),'utf8')).trim().split('\n').map(JSON.parse);
   assert.deepEqual(restoredRows,rows);
   assert.deepEqual(await fs.readFile(path.join(destination,'images',itemImage)),bytes);
+  // A wrong recovery key must fail before ANY plaintext recovery file or
+  // directory is created; the valid key remains only in this mock test.
+  const correctKey=process.env.AFRAH_BACKUP_KEY;
+  process.env.AFRAH_BACKUP_KEY=randomBytes(32).toString('hex');
+  const wrongKeyDir=path.join(folder,'wrong-key-extraction');
+  try {
+    await assert.rejects(extractBackup(backup,wrongKeyDir),
+      'An incorrect backup key must fail offline restoration');
+    await assert.rejects(fs.stat(wrongKeyDir),{code:'ENOENT'},
+      'Wrong-key extraction must not leave a plaintext output directory');
+  }finally {
+    process.env.AFRAH_BACKUP_KEY=correctKey;
+  }
   for(const mode of ['header','stream']){
     oversizedImage=mode;
     const oversized=path.join(folder,'oversized-'+mode+'.afrah.enc');
