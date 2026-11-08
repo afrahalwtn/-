@@ -4,6 +4,7 @@ import multer from 'multer';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import crypto from 'node:crypto';
+import { gzip } from 'node:zlib';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -927,7 +928,20 @@ app.get('/api/products', requireAuth, (req, res) => {
     list = list.filter(p => matchesArabicSearch(q, p.name, p.description, p.manufacture, p.item_type, p.category, p.sku, p.unit, ...(p.custom_fields||[]).flatMap(x=>[x.label,x.value])));
   }
   list.sort((a, b) => b.id - a.id);
-  res.json(list.map((p) => productDict(p, ctx.user)));
+  const visible=list.map(p=>productDict(p,ctx.user));
+  // Only the large authenticated catalogue gets async gzip. This reduces
+  // download size on mobile without modifying HTML, CSS, fields or ordering.
+  const acceptsGzip=/(?:^|,)\s*gzip(?:\s*(?:;|,|$))/i.test(String(req.get('accept-encoding')||''));
+  if(!acceptsGzip){res.json(visible);return;}
+  const payload=Buffer.from(JSON.stringify(visible));
+  if(payload.length<32768){res.json(visible);return;}
+  gzip(payload,{level:4},(error,compressed)=>{
+    if(res.destroyed||res.headersSent)return;
+    if(error){res.json(visible);return;}
+    res.vary('Accept-Encoding');
+    res.setHeader('Content-Encoding','gzip');
+    res.type('json').send(compressed);
+  });
 });
 
 app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {

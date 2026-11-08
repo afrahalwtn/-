@@ -156,23 +156,33 @@ export async function claimCloudId(kind:string,counterId:number):Promise<number>
   throw Error('Could not reserve a unique cloud record ID');
 }
 
-/** Read a complete current collection; includes deletions, not just new rows. */
+/** Read the complete current collection (including deletions).
+ * Keyset paging avoids skipping/duplicating rows if another node inserts
+ * or deletes records while a large catalogue is being scanned.
+ */
 export async function loadCloudKind(kind:string):Promise<CloudRecord[]>{
   if(!/^(users|products|quotes|execution_lists|account_audit)$/.test(kind))
     throw Error('Invalid cloud collection');
   const results:CloudRecord[]=[];
-  for(let offset=0;;offset+=500){
+  const batchSize=1000; // Supabase default per-request maximum.
+  let lastId=0;
+  for(;;){
     const response=await request('/rest/v1/app_records?kind=eq.'+kind+
-      '&select=kind,id,payload,updated_at&order=id.asc&limit=500&offset='+offset);
+      '&id=gt.'+lastId+
+      '&select=kind,id,payload,updated_at&order=id.asc&limit='+batchSize);
     const page=await response.json();
-    if(!Array.isArray(page))throw Error('Invalid cloud collection');
+    if(!Array.isArray(page)||page.length>batchSize)
+      throw Error('Invalid cloud collection page');
     for(const row of page){
-      if(row?.kind!==kind||!Number.isInteger(row.id)||
+      if(row?.kind!==kind||!Number.isSafeInteger(row.id)||row.id<=lastId||
          !row.payload||typeof row.payload!=='object'||Array.isArray(row.payload)||
-         typeof row.updated_at!=='string')throw Error('Invalid cloud row in collection');
+         typeof row.updated_at!=='string'||!Number.isFinite(Date.parse(row.updated_at)))
+        throw Error('Invalid cloud row or non-increasing record ID');
+      lastId=row.id;
       results.push(row);
     }
-    if(page.length<500)break;
+    if(results.length>250000)throw Error('Cloud collection exceeds safety limit');
+    if(page.length<batchSize)break;
   }
   return results;
 }
