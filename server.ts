@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -28,6 +28,7 @@ function asyncRoute(handler:(req:Request,res:Response,next:NextFunction)=>Promis
       if(cloudEnabled && error instanceof Error &&
          (/^Supabase request failed:/.test(error.message)||
           /cloud record ID|Cloud ID|Could not reserve/.test(error.message))){
+        markCloudUnhealthy(error);
         next(Object.assign(new Error('Cloud persistence unavailable'),{status:503}));
       }else next(error);
     });
