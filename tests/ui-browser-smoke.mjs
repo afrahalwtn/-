@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
 
@@ -10,11 +12,16 @@ const executablePath=[
   '/usr/bin/google-chrome-stable',
   '/usr/bin/chromium',
 ].find(x=>x && existsSync(x));
-assert(executablePath,'Chromium/Chrome was not found on the CI runner');
+if(!executablePath){
+  if(process.env.GITHUB_ACTIONS==='true')throw Error('Chromium/Chrome was not found on the CI runner');
+  console.log('SKIP: Browser not installed in preview environment; GitHub Actions runs the full UI test.');
+  process.exit(0);
+}
+const testDataDir=mkdtempSync(path.join(tmpdir(),'afrah-ui-smoke-'));
 mkdirSync('screenshots',{recursive:true});
 const port=43189,base='http://127.0.0.1:'+port;
 const server=spawn(process.execPath,['--import','tsx','server.ts'],{
-  env:{...process.env,PORT:String(port),AFRAH_SECURE_COOKIES:'false'},
+  env:{...process.env,SUPABASE_URL:'',SUPABASE_SECRET_KEY:'',AFRAH_ADMIN_RESET_PASSWORD:'',AFRAH_ADMIN_PASSWORD:'',AFRAH_STAFF_PASSWORD:'',AFRAH_ENABLE_ADMIN_RECOVERY:'',AFRAH_TRUST_PROXY_HOPS:'0',NODE_ENV:'development',AFRAH_DATA_DIR:testDataDir,PORT:String(port),AFRAH_SECURE_COOKIES:'false'},
   stdio:['ignore','pipe','pipe'],
 });
 let logs='';
@@ -248,4 +255,6 @@ try {
 } finally {
   if(browser)await browser.close();
   server.kill('SIGTERM');
+  await delay(250);
+  rmSync(testDataDir,{force:true,recursive:true});
 }
