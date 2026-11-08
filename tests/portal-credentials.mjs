@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const tmp=mkdtempSync(path.join(os.tmpdir(),'afrah-credentials-'));
 const origin='http://127.0.0.1:43952/api';
 const child=spawn(process.execPath,['--import','tsx','server.ts'],{
- env:{...process.env,PORT:'43952',AFRAH_DATA_DIR:tmp,AFRAH_ENABLE_ADMIN_RECOVERY:'1',AFRAH_SECURE_COOKIES:'false'},
+ env:{...process.env,SUPABASE_URL:'',SUPABASE_SECRET_KEY:'',AFRAH_ADMIN_RESET_PASSWORD:'',AFRAH_ADMIN_PASSWORD:'',AFRAH_STAFF_PASSWORD:'',AFRAH_TRUST_PROXY_HOPS:'0',NODE_ENV:'development',PORT:'43952',AFRAH_DATA_DIR:tmp,AFRAH_ENABLE_ADMIN_RECOVERY:'1',AFRAH_SECURE_COOKIES:'false'},
  stdio:['ignore','pipe','pipe']
 });
 let stdout='';
