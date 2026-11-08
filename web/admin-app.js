@@ -39,16 +39,35 @@ function getPrivateImage(url) {
   }
   return privateImages.get(url);
 }
-async function hydrateImages(root) {
-  const images=Array.from(root?.querySelectorAll('img[data-private-image]')||[]);
-  await Promise.all(images.map(async node=>{
-    try {
-      const objectURL=await getPrivateImage(node.dataset.privateImage);
-      if (node.isConnected) node.src=objectURL;
-    } catch {
-      if (node.isConnected){node.alt='تعذّر تحميل صورة المنتج';node.classList.add('image-failed');}
+async function loadPrivateImage(node){
+  if(!node.isConnected||node.dataset.imageLoading==='1'||node.src.startsWith('blob:'))return;
+  node.dataset.imageLoading='1';
+  try{
+    const objectURL=await getPrivateImage(node.dataset.privateImage);
+    if(node.isConnected)node.src=objectURL;
+  }catch{
+    if(node.isConnected){node.alt='تعذّر تحميل صورة المنتج';node.classList.add('image-failed');}
+  }finally{delete node.dataset.imageLoading;}
+}
+const privateImageObserver=typeof IntersectionObserver==='function'
+  ?new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting)continue;
+      privateImageObserver.unobserve(entry.target);
+      void loadPrivateImage(entry.target);
     }
-  }));
+  },{rootMargin:'320px'}):null;
+async function hydrateImages(root){
+  const images=Array.from(root?.querySelectorAll('img[data-private-image]')||[]);
+  const printing=root?.id==='print-root'||Boolean(root?.closest?.('#print-root'));
+  if(printing||!privateImageObserver){
+    await Promise.all(images.map(loadPrivateImage));
+  }else{
+    for(const img of images){
+      if(!img.src.startsWith('blob:')&&img.dataset.imageLoading!=='1')
+        privateImageObserver.observe(img);
+    }
+  }
 }
 function showToast(message, error=false) {
   const toast = document.getElementById('toast');
