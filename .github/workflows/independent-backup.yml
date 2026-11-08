@@ -57,7 +57,7 @@ jobs:
           trap - EXIT
       - name: Store encrypted backup outside Supabase
         if: steps.backup-config.outputs.configured == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: afrah-encrypted-backup-${{ github.run_number }}
           path: ${{ runner.temp }}/afrah-*.afrah.enc
