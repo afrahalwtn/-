@@ -6,6 +6,11 @@ import {DatabaseSync} from 'node:sqlite';
 import {matchesArabicSearch} from '../web/arabic-search.js';
 
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-db-'));
+// Always test an isolated local SQLite database, never a configured live Supabase project.
+process.env.SUPABASE_URL='';
+process.env.SUPABASE_SECRET_KEY='';
+process.env.AFRAH_ADMIN_RESET_PASSWORD='';
+process.env.NODE_ENV='development';
 process.env.AFRAH_DATA_DIR=folder;
 try {
  const {PersistentMap,allocateRecordId,databasePath}=await import('../storage.ts');
