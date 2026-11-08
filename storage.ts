@@ -28,19 +28,36 @@ if (cloudEnabled) {
 }
 let cloudQueue:Promise<void>=Promise.resolve();
 let cloudFailure:Error|null=null;
+// Retrying the SAME idempotent upsert/delete is safe if the response was lost.
+// Never retry invalid credentials or validation errors. After repeated failures,
+// the application still fails closed rather than claiming an unconfirmed save.
+async function durableCloudWrite(action:()=>Promise<void>):Promise<void>{
+  const delays=[250,800];
+  for(let attempt=0; ; attempt++){
+    try {await action();return;}
+    catch(error){
+      const message=error instanceof Error?error.message:'';
+      const retryable=error instanceof TypeError ||
+        /(?:TimeoutError|AbortError)/.test(error instanceof Error?error.name:'') ||
+        /^Supabase request failed: HTTP (?:429|5[0-9]{2}) \(/.test(message);
+      if(!retryable || attempt>=delays.length)throw error;
+      await new Promise<void>(resolve=>setTimeout(resolve,delays[attempt]));
+    }
+  }
+}
 function putCloud(kind:string,id:number,payload:any):void {
   if (!cloudEnabled)return;
   // Snapshot each write: later in-memory edits must not mutate queued commits.
   const snapshot=JSON.parse(JSON.stringify(payload));
   if (!cloudRows.has(kind))cloudRows.set(kind,new Map());
   cloudRows.get(kind)!.set(id,snapshot);
-  cloudQueue=cloudQueue.then(()=>saveCloudRecord(kind,id,snapshot));
+  cloudQueue=cloudQueue.then(()=>durableCloudWrite(()=>saveCloudRecord(kind,id,snapshot)));
   void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
 }
 function removeCloud(kind:string,id:number):void {
   if (!cloudEnabled)return;
   cloudRows.get(kind)?.delete(id);
-  cloudQueue=cloudQueue.then(()=>deleteCloudRecord(kind,id));
+  cloudQueue=cloudQueue.then(()=>durableCloudWrite(()=>deleteCloudRecord(kind,id)));
   void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
 }
 export async function flushCloudWrites():Promise<void> {
