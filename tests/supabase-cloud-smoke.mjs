@@ -15,6 +15,7 @@ const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
 let mockFailWrites=false,proc,logs='';
 let cloudLoadPages=0;
+let ownerRecoverySecret='';
 const mock=http.createServer(async (req,res)=>{
   if(req.headers.apikey!==secret || req.headers.authorization?.includes('sb_secret_')){
     res.writeHead(401);res.end('Unauthorized');return;
@@ -64,6 +65,7 @@ const start=async()=>{
       SUPABASE_SECRET_KEY:secret,
       AFRAH_ADMIN_PASSWORD:'CloudTestOnly.Admin.2026',
       AFRAH_STAFF_PASSWORD:'CloudTestOnly.Staff.2026',
+      AFRAH_ADMIN_RESET_PASSWORD:ownerRecoverySecret,
       AFRAH_SECURE_COOKIES:'false',
       NODE_ENV:'test'},
     stdio:['ignore','pipe','pipe']
@@ -179,6 +181,39 @@ try{
   assert(found.some(x=>x.id===item.id&&x.quantity===32),'Must survive a server reboot');
   result=await api('/products',admin);
   assert((await result.json()).length>=1061,'No records may be lost after pagination');
+
+  // Owner changes a private environment secret after initial account creation.
+  // The existing admin password must rotate once, without touching catalogue data.
+  const beforeResetToken=admin.access_token;
+  await stop();
+  ownerRecoverySecret='Owner.Recovered.2026!';
+  await start();
+  const oldLogin=await fetch(root+'/admin/auth/login',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'يوسف',password:'CloudTestOnly.Admin.2026'})});
+  assert.equal(oldLogin.status,401,'Old password must be invalid after owner recovery');
+  const oldSession=await fetch(root+'/me',{headers:{Authorization:'Bearer '+beforeResetToken}});
+  assert.equal(oldSession.status,401,'Owner reset must revoke old authenticated sessions');
+  admin=await signIn('يوسف',ownerRecoverySecret);
+  assert(store.has('metadata:107'),'Private recovery marker must be persisted');
+  assert(store.get('metadata:107').payload.password_hash.startsWith('scrypt{name:'لن يحفظ',
+    manufacture:'',quantity:5,purchase_price:1,sale_price:2});
+  assert.equal(result.status,503,'Never claim success when cloud rejects a write');
+  result=await api('/products',admin);
+  assert.equal(result.status,503,'Fail closed once cloud is unhealthy');
+  console.log('PASS Supabase: new cloud / permissions / durable products / cloud images / employee lists / pagination / restart / fail-closed');
+} finally {
+  await stop();mock.close();rmSync(folder,{recursive:true,force:true});
+}
+),
+    'Password recovery must use a salted scrypt verifier');
+  assert(store.has('products:'+item.id),'Catalogue must survive owner password recovery');
+  await stop();
+  await start();
+  admin=await signIn('يوسف',ownerRecoverySecret);
+  result=await api('/products',admin);
+  assert((await result.json()).some(x=>x.id===item.id),
+    'Repeated startup with same recovery secret must preserve all items');
 
   mockFailWrites=true;
   result=await api('/products',admin,'POST',{name:'لن يحفظ',
