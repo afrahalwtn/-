@@ -931,7 +931,7 @@ app.get('/api/products', requireAuth, (req, res) => {
   const visible=list.map(p=>productDict(p,ctx.user));
   // Only the large authenticated catalogue gets async gzip. This reduces
   // download size on mobile without modifying HTML, CSS, fields or ordering.
-  const acceptsGzip=/(?:^|,)\\s*gzip(?:\\s*(?:;|,|$))/i.test(String(req.get('accept-encoding')||''));
+  const acceptsGzip=/(?:^|,)\s*gzip(?:\s*(?:;|,|$))/i.test(String(req.get('accept-encoding')||''));
   if(!acceptsGzip){res.json(visible);return;}
   const payload=Buffer.from(JSON.stringify(visible));
   if(payload.length<32768){res.json(visible);return;}
