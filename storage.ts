@@ -20,10 +20,19 @@ const db=new DatabaseSync(databasePath,{timeout:5000});
 // Cloud mode reads Supabase FIRST. SQLite is never the source of truth in this mode.
 // An unavailable cloud causes startup to fail rather than silently changing databases.
 const cloudRows = new Map<string,Map<number,any>>();
+const cloudVersions = new Map<string,Map<number,string>>();
+function cloudRevision(kind:string,id:number):string|null {
+  return cloudVersions.get(kind)?.get(id)??null;
+}
+function setCloudRevision(kind:string,id:number,version:string):void {
+  if(!cloudVersions.has(kind))cloudVersions.set(kind,new Map());
+  cloudVersions.get(kind)!.set(id,version);
+}
 if (cloudEnabled) {
   for (const row of await loadCloudRecords()) {
     if (!cloudRows.has(row.kind)) cloudRows.set(row.kind,new Map());
     cloudRows.get(row.kind)!.set(row.id,row.payload);
+    setCloudRevision(row.kind,row.id,row.updated_at);
   }
 }
 let cloudQueue:Promise<void>=Promise.resolve();
@@ -51,13 +60,23 @@ function putCloud(kind:string,id:number,payload:any):void {
   const snapshot=JSON.parse(JSON.stringify(payload));
   if (!cloudRows.has(kind))cloudRows.set(kind,new Map());
   cloudRows.get(kind)!.set(id,snapshot);
-  cloudQueue=cloudQueue.then(()=>durableCloudWrite(()=>saveCloudRecord(kind,id,snapshot)));
+  cloudQueue=cloudQueue.then(async()=>{
+    let newVersion:string|undefined;
+    await durableCloudWrite(async()=>{
+      newVersion=await saveCloudRecord(kind,id,snapshot,cloudRevision(kind,id));
+    });
+    if(!newVersion)throw Error('Cloud storage did not return a record version');
+    setCloudRevision(kind,id,newVersion);
+  });
   void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
 }
 function removeCloud(kind:string,id:number):void {
   if (!cloudEnabled)return;
   cloudRows.get(kind)?.delete(id);
-  cloudQueue=cloudQueue.then(()=>durableCloudWrite(()=>deleteCloudRecord(kind,id)));
+  cloudQueue=cloudQueue.then(async()=>{
+    await durableCloudWrite(()=>deleteCloudRecord(kind,id,cloudRevision(kind,id)));
+    cloudVersions.get(kind)?.delete(id);
+  });
   void cloudQueue.catch((error:unknown)=>{cloudFailure=error instanceof Error?error:Error(String(error));});
 }
 export async function flushCloudWrites():Promise<void> {
