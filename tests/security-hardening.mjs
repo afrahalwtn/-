@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,readdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {setTimeout as pause} from 'node:timers/promises';
@@ -81,6 +81,17 @@ try {
   headers:{Authorization:'Bearer '+admin.access_token,'X-CSRF-Token':admin.csrf},
   body:file});
  assert.equal(r.status,422,'Spoofed image bytes must be rejected');
+ // Multer saves a file before checking whether the target item exists.
+ // A missing item must not leave orphan files in the local upload directory.
+ const beforeMissingUpload=readdirSync(path.join(folder,'images')).length;
+ const validPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
+ const orphanForm=new FormData();
+ orphanForm.set('file',new Blob([validPng],{type:'image/png'}),'orphan.png');
+ r=await fetch(root+'/products/999999/image',{method:'POST',
+  headers:{Authorization:'Bearer '+admin.access_token,'X-CSRF-Token':admin.csrf},body:orphanForm});
+ assert.equal(r.status,404,'Missing item must reject image upload');
+ assert.equal(readdirSync(path.join(folder,'images')).length,beforeMissingUpload,
+  'Rejected upload must not leak temporary files');
  for(let i=0;i<28;i++){
   r=await fetch(root+'/auth/login',{method:'POST',
    headers:{'Content-Type':'application/json'},
