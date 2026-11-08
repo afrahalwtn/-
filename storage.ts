@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
-import { cloudEnabled, loadCloudRecords, saveCloudRecord, deleteCloudRecord } from './cloud.js';
+import { cloudEnabled, loadCloudRecords, loadCloudKind, claimCloudId, saveCloudRecord, deleteCloudRecord } from './cloud.js';
 
 // Single central SQLite database on the company's computer.
 // Node >=22.13 includes this driver. No server subscription or native npm module.
@@ -83,25 +83,42 @@ export async function flushCloudWrites():Promise<void> {
   if(cloudEnabled)await cloudQueue;
 }
 export function cloudStorageHealthy():boolean {return !cloudFailure;}
+export function markCloudUnhealthy(error:unknown):void {
+  if(cloudEnabled&&!cloudFailure)
+    cloudFailure=error instanceof Error?error:Error('Cloud storage unavailable');
+}
 export {cloudEnabled};
 const seedIds:Record<RecordKind,number>={users:1,products:2,quotes:3};
 const counterIds:Record<RecordKind|'execution_lists'|'account_audit'|'sessions',number>={
   users:101,products:102,quotes:103,execution_lists:104,account_audit:105,sessions:106
 };
 function cloudValue(kind:string,id:number):any{return cloudRows.get(kind)?.get(id);}
-function nextCloudId(kind: keyof typeof counterIds):number {
-  const counterId=counterIds[kind];
-  const last=Number(cloudValue('metadata',counterId)?.last_id||0);
-  // Avoid spreading thousands of IDs into a single function call: above
-  // V8's argument limit this can throw RangeError and stop catalogue writes.
-  let largest=0;
-  for (const id of cloudRows.get(kind)?.keys()||[]) {
-    if (id>largest) largest=id;
-  }
-  const next=Math.max(last,largest)+1;
-  if(!Number.isSafeInteger(next)||next<1)throw Error('Invalid cloud ID');
-  putCloud('metadata',counterId,{last_id:next});
-  return next;
+async function nextCloudId(kind: keyof typeof counterIds):Promise<number>{
+  if(!cloudEnabled)throw Error('Cloud ID allocator is disabled');
+  return claimCloudId(kind,counterIds[kind]);
+}
+// The legacy synchronous storage APIs may enqueue a new cloud row without
+// knowing its ID yet. The shared allocator reserves the number first, then
+// writes the record in one ordered durable queue.
+function queueCloudNew(kind:keyof typeof counterIds,payload:any,onSaved?:(id:number)=>void):void{
+  const snapshot=JSON.parse(JSON.stringify(payload));
+  cloudQueue=cloudQueue.then(async()=>{
+    const id=await nextCloudId(kind);
+    if(kind==='account_audit')snapshot.id=id;
+    const version=await durableCloudWriteWithResult(()=>saveCloudRecord(kind,id,snapshot,null));
+    if(!cloudRows.has(kind))cloudRows.set(kind,new Map());
+    cloudRows.get(kind)!.set(id,snapshot);
+    setCloudRevision(kind,id,version);
+    onSaved?.(id);
+  });
+  void cloudQueue.catch((error:unknown)=>{
+    cloudFailure=error instanceof Error?error:Error(String(error));
+  });
+}
+async function durableCloudWriteWithResult<T>(action:()=>Promise<T>):Promise<T>{
+  let outcome:T|undefined;
+  await durableCloudWrite(async()=>{outcome=await action();});
+  return outcome as T;
 }
 db.exec(`
 PRAGMA journal_mode = WAL;
@@ -165,15 +182,26 @@ export class PersistentSessionMap<T extends {token_hash:string;expires_at:number
     if(!/^[a-f0-9]{64}$/.test(hash)||value.token_hash!==hash)throw Error('Invalid session digest');
     if(cloudEnabled){
       let id=this.cloudIds.get(hash);
-      if(!id){id=nextCloudId('sessions');this.cloudIds.set(hash,id);}
-      putCloud('sessions',id,value);
+      if(!id){
+        queueCloudNew('sessions',value,(savedId)=>this.cloudIds.set(hash,savedId));
+      }else putCloud('sessions',id,value);
     } else saveSession.run(hash,JSON.stringify(value));
     return super.set(hash,value);
   }
   override delete(hash:string):boolean{
     if(cloudEnabled){
-      const id=this.cloudIds.get(hash);
-      if(id){removeCloud('sessions',id);this.cloudIds.delete(hash);}
+      cloudQueue=cloudQueue.then(async()=>{
+        const id=this.cloudIds.get(hash);
+        if(id){
+          await durableCloudWrite(()=>deleteCloudRecord('sessions',id,cloudRevision('sessions',id)));
+          this.cloudIds.delete(hash);
+          cloudRows.get('sessions')?.delete(id);
+          cloudVersions.get('sessions')?.delete(id);
+        }
+      });
+      void cloudQueue.catch((error:unknown)=>{
+        cloudFailure=error instanceof Error?error:Error(String(error));
+      });
     } else dropSession.run(hash);
     return super.delete(hash);
   }
@@ -203,6 +231,7 @@ export class PersistentMap<T> extends Map<number,T> {
   constructor(kind:RecordKind, seeds:Map<number,T>) {
     super();
     this.kind=kind;
+    if(cloudEnabled)businessMaps.set(kind,this);
     if (cloudEnabled) {
       if (!hasStoredKind(kind)) {
         // A new cloud project starts with NO demo products or demo quotes.
@@ -239,6 +268,13 @@ export class PersistentMap<T> extends Map<number,T> {
     for(const row of selectRecords.all(kind)){
       super.set(Number(row.id),JSON.parse(String(row.payload)) as T);
     }
+  }
+  // Replace only memory: an API refresh must never re-save older values.
+  syncFromCloud():void{
+    if(!cloudEnabled)return;
+    super.clear();
+    for(const [id,value] of cloudRows.get(this.kind)||[])
+      super.set(id,value as T);
   }
   override set(id:number,value:T):this {
     if(!Number.isSafeInteger(id)||id<1)throw Error('Invalid record ID');
@@ -311,10 +347,10 @@ function shapeExecution(row:any):ExecutionList {
   items:JSON.parse(String(row.payload)) as ExecutionLine[],
  };
 }
-export function createExecutionList(createdById:number,items:ExecutionLine[]):ExecutionList {
+export async function createExecutionList(createdById:number,items:ExecutionLine[]):Promise<ExecutionList>{
  const createdAt=new Date().toISOString();
  if (cloudEnabled) {
-   const id=nextCloudId('execution_lists');
+   const id=await nextCloudId('execution_lists');
    const record={id,created_by_id:createdById,created_at:createdAt,items};
    putCloud('execution_lists',id,record);
    return record;
@@ -329,7 +365,21 @@ export function listExecutionLists(userId:number|null):ExecutionList[] {
  return (userId===null?allExecutions.all():ownExecutions.all(userId)).map(shapeExecution);
 }
 
-export function allocateRecordId(kind:RecordKind):number {
+// Reconcile a complete collection from the remote source of truth, including
+// deletions. The HTTP middleware serializes catalogue mutations around this.
+const businessMaps=new Map<RecordKind,PersistentMap<any>>();
+export async function refreshCloudKind(kind:RecordKind|'execution_lists'|'account_audit'):Promise<void>{
+  if(!cloudEnabled)return;
+  await flushCloudWrites();
+  const latest=await loadCloudKind(kind);
+  const values=new Map<number,any>(),revisions=new Map<number,string>();
+  for(const row of latest){values.set(row.id,row.payload);revisions.set(row.id,row.updated_at);}
+  cloudRows.set(kind,values);
+  cloudVersions.set(kind,revisions);
+  if(kind==='products'||kind==='users'||kind==='quotes')
+    businessMaps.get(kind)?.syncFromCloud();
+}
+export async function allocateRecordId(kind:RecordKind):Promise<number> {
   if (cloudEnabled)return nextCloudId(kind);
   const key='last-id:'+kind;
   const last=Number((metaGet.get(key) as {value?:string}|undefined)?.value||0);
@@ -366,9 +416,8 @@ export interface AccountAuditEvent {
 }
 export function recordAccountAudit(actorId:number,targetId:number,action:string,detail=''):void {
   if (cloudEnabled) {
-    const id=nextCloudId('account_audit');
-    putCloud('account_audit',id,{
-      id,actor_id:actorId,target_id:targetId,action,
+    queueCloudNew('account_audit',{
+      actor_id:actorId,target_id:targetId,action,
       created_at:new Date().toISOString(),detail:detail.slice(0,150)
     });
     return;

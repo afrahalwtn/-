@@ -104,6 +104,79 @@ export async function deleteCloudRecord(kind:string,id:number,previous:string|nu
   const response=await request(url,{method:'DELETE',headers:{Prefer:'return=representation'}});
   changedVersion(await response.json(),kind,id);
 }
+/**
+ * Allocate the next numeric ID in PostgreSQL with an optimistic CAS on the
+ * existing private metadata row. Unlike a process-local counter this works
+ * across multiple instances without migrations or a public RPC.
+ *
+ * Never re-use IDs after deletion: the high-water metadata value is persisted.
+ */
+export async function claimCloudId(kind:string,counterId:number):Promise<number>{
+  if(!/^(users|products|quotes|execution_lists|account_audit|sessions)$/.test(kind)||
+     !Number.isInteger(counterId)||counterId<101||counterId>106)
+    throw Error('Invalid cloud ID counter');
+  const pause=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms));
+  for(let attempt=0;attempt<14;attempt++){
+    const counterResponse=await request(
+      '/rest/v1/app_records?kind=eq.metadata&id=eq.'+counterId+
+      '&select=kind,id,payload,updated_at&limit=1');
+    const counters=await counterResponse.json();
+    if(!Array.isArray(counters)||counters.length>1)throw Error('Invalid cloud ID metadata');
+    const current=counters[0]??null;
+    const existing=await request('/rest/v1/app_records?kind=eq.'+kind+
+      '&select=id&order=id.desc&limit=1');
+    const highestRows=await existing.json();
+    if(!Array.isArray(highestRows))throw Error('Invalid cloud ID high-water mark');
+    const highest=Number(highestRows[0]?.id||0);
+    const last=Number(current?.payload?.last_id||0);
+    if(!Number.isSafeInteger(last)||last<0||!Number.isSafeInteger(highest)||highest<0)
+      throw Error('Corrupted cloud ID high-water mark');
+    const next=Math.max(last,highest)+1;
+    // Database app_records.id is a signed PostgreSQL INTEGER.
+    if(next>=2147483647)throw Error('Cloud ID space is exhausted');
+    try{
+      await saveCloudRecord('metadata',counterId,{last_id:next},
+        current?current.updated_at:null);
+      return next;
+    }catch(error){
+      const conflict=error instanceof Error&&
+        (/^Supabase record conflict:/.test(error.message)||
+         /^Supabase request failed: HTTP 409/.test(error.message));
+      const transient=error instanceof TypeError ||
+        (error instanceof Error&&(
+          ['TimeoutError','AbortError'].includes(error.name)||
+          /^Supabase request failed: HTTP (?:429|5[0-9]{2})/.test(error.message)));
+      if(!conflict&&!transient)throw error;
+      // Another server won the reservation, or its response was interrupted:
+      // re-read the counter before retrying to prevent reusing an ID.
+      if(attempt===13)break;
+      await pause(12+attempt*7);
+    }
+  }
+  throw Error('Could not reserve a unique cloud record ID');
+}
+
+/** Read a complete current collection; includes deletions, not just new rows. */
+export async function loadCloudKind(kind:string):Promise<CloudRecord[]>{
+  if(!/^(users|products|quotes|execution_lists|account_audit)$/.test(kind))
+    throw Error('Invalid cloud collection');
+  const results:CloudRecord[]=[];
+  for(let offset=0;;offset+=500){
+    const response=await request('/rest/v1/app_records?kind=eq.'+kind+
+      '&select=kind,id,payload,updated_at&order=id.asc&limit=500&offset='+offset);
+    const page=await response.json();
+    if(!Array.isArray(page))throw Error('Invalid cloud collection');
+    for(const row of page){
+      if(row?.kind!==kind||!Number.isInteger(row.id)||
+         !row.payload||typeof row.payload!=='object'||Array.isArray(row.payload)||
+         typeof row.updated_at!=='string')throw Error('Invalid cloud row in collection');
+      results.push(row);
+    }
+    if(page.length<500)break;
+  }
+  return results;
+}
+
 // Authenticate against the shared database rather than a per-server startup
 // snapshot. This allows a session created on one instance to work on another,
 // and makes a revoked/disabled session fail immediately across all instances.

@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -20,6 +20,20 @@ if (cloudEnabled && process.env.NODE_ENV === 'production' && process.env.AFRAH_S
   throw new Error('Cloud production requires AFRAH_SECURE_COOKIES=true and HTTPS');
 }
 const app = express();
+function asyncRoute(handler:(req:Request,res:Response,next:NextFunction)=>Promise<void>){
+  return (req:Request,res:Response,next:NextFunction)=>{
+    void handler(req,res,next).catch((error:unknown)=>{
+      // Allocator/network failures must not be presented as confirmed failures
+      // of business input or silently become a generic internal-server error.
+      if(cloudEnabled && error instanceof Error &&
+         (/^Supabase request failed:/.test(error.message)||
+          /cloud record ID|Cloud ID|Could not reserve/.test(error.message))){
+        markCloudUnhealthy(error);
+        next(Object.assign(new Error('Cloud persistence unavailable'),{status:503}));
+      }else next(error);
+    });
+  };
+}
 app.disable('x-powered-by');
 // Only trust an explicitly configured number of known proxy hops. Never trust all.
 const trustedProxyHops=Number(process.env.AFRAH_TRUST_PROXY_HOPS||0);
@@ -543,6 +557,45 @@ app.use((req,res,next)=>{
   next();
 });
 
+// Serialize business-data requests per server while reconciling the shared
+// catalogue. Serializing prevents an in-flight refresh from overwriting a local
+// (not yet durable) edit. All data still lives in Supabase, not this lock.
+let businessRequestTail:Promise<void>=Promise.resolve();
+const businessLastRefresh=new Map<string,number>();
+app.use((req,res,next)=>{
+  if(!cloudEnabled || !req.path.startsWith('/api/')){next();return;}
+  const route=req.path;
+  const kind=route.startsWith('/api/users/audit')?'account_audit':
+    route.startsWith('/api/users')||route==='/api/auth/change-credentials'?'users':
+    route.startsWith('/api/products')||route.startsWith('/api/alerts')?'products':
+    route.startsWith('/api/quotes')?'quotes':
+    route.startsWith('/api/execution-lists')?'execution_lists':null;
+  if(!kind){next();return;}
+  const previous=businessRequestTail;
+  let unlock!:()=>void;
+  const released=new Promise<void>(resolve=>{unlock=resolve;});
+  businessRequestTail=previous.then(()=>released);
+  void previous.then(async()=>{
+    let unlocked=false;
+    const release=()=>{if(!unlocked){unlocked=true;unlock();}};
+    res.once('finish',release);
+    res.once('close',release);
+    try{
+      // Reads reflect another node's updates without restart. A short
+      // production TTL avoids repeated 4,000-item scans on fast navigation.
+      const minAge=req.method==='GET'&&process.env.NODE_ENV!=='test'?1500:0;
+      if(Date.now()-(businessLastRefresh.get(kind)||0)>=minAge){
+        await refreshCloudKind(kind as 'users'|'products'|'quotes'|'execution_lists'|'account_audit');
+        businessLastRefresh.set(kind,Date.now());
+      }
+      next();
+    }catch(error){
+      console.error('Cloud catalogue refresh failed:',error instanceof Error?error.message:'unknown');
+      res.status(503).json({detail:'تعذّر تحديث بيانات الشركة من السحابة. لم يتم إجراء أي تعديل'});
+    }
+  }).catch(next);
+});
+
 // Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -877,7 +930,7 @@ app.get('/api/products', requireAuth, (req, res) => {
   res.json(list.map((p) => productDict(p, ctx.user)));
 });
 
-app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => {
+app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const ctx = (req as any).auth as AuthContext;
   const { name, description = '', manufacture = '', quantity = 0, min_quantity = 0, purchase_price = 0, sale_price = 0 } = req.body;
   if (typeof name !== 'string' || !name.trim() || name.trim().length>200) {
@@ -890,7 +943,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
     res.status(422).json({detail:'أدخل أعداداً صحيحة غير سالبة للكميات وأسعاراً مالية صالحة'});
     return;
   }
-  const id = allocateRecordId('products');
+  const id = await allocateRecordId('products');
   const p: Product = {
     id,
     name: name.trim(),
@@ -907,7 +960,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
   catch(error){res.status(422).json({detail:(error as Error).message});return;}
   products.set(id, p);
   res.status(201).json(productDict(p, ctx.user));
-});
+}));
 
 app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const ctx = (req as any).auth as AuthContext;
@@ -1067,7 +1120,7 @@ app.get('/api/users', requireAuth, requireAdmin, (_req, res) => {
   res.json(list.map((u) => ({...userDict(u),active_sessions:Array.from(sessions.values()).filter(sess=>sess.user_id===u.id).length})));
 });
 
-app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
+app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const { username, full_name, password, can_view_purchase = false, can_view_sale = false } = req.body;
   if (!username || !full_name || !password) {
     res.status(422).json({ detail: 'جميع الحقول مطلوبة' });
@@ -1083,7 +1136,7 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     res.status(409).json({ detail: 'اسم المستخدم موجود' });
     return;
   }
-  const id = allocateRecordId('users');
+  const id = await allocateRecordId('users');
   const u: User = {
     id,
     username: uname,
@@ -1098,7 +1151,7 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   users.set(id, u);
   recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'create',u.username);
   res.status(201).json(userDict(u));
-});
+}));
 
 app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const id = Number(req.params.id);
@@ -1192,7 +1245,7 @@ app.get('/api/execution-lists', requireAuth, (req, res) => {
  const ctx=(req as any).auth as AuthContext;
  res.json(listExecutionLists(ctx.user.role==='admin'?null:ctx.user.id));
 });
-app.post('/api/execution-lists', requireAuth, requireCsrf, (req, res) => {
+app.post('/api/execution-lists', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
  const ctx=(req as any).auth as AuthContext;
  if(ctx.user.role!=='staff'){
   res.status(403).json({detail:'إضافة قوائم التنفيذ مخصصة للمستخدم الثاني'});
@@ -1226,10 +1279,10 @@ app.post('/api/execution-lists', requireAuth, requireCsrf, (req, res) => {
    quantity,
   });
  }
- const record=createExecutionList(ctx.user.id,lines);
+ const record=await createExecutionList(ctx.user.id,lines);
  // This is a historical record only; no inventory deduction occurs.
  res.status(201).json(record);
-});
+}));
 
 // Quotes
 app.get('/api/quotes', requireAuth, requireAdmin, (_req, res) => {
@@ -1247,7 +1300,7 @@ app.get('/api/quotes/:id', requireAuth, requireAdmin, (req, res) => {
   res.json(quoteDict(q));
 });
 
-app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
+app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const ctx = (req as any).auth as AuthContext;
   const { items } = req.body || {};
   if (!Array.isArray(items) || items.length<1 || items.length>500) {
@@ -1278,7 +1331,7 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     validated.push({product,quantity});
   }
 
-  const id = allocateRecordId('quotes');
+  const id = await allocateRecordId('quotes');
   const q: Quote = {
     id,
     created_at: new Date().toISOString(),
@@ -1295,7 +1348,7 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   };
   quotes.set(id, q);
   res.status(201).json(quoteDict(q));
-});
+}));
 
 // Static assets
 // Serve the official Tabler open-source CSS from the installed package.
@@ -1345,13 +1398,14 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const invalidImage=err?.message==='الملف ليس صورة صالحة';
   const status=uploadError?(code==='LIMIT_FILE_SIZE'?413:422):
     invalidImage?422:(err?.type==='entity.too.large'?413:
-    (Number.isInteger(err?.status)&&err.status>=400&&err.status<500?err.status:500));
+    (Number.isInteger(err?.status)&&err.status>=400&&err.status<600?err.status:500));
   console.error('Request failed:',{status,code:typeof code==='string'?code:'unknown',
     message:err instanceof Error?err.message:'unknown'});
   if(res.headersSent)return;
   const detail=status===413?'حجم البيانات أو الصورة أكبر من المسموح':
     status===422?'الملف أو البيانات المرسلة غير صالحة':
     status===400?'صيغة الطلب غير صحيحة':
+    status===503?'تعذر الاتصال بالحفظ السحابي؛ لم يتم اعتماد العملية':
     status===500?'حدث خطأ داخلي؛ يرجى إعادة المحاولة أو التواصل مع الإدارة':
     'تعذر تنفيذ الطلب';
   res.status(status).json({detail});
