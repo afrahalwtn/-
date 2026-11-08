@@ -22,7 +22,15 @@ if (cloudEnabled && process.env.NODE_ENV === 'production' && process.env.AFRAH_S
 const app = express();
 function asyncRoute(handler:(req:Request,res:Response,next:NextFunction)=>Promise<void>){
   return (req:Request,res:Response,next:NextFunction)=>{
-    void handler(req,res,next).catch(next);
+    void handler(req,res,next).catch((error:unknown)=>{
+      // Allocator/network failures must not be presented as confirmed failures
+      // of business input or silently become a generic internal-server error.
+      if(cloudEnabled && error instanceof Error &&
+         (/^Supabase request failed:/.test(error.message)||
+          /cloud record ID|Cloud ID|Could not reserve/.test(error.message))){
+        next(Object.assign(new Error('Cloud persistence unavailable'),{status:503}));
+      }else next(error);
+    });
   };
 }
 app.disable('x-powered-by');
