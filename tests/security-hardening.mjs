@@ -36,6 +36,45 @@ try {
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({username:'a'.repeat(300000),password:'bad'})});
  assert.equal(r.status,413,'Oversized JSON must be rejected early');
+ // Business-input regressions: never coerce invalid numbers to zero or one.
+ const itemCall=(route,method,data)=>fetch(root+route,{
+  method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+admin.access_token,
+   'X-CSRF-Token':admin.csrf},
+  body:JSON.stringify(data),
+ });
+ for(const payload of [
+  {name:'مخزون سلبي',quantity:-10,sale_price:100},
+  {name:'عدد كسري',quantity:1.5,sale_price:100},
+  {name:'سعر سلبي',quantity:1,sale_price:-100},
+  {name:'سعر غير محدود',quantity:1,sale_price:1e20},
+  {name:'سعر كسري طويل',quantity:1,sale_price:10.1234},
+ ]) {
+  r=await itemCall('/products','POST',payload);
+  assert.equal(r.status,422,'Invalid catalogue data must be rejected');
+ }
+ r=await itemCall('/products','POST',{name:'أيتم اختبار',quantity:12,
+  min_quantity:3,purchase_price:800,sale_price:1500});
+ assert.equal(r.status,201,'Valid item must still be accepted');
+ const item=await r.json();
+ r=await itemCall('/products/'+item.id+'/stock','PATCH',{quantity:-1});
+ assert.equal(r.status,422,'Stock cannot go negative');
+ r=await itemCall('/products/'+item.id+'/stock','PATCH',{quantity:1.25});
+ assert.equal(r.status,422,'Stock must be a whole count');
+ r=await itemCall('/products/'+item.id,'PUT',{sale_price:-5});
+ assert.equal(r.status,422,'Edits cannot silently clamp negative prices');
+ for(const entries of [
+  [{product_id:item.id,quantity:0}],
+  [{product_id:item.id,quantity:-2}],
+  [{product_id:item.id,quantity:1.5}],
+  [{product_id:item.id,quantity:1e20}],
+  [{product_id:item.id,quantity:2},{product_id:item.id,quantity:1}],
+ ]) {
+  r=await itemCall('/quotes','POST',{items:entries});
+  assert.equal(r.status,422,'Invalid quote must not be committed');
+ }
+ r=await itemCall('/quotes','POST',{items:[{product_id:item.id,quantity:2}]});
+ assert.equal(r.status,201,'Valid quotes still work');
+ assert.equal((await r.json()).total,3000);
  const file=new FormData();
  file.set('file',new Blob(['not a real image'],{type:'image/png'}),'f.png');
  r=await fetch(root+'/products/1/image',{method:'POST',
