@@ -47,7 +47,7 @@ const mock=http.createServer(async (req,res)=>{
     }
     if(req.method==='PATCH'||req.method==='DELETE'){
       const kind=(u.searchParams.get('kind')||'').replace(/^eq\./,'');
-      const id=(u.searchParams.get('id')||'').replace(/^eq\./,'');
+      const id=Number((u.searchParams.get('id')||'').replace(/^eq\./,''));
       const version=(u.searchParams.get('updated_at')||'').replace(/^eq\./,'');
       const key=kind+':'+id,record=store.get(key);
       if(!record||record.updated_at!==version){
