@@ -13,7 +13,7 @@ const secret='sb_secret_mock_000000000000000';
 const mockPort=44882,appPort=44883;
 const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
-let mockFailWrites=false,proc,logs='';
+let mockFailWrites=false,mockTransientFailures=0,proc,logs='';
 let cloudLoadPages=0;
 let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
@@ -30,7 +30,10 @@ const mock=http.createServer(async (req,res)=>{
       res.end(JSON.stringify(all.slice(offset,offset+limit)));
       return;
     }
-    if(mockFailWrites){res.writeHead(503);res.end('Unavailable');return;}
+    if(mockFailWrites||mockTransientFailures>0){
+      if(mockTransientFailures>0)mockTransientFailures--;
+      res.writeHead(503);res.end('Unavailable');return;
+    }
     if(req.method==='POST'){
       let body='';for await (const ch of req)body+=ch;
       for(const record of JSON.parse(body))store.set(record.kind+':'+record.id,record);
@@ -195,6 +198,12 @@ try{
   await stop();
   await start();
   admin=await signIn('يوسف',recoverySecret);
+  mockTransientFailures=1;
+  result=await api('/products',admin,'POST',{name:'اختبار انقطاع مؤقت',
+    manufacture:'',quantity:2,purchase_price:1,sale_price:3});
+  assert.equal(result.status,201,'One transient 503 should be retried safely');
+  const retryItem=await result.json();
+  assert(store.has('products:'+retryItem.id),'Retried item must actually be persisted');
   mockFailWrites=true;
   result=await api('/products',admin,'POST',{name:'لن يحفظ',
     manufacture:'',quantity:5,purchase_price:1,sale_price:2});

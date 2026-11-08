@@ -1,5 +1,7 @@
 name: Verify Supabase cloud connection (no real secrets)
 on:
+  pull_request:
+    branches: [main]
   push:
     branches:
       - feature/supabase-cloud-connection

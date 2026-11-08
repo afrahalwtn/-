@@ -800,6 +800,21 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Validate business values before touching any persisted item. Never silently turn
+// malformed numbers, negative stock, Infinity, or fractions into other values.
+function stockCount(value:unknown):number|null {
+  if ((typeof value!=='string'&&typeof value!=='number')||value==='')return null;
+  const n=Number(value);
+  return Number.isSafeInteger(n)&&n>=0&&n<=100000000?n:null;
+}
+function moneyAmount(value:unknown):number|null {
+  if ((typeof value!=='string'&&typeof value!=='number')||value==='')return null;
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<0||n>1e12)return null;
+  const rounded=Math.round(n*100)/100;
+  return Number.isSafeInteger(Math.round(n*100))&&Math.abs(n-rounded)<1e-7?rounded:null;
+}
+
 // Products
 app.get('/api/products', requireAuth, (req, res) => {
   const ctx = (req as any).auth as AuthContext;
@@ -815,8 +830,14 @@ app.get('/api/products', requireAuth, (req, res) => {
 app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const ctx = (req as any).auth as AuthContext;
   const { name, description = '', manufacture = '', quantity = 0, min_quantity = 0, purchase_price = 0, sale_price = 0 } = req.body;
-  if (!name || typeof name !== 'string') {
-    res.status(422).json({ detail: 'اسم الأيتم مطلوب' });
+  if (typeof name !== 'string' || !name.trim() || name.trim().length>200) {
+    res.status(422).json({ detail: 'اسم الأيتم مطلوب وبحد أقصى 200 رمز' });
+    return;
+  }
+  const parsedQuantity=stockCount(quantity),parsedMinQuantity=stockCount(min_quantity);
+  const parsedPurchase=moneyAmount(purchase_price),parsedSale=moneyAmount(sale_price);
+  if ([parsedQuantity,parsedMinQuantity,parsedPurchase,parsedSale].some(value=>value===null)) {
+    res.status(422).json({detail:'أدخل أعداداً صحيحة غير سالبة للكميات وأسعاراً مالية صالحة'});
     return;
   }
   const id = allocateRecordId('products');
@@ -825,10 +846,10 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
     name: name.trim(),
     description: String(description || ''),
     manufacture: String(manufacture || ''),
-    quantity: Math.max(0, Number(quantity) || 0),
-    min_quantity: Math.max(0, Number(min_quantity) || 0),
-    purchase_price: Math.max(0, Number(purchase_price) || 0),
-    sale_price: Math.max(0, Number(sale_price) || 0),
+    quantity: parsedQuantity!,
+    min_quantity: parsedMinQuantity!,
+    purchase_price: parsedPurchase!,
+    sale_price: parsedSale!,
     image_name: null,
     updated_at: new Date().toISOString(),
   };
@@ -850,16 +871,23 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
   let extras:Partial<Product>;
   try { extras=parseProductExtras(req.body||{}); }
   catch(error){res.status(422).json({detail:(error as Error).message});return;}
-  if(name !== undefined && (typeof name !== 'string' || !name.trim())){
-    res.status(422).json({detail:'اسم الأيتم مطلوب'});return;
+  if(name !== undefined && (typeof name !== 'string' || !name.trim() || name.trim().length>200)){
+    res.status(422).json({detail:'اسم الأيتم مطلوب وبحد أقصى 200 رمز'});return;
+  }
+  const parsedQuantity=quantity===undefined?undefined:stockCount(quantity);
+  const parsedMinQuantity=min_quantity===undefined?undefined:stockCount(min_quantity);
+  const parsedPurchase=purchase_price===undefined?undefined:moneyAmount(purchase_price);
+  const parsedSale=sale_price===undefined?undefined:moneyAmount(sale_price);
+  if([parsedQuantity,parsedMinQuantity,parsedPurchase,parsedSale].some(value=>value===null)){
+    res.status(422).json({detail:'أدخل أعداداً صحيحة غير سالبة للكميات وأسعاراً مالية صالحة'});return;
   }
   if (name !== undefined) p.name = String(name).trim();
   if (description !== undefined) p.description = String(description);
   if (manufacture !== undefined) p.manufacture = String(manufacture);
-  if (quantity !== undefined) p.quantity = Math.max(0, Number(quantity) || 0);
-  if (min_quantity !== undefined) p.min_quantity = Math.max(0, Number(min_quantity) || 0);
-  if (purchase_price !== undefined) p.purchase_price = Math.max(0, Number(purchase_price) || 0);
-  if (sale_price !== undefined) p.sale_price = Math.max(0, Number(sale_price) || 0);
+  if (parsedQuantity !== undefined) p.quantity = parsedQuantity!;
+  if (parsedMinQuantity !== undefined) p.min_quantity = parsedMinQuantity!;
+  if (parsedPurchase !== undefined) p.purchase_price = parsedPurchase!;
+  if (parsedSale !== undefined) p.sale_price = parsedSale!;
   Object.assign(p,extras);
   p.updated_at = new Date().toISOString();
   products.set(p.id,p);
@@ -874,8 +902,12 @@ app.patch('/api/products/:id/stock', requireAuth, requireCsrf, requireAdmin, (re
     res.status(404).json({ detail: 'المادة غير موجودة' });
     return;
   }
-  const { quantity } = req.body;
-  p.quantity = Math.max(0, Number(quantity) || 0);
+  const parsed=stockCount(req.body?.quantity);
+  if(parsed===null){
+    res.status(422).json({detail:'العدد يجب أن يكون صحيحاً بين صفر ومئة مليون'});
+    return;
+  }
+  p.quantity = parsed;
   p.updated_at = new Date().toISOString();
   products.set(p.id,p);
   res.json(productDict(p, ctx.user));
@@ -1159,15 +1191,32 @@ app.get('/api/quotes/:id', requireAuth, requireAdmin, (req, res) => {
 app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const ctx = (req as any).auth as AuthContext;
   const { items } = req.body || {};
-  if (!Array.isArray(items) || !items.length) {
-    res.status(400).json({ detail: 'عرض الأسعار فارغ' });
+  if (!Array.isArray(items) || items.length<1 || items.length>500) {
+    res.status(422).json({detail:'عرض الأسعار يحتاج من 1 إلى 500 ايتم'});
     return;
   }
+  const validated:Array<{product:Product;quantity:number}>=[];
+  const seen=new Set<number>();
+  let totalCents=0;
   for (const item of items) {
-    if (!products.has(item.product_id)) {
-      res.status(400).json({ detail: 'إحدى المواد غير موجودة' });
-      return;
+    const productId=item?.product_id;
+    const quantity=stockCount(item?.quantity);
+    if (!Number.isSafeInteger(productId)||productId<1||seen.has(productId)){
+      res.status(422).json({detail:'معرّف الايتم غير صالح أو مكرر'});return;
     }
+    const product=products.get(productId);
+    if(!product || quantity===null || quantity<1){
+      res.status(422).json({detail:'ايتم غير موجود أو عدد غير صالح'});return;
+    }
+    const cents=Math.round(product.sale_price*100);
+    const lineCents=cents*quantity;
+    if(!Number.isSafeInteger(cents)||cents<0||!Number.isSafeInteger(lineCents)||
+       !Number.isSafeInteger(totalCents+lineCents)){
+      res.status(422).json({detail:'مجموع عرض الأسعار تجاوز الحد المالي الآمن'});return;
+    }
+    totalCents+=lineCents;
+    seen.add(productId);
+    validated.push({product,quantity});
   }
 
   const id = allocateRecordId('quotes');
@@ -1175,18 +1224,15 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     id,
     created_at: new Date().toISOString(),
     created_by_id: ctx.user.id,
-    items: items.map((item) => {
-      const p = products.get(item.product_id)!;
-      return {
-        original_product_id: p.id,
-        product_name: p.name,
-        description: p.description,
-        manufacture: p.manufacture,
-        quantity: Math.max(1, Number(item.quantity) || 1),
-        unit_price: p.sale_price,
-        image_name: p.image_name,
-      };
-    }),
+    items: validated.map(({product:p,quantity}) => ({
+      original_product_id: p.id,
+      product_name: p.name,
+      description: p.description,
+      manufacture: p.manufacture,
+      quantity,
+      unit_price: p.sale_price,
+      image_name: p.image_name,
+    })),
   };
   quotes.set(id, q);
   res.status(201).json(quoteDict(q));
