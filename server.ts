@@ -20,6 +20,11 @@ if (cloudEnabled && process.env.NODE_ENV === 'production' && process.env.AFRAH_S
   throw new Error('Cloud production requires AFRAH_SECURE_COOKIES=true and HTTPS');
 }
 const app = express();
+function asyncRoute(handler:(req:Request,res:Response,next:NextFunction)=>Promise<void>){
+  return (req:Request,res:Response,next:NextFunction)=>{
+    void handler(req,res,next).catch(next);
+  };
+}
 app.disable('x-powered-by');
 // Only trust an explicitly configured number of known proxy hops. Never trust all.
 const trustedProxyHops=Number(process.env.AFRAH_TRUST_PROXY_HOPS||0);
@@ -877,7 +882,7 @@ app.get('/api/products', requireAuth, (req, res) => {
   res.json(list.map((p) => productDict(p, ctx.user)));
 });
 
-app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => {
+app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const ctx = (req as any).auth as AuthContext;
   const { name, description = '', manufacture = '', quantity = 0, min_quantity = 0, purchase_price = 0, sale_price = 0 } = req.body;
   if (typeof name !== 'string' || !name.trim() || name.trim().length>200) {
@@ -890,7 +895,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
     res.status(422).json({detail:'أدخل أعداداً صحيحة غير سالبة للكميات وأسعاراً مالية صالحة'});
     return;
   }
-  const id = allocateRecordId('products');
+  const id = await allocateRecordId('products');
   const p: Product = {
     id,
     name: name.trim(),
@@ -907,7 +912,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, (req, res) => 
   catch(error){res.status(422).json({detail:(error as Error).message});return;}
   products.set(id, p);
   res.status(201).json(productDict(p, ctx.user));
-});
+}));
 
 app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const ctx = (req as any).auth as AuthContext;
@@ -1067,7 +1072,7 @@ app.get('/api/users', requireAuth, requireAdmin, (_req, res) => {
   res.json(list.map((u) => ({...userDict(u),active_sessions:Array.from(sessions.values()).filter(sess=>sess.user_id===u.id).length})));
 });
 
-app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
+app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const { username, full_name, password, can_view_purchase = false, can_view_sale = false } = req.body;
   if (!username || !full_name || !password) {
     res.status(422).json({ detail: 'جميع الحقول مطلوبة' });
@@ -1083,7 +1088,7 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     res.status(409).json({ detail: 'اسم المستخدم موجود' });
     return;
   }
-  const id = allocateRecordId('users');
+  const id = await allocateRecordId('users');
   const u: User = {
     id,
     username: uname,
@@ -1098,7 +1103,7 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   users.set(id, u);
   recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'create',u.username);
   res.status(201).json(userDict(u));
-});
+}));
 
 app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const id = Number(req.params.id);
@@ -1192,7 +1197,7 @@ app.get('/api/execution-lists', requireAuth, (req, res) => {
  const ctx=(req as any).auth as AuthContext;
  res.json(listExecutionLists(ctx.user.role==='admin'?null:ctx.user.id));
 });
-app.post('/api/execution-lists', requireAuth, requireCsrf, (req, res) => {
+app.post('/api/execution-lists', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
  const ctx=(req as any).auth as AuthContext;
  if(ctx.user.role!=='staff'){
   res.status(403).json({detail:'إضافة قوائم التنفيذ مخصصة للمستخدم الثاني'});
@@ -1226,10 +1231,10 @@ app.post('/api/execution-lists', requireAuth, requireCsrf, (req, res) => {
    quantity,
   });
  }
- const record=createExecutionList(ctx.user.id,lines);
+ const record=await createExecutionList(ctx.user.id,lines);
  // This is a historical record only; no inventory deduction occurs.
  res.status(201).json(record);
-});
+}));
 
 // Quotes
 app.get('/api/quotes', requireAuth, requireAdmin, (_req, res) => {
@@ -1247,7 +1252,7 @@ app.get('/api/quotes/:id', requireAuth, requireAdmin, (req, res) => {
   res.json(quoteDict(q));
 });
 
-app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
+app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const ctx = (req as any).auth as AuthContext;
   const { items } = req.body || {};
   if (!Array.isArray(items) || items.length<1 || items.length>500) {
@@ -1278,7 +1283,7 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
     validated.push({product,quantity});
   }
 
-  const id = allocateRecordId('quotes');
+  const id = await allocateRecordId('quotes');
   const q: Quote = {
     id,
     created_at: new Date().toISOString(),
@@ -1295,7 +1300,7 @@ app.post('/api/quotes', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   };
   quotes.set(id, q);
   res.status(201).json(quoteDict(q));
-});
+}));
 
 // Static assets
 // Serve the official Tabler open-source CSS from the installed package.
