@@ -24,10 +24,19 @@ const mock=http.createServer(async (req,res)=>{
   if(u.pathname==='/rest/v1/app_records'){
     if(req.method==='GET'){
       cloudLoadPages++;
-      const all=Array.from(store.values()).sort((a,b)=>a.kind.localeCompare(b.kind)||a.id-b.id);
+      let all=Array.from(store.values()).sort((a,b)=>a.kind.localeCompare(b.kind)||a.id-b.id);
+      const kind=(u.searchParams.get('kind')||'').replace(/^eq\./,'');
+      const id=(u.searchParams.get('id')||'').replace(/^eq\./,'');
+      const sessionHash=(u.searchParams.get('payload->>token_hash')||'').replace(/^eq\./,'');
+      if(kind)all=all.filter(row=>row.kind===kind);
+      if(id)all=all.filter(row=>row.id===Number(id));
+      if(sessionHash)all=all.filter(row=>row.payload?.token_hash===sessionHash);
       const offset=Number(u.searchParams.get('offset')||0),limit=Number(u.searchParams.get('limit')||500);
+      const select=u.searchParams.get('select');
+      const filtered=all.slice(offset,offset+limit).map(row=>
+        select==='payload'?{payload:row.payload}:row);
       res.writeHead(200,{'content-type':'application/json'});
-      res.end(JSON.stringify(all.slice(offset,offset+limit)));
+      res.end(JSON.stringify(filtered));
       return;
     }
     if(mockFailWrites||mockTransientFailures>0){
@@ -48,6 +57,13 @@ const mock=http.createServer(async (req,res)=>{
     if(req.method==='PATCH'||req.method==='DELETE'){
       const kind=(u.searchParams.get('kind')||'').replace(/^eq\./,'');
       const id=Number((u.searchParams.get('id')||'').replace(/^eq\./,''));
+      const sessionHash=(u.searchParams.get('payload->>token_hash')||'').replace(/^eq\./,'');
+      if(req.method==='DELETE' && sessionHash){
+        for(const [recordKey,row] of store){
+          if(row.kind==='sessions'&&row.payload?.token_hash===sessionHash)store.delete(recordKey);
+        }
+        res.writeHead(204);res.end();return;
+      }
       const version=(u.searchParams.get('updated_at')||'').replace(/^eq\./,'');
       const key=kind+':'+id,record=store.get(key);
       if(!record||record.updated_at!==version){
