@@ -632,7 +632,7 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], as
   const uname = normalizeUsername(String(username));
   let candidates:User[];
   try {
-    candidates=cloudEnabled?await listCloudUsers() as User[]:Array.from(users.values());
+    candidates=cloudEnabled?await listCloudUsers() as unknown as User[]:Array.from(users.values());
   }catch(error){
     console.error('Shared login lookup failed:',error instanceof Error?error.message:'unknown');
     res.status(503).json({detail:'تعذر التحقق من بيانات الدخول السحابية'});
