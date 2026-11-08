@@ -45,10 +45,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: "22"
+          package-manager-cache: false
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Test Arabic letter variations on 10000 simulated products
@@ -75,7 +78,7 @@ jobs:
         run: node tests/ui-browser-smoke.mjs
       - name: Attach mobile, iPad and desktop previews
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: afrah-ui-previews
           path: screenshots/
