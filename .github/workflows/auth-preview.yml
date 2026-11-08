@@ -1,7 +1,7 @@
 name: Test preview login
 on:
   push:
-    branches: [main]
+    branches: [main, feature/security-stability-ui-hardening]
     paths:
       - "server.ts"
       - "web/api.js"
@@ -20,6 +20,10 @@ on:
       - "tests/auth-preview-smoke.mjs"
       - "tests/portal-credentials.mjs"
       - "web/account-portal.css"
+      - "web/afrah-stability.css"
+      - "web/afrah-brand-2026.css"
+      - "web/admin.html"
+      - "web/index.html"
       - "web/portal-handoff.js"
       - "tests/arabic-search.mjs"
       - "storage.ts"
