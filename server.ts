@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
 import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
-import { uploadCloudImage, loadCloudImage } from './cloud.js';
+import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,15 +36,15 @@ if (!fs.existsSync(imagesDir)) {
   fs.mkdirSync(imagesDir, { recursive: true });
 }
 
-// Secret for CSRF and sessions
-const secretKey = crypto.randomBytes(32);
-
+// Domain-separate a CSRF proof from the cryptographically random bearer token.
+// Derivation is consistent across multiple app servers without exposing a
+// shared signing secret or relaxing the existing CSRF header requirement.
 function tokenDigest(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function csrfForToken(token: string): string {
-  return crypto.createHmac('sha256', secretKey).update('csrf:' + token).digest('hex');
+  return crypto.createHmac('sha256',token).update('afrah-csrf-v2').digest('hex');
 }
 
 // Arabic and Latin usernames; reject spaces, invisible/control characters and emoji.
@@ -555,34 +555,35 @@ function sessionTokenFromRequest(req: Request): string | null {
   return typeof cookieToken === 'string' && cookieToken.length <= 256 ? cookieToken : null;
 }
 
-function getSessionContext(req: Request): AuthContext | null {
+async function getSessionContext(req: Request): Promise<AuthContext|null> {
   const raw = sessionTokenFromRequest(req);
   if (!raw) return null;
   const hash = tokenDigest(raw);
-  const sess = sessions.get(hash);
-  if (!sess) return null;
-  const now = Date.now();
-  if (sess.expires_at <= now) {
-    sessions.delete(hash);
-    return null;
-  }
-  const user = users.get(sess.user_id);
-  if (!user || !user.is_active) {
-    sessions.delete(hash);
-    return null;
-  }
-  return { user, session: sess, rawToken: raw };
+  // The DB is the source of truth when several servers share the same cloud.
+  // Never trust an in-memory session or stale staff permissions in cloud mode.
+  const sess = (cloudEnabled?await readCloudSession(hash):sessions.get(hash)) as Session|undefined|null;
+  if (!sess || sess.token_hash!==hash || !Number.isSafeInteger(sess.user_id) ||
+      !Number.isSafeInteger(sess.expires_at)||sess.expires_at<=Date.now()) return null;
+  const user = (cloudEnabled?await readCloudUser(sess.user_id):users.get(sess.user_id)) as User|undefined|null;
+  if(!user || user.id!==sess.user_id || !user.is_active ||
+     (user.role!=='admin'&&user.role!=='staff')) return null;
+  return { user, session:sess, rawToken:raw };
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const ctx = getSessionContext(req);
-  if (!ctx) {
-    res.status(401).json({ detail: 'يلزم تسجيل الدخول' });
-    return;
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  try {
+    const ctx = await getSessionContext(req);
+    if (!ctx) {
+      res.status(401).json({ detail: 'يلزم تسجيل الدخول' });
+      return;
+    }
+    (req as any).auth = ctx;
+    refreshLoginCookie(res,ctx.rawToken);
+    next();
+  }catch(error){
+    console.error('Shared session check failed:',error instanceof Error?error.message:'unknown');
+    res.status(503).json({detail:'تعذّر التحقق من الجلسة السحابية، حاول مجدداً لاحقاً'});
   }
-  (req as any).auth = ctx;
-  refreshLoginCookie(res,ctx.rawToken);
-  next();
 }
 
 function requireCsrf(req: Request, res: Response, next: NextFunction) {
@@ -616,7 +617,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Auth
-app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (req, res) => {
+app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], async (req, res) => {
   const { username, password } = req.body || {};
   const throttleKey=loginThrottleKey(req);
   if(loginTooFast(throttleKey)){
@@ -629,7 +630,15 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], (r
     return;
   }
   const uname = normalizeUsername(String(username));
-  const u = Array.from(users.values()).find((user) => normalizeUsername(user.username) === uname);
+  let candidates:User[];
+  try {
+    candidates=cloudEnabled?await listCloudUsers() as unknown as User[]:Array.from(users.values());
+  }catch(error){
+    console.error('Shared login lookup failed:',error instanceof Error?error.message:'unknown');
+    res.status(503).json({detail:'تعذر التحقق من بيانات الدخول السحابية'});
+    return;
+  }
+  const u = candidates.find((user) => normalizeUsername(user.username) === uname);
   if (!u || !u.is_active || !verifyPassword(String(password),u.password)) {
     recordLoginFailure(throttleKey);
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
@@ -787,20 +796,32 @@ app.get('/api/admin/me', requireAuth, requireAdmin, (req, res) => {
   res.json({user:userDict(ctx.user),csrf:csrfForToken(ctx.rawToken)});
 });
 
-app.get('/api/me', (req, res) => {
-  const ctx = getSessionContext(req);
-  if (!ctx) {
-    res.status(401).json({ detail: 'يلزم تسجيل الدخول' });
-    return;
+app.get('/api/me', async (req, res) => {
+  try {
+    const ctx = await getSessionContext(req);
+    if (!ctx) {
+      res.status(401).json({ detail: 'يلزم تسجيل الدخول' });
+      return;
+    }
+    refreshLoginCookie(res,ctx.rawToken);
+    res.json({ user: userDict(ctx.user), csrf: csrfForToken(ctx.rawToken) });
+  }catch(error){
+    console.error('Shared session verification failed:',error instanceof Error?error.message:'unknown');
+    res.status(503).json({detail:'تعذر التحقق من الجلسة السحابية'});
   }
-  refreshLoginCookie(res,ctx.rawToken);
-  res.json({ user: userDict(ctx.user), csrf: csrfForToken(ctx.rawToken) });
 });
 
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
   const raw = sessionTokenFromRequest(req);
   if (raw) {
-    sessions.delete(tokenDigest(raw));
+    const hash=tokenDigest(raw);
+    if(cloudEnabled){
+      try {await removeCloudSession(hash);}
+      catch(error){
+        console.error('Shared logout failed:',error instanceof Error?error.message:'unknown');
+        res.status(503).json({detail:'تعذر تأكيد تسجيل الخروج سحابياً'});return;
+      }
+    }else sessions.delete(hash);
   }
   res.clearCookie('afrah_session', { path: '/' });
   res.json({ ok: true });

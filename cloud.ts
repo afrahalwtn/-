@@ -104,6 +104,52 @@ export async function deleteCloudRecord(kind:string,id:number,previous:string|nu
   const response=await request(url,{method:'DELETE',headers:{Prefer:'return=representation'}});
   changedVersion(await response.json(),kind,id);
 }
+// Authenticate against the shared database rather than a per-server startup
+// snapshot. This allows a session created on one instance to work on another,
+// and makes a revoked/disabled session fail immediately across all instances.
+export async function readCloudUser(id:number):Promise<Record<string,unknown>|null> {
+  if(!Number.isSafeInteger(id)||id<1) return null;
+  const endpoint='/rest/v1/app_records?kind=eq.users&id=eq.'+id+'&select=payload&limit=1';
+  const response=await request(endpoint);
+  const rows=await response.json();
+  if(!Array.isArray(rows)||rows.length>1)throw Error('Invalid shared user lookup');
+  return rows.length===1 && rows[0]?.payload && typeof rows[0].payload==='object'
+    && !Array.isArray(rows[0].payload)?rows[0].payload:null;
+}
+export async function listCloudUsers():Promise<Array<Record<string,unknown>>> {
+  const users:Array<Record<string,unknown>>=[];
+  for(let offset=0;;offset+=500){
+    const response=await request('/rest/v1/app_records?kind=eq.users&select=payload&order=id.asc&limit=500&offset='+offset);
+    const rows=await response.json();
+    if(!Array.isArray(rows))throw Error('Invalid shared user list');
+    for(const row of rows){
+      if(!row?.payload||typeof row.payload!=='object'||Array.isArray(row.payload))
+        throw Error('Invalid shared user record');
+      users.push(row.payload);
+    }
+    if(rows.length<500)break;
+  }
+  return users;
+}
+export async function readCloudSession(hash:string):Promise<Record<string,unknown>|null> {
+  if(!/^[a-f0-9]{64}$/.test(hash))return null;
+  // The comparison happens within PostgREST/PostgreSQL, without fetching
+  // every active user's token digest into app-server memory.
+  const endpoint='/rest/v1/app_records?kind=eq.sessions&payload->>token_hash=eq.'+hash+
+    '&select=payload&limit=1';
+  const response=await request(endpoint);
+  const rows=await response.json();
+  if(!Array.isArray(rows)||rows.length>1)throw Error('Invalid shared session lookup');
+  return rows.length===1&&rows[0]?.payload&&typeof rows[0].payload==='object'
+    && !Array.isArray(rows[0].payload)?rows[0].payload:null;
+}
+export async function removeCloudSession(hash:string):Promise<void>{
+  if(!/^[a-f0-9]{64}$/.test(hash))throw Error('Invalid session digest');
+  await request('/rest/v1/app_records?kind=eq.sessions&payload->>token_hash=eq.'+hash,{
+    method:'DELETE',headers:{Prefer:'return=minimal'},
+  });
+}
+
 export async function uploadCloudImage(filename: string, filePath: string, mime: string): Promise<void> {
   const buffer = await fs.readFile(filePath);
   await request('/storage/v1/object/item-images/' + encodeURIComponent(filename), {
