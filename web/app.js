@@ -421,6 +421,8 @@ document.addEventListener('click',async e=>{
   reset();
  }
 });
+// Keep catalogue typing smooth without changing the staff UI or search results.
+let staffSearchTimer;
 document.addEventListener('input',e=>{
  const input=e.target;
  if(input.id==='staff-home-search'){
@@ -436,12 +438,21 @@ document.addEventListener('input',e=>{
     void paintPhotos(target);}
  }
  if(input.id==='staff-products-search'){
-  const selection=input.selectionStart;
   state.query=input.value;
-  workspace();
-  const field=document.getElementById('staff-products-search');
-  field?.focus();
-  if(selection!==null)field?.setSelectionRange(selection,selection);
+  clearTimeout(staffSearchTimer);
+  staffSearchTimer=setTimeout(()=>{
+   if(state.section!=='products')return;
+   const previous=document.getElementById('staff-products-search');
+   if(!previous)return;
+   const focused=document.activeElement===previous;
+   const selection=focused?previous.selectionStart:null;
+   workspace();
+   if(focused){
+    const field=document.getElementById('staff-products-search');
+    field?.focus();
+    if(selection!==null)field?.setSelectionRange(selection,selection);
+   }
+  },120);
  }
 });
 boot();
