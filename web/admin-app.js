@@ -810,6 +810,9 @@ document.addEventListener('submit',async(e)=>{
   const form=e.target.closest('form[data-form]');if (!form) return;
   e.preventDefault();await handleForm(form);
 });
+// Delay rebuilding large item tables until the current typing burst ends.
+// This preserves the exact layout and search results while keeping input responsive.
+let productsSearchTimer;
 document.addEventListener('input',(e)=>{
   if (e.target.id==='home-search') {
     state.homeSearch=e.target.value;
@@ -827,12 +830,21 @@ document.addEventListener('input',(e)=>{
     return;
   }
   if (e.target.id==='products-search') {
-    const cursor=e.target.selectionStart;
     state.search=e.target.value;
-    renderWorkspace();
-    const field=document.getElementById('products-search');
-    field?.focus();
-    if (cursor!==null) field?.setSelectionRange(cursor,cursor);
+    clearTimeout(productsSearchTimer);
+    productsSearchTimer=setTimeout(()=>{
+      if (state.section!=='products') return;
+      const previous=document.getElementById('products-search');
+      if (!previous) return;
+      const focused=document.activeElement===previous;
+      const cursor=focused?previous.selectionStart:null;
+      renderWorkspace();
+      if (focused) {
+        const field=document.getElementById('products-search');
+        field?.focus();
+        if (cursor!==null) field?.setSelectionRange(cursor,cursor);
+      }
+    },120);
     return;
   }
 });
