@@ -8,7 +8,7 @@ const folder=mkdtempSync(path.join(tmpdir(),'afrah-sec-test-'));
 const port=45671,root='http://127.0.0.1:'+port+'/api';
 const child=spawn(process.execPath,['--import','tsx','server.ts'],{
  env:{...process.env,PORT:String(port),AFRAH_DATA_DIR:folder,
- SUPABASE_URL:'',SUPABASE_SECRET_KEY:'',AFRAH_SECURE_COOKIES:'false'},
+ SUPABASE_URL:'',SUPABASE_SECRET_KEY:'',AFRAH_ADMIN_RESET_PASSWORD:'',AFRAH_ADMIN_PASSWORD:'',AFRAH_STAFF_PASSWORD:'',AFRAH_ENABLE_ADMIN_RECOVERY:'',AFRAH_TRUST_PROXY_HOPS:'0',NODE_ENV:'development',AFRAH_SECURE_COOKIES:'false'},
  stdio:['ignore','pipe','pipe']
 });
 let log='';child.stderr.on('data',x=>log+=x.toString());
