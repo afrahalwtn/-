@@ -29,7 +29,8 @@ jobs:
         run: |
           if [[ -z "$BACKUP_SUPABASE_URL" || -z "$BACKUP_SUPABASE_SECRET_KEY" || -z "$BACKUP_ENCRYPTION_KEY" ]]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Encrypted backups are NOT enabled: GitHub Actions secrets must be configured independently from AI Studio."
+            echo "::error::NO ENCRYPTED BACKUP WAS CREATED: configure GitHub Actions secrets separately from AI Studio."
+            exit 1
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
