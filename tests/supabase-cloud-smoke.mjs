@@ -14,7 +14,7 @@ const mockPort=44882,appPort=44883;
 const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
 let mockFailWrites=false,mockTransientFailures=0,raceNextProductWrite=false,proc,secondProc,logs='';
-let cloudLoadPages=0,shiftAfterFirstPage=false;
+let cloudLoadPages=0,shiftAfterFirstPage=false,productPageReads=0,slowProductReadMs=0;
 let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
   if(req.headers.apikey!==secret || req.headers.authorization?.includes('sb_secret_')){
@@ -34,6 +34,10 @@ const mock=http.createServer(async (req,res)=>{
       if(sessionHash)all=all.filter(row=>row.payload?.token_hash===sessionHash);
       const offset=Number(u.searchParams.get('offset')||0),limit=Number(u.searchParams.get('limit')||500);
       const select=u.searchParams.get('select');
+      if(kind==='products'&&id.startsWith('gt.')){
+        productPageReads++;
+        if(slowProductReadMs>0)await delay(slowProductReadMs);
+      }
       const filtered=all.slice(offset,offset+limit).map(row=>
         select==='payload'?{payload:row.payload}:row);
       res.writeHead(200,{'content-type':'application/json'});
@@ -337,6 +341,36 @@ try{
   const uncompressed=await identity.json();
   assert(uncompressed.some(p=>p.id===6199),'Uncompressed catalogue must remain intact');
   assert(!uncompressed.some(p=>p.id===2000),'Next refresh must reflect deleted items');
+
+  // Unauthorized callers must be rejected BEFORE loading 4,200-item catalogues.
+  const productPagesBeforeAttack=productPageReads;
+  const unauthenticated=await Promise.all(Array.from({length:15},()=>
+    fetch(root+'/products',{headers:{Authorization:'Bearer '+'A'.repeat(48)}})));
+  assert(unauthenticated.every(response=>response.status===401),
+    'Unknown bearer tokens must never pass authorization');
+  await Promise.all(unauthenticated.map(response=>response.arrayBuffer()));
+  assert.equal(productPageReads,productPagesBeforeAttack,
+    'Unauthorized requests must not cause cloud catalogue scans');
+
+  // Simulate a slow cloud connection and 65 concurrent legitimate readers.
+  // Requests beyond the bounded queue must fail promptly instead of making
+  // the Node process accumulate unlimited scans and memory allocations.
+  slowProductReadMs=25;
+  const flood=await Promise.all(Array.from({length:65},async() => {
+    const response=await fetch(root+'/products',{
+      headers:{Authorization:'Bearer '+admin.access_token,
+        'Accept-Encoding':'gzip'}});
+    const status=response.status;
+    await response.arrayBuffer();
+    return status;
+  }));
+  slowProductReadMs=0;
+  assert(flood.some(status=>status===200),'Some legitimate reads must complete');
+  assert(flood.some(status=>status===503),'Overloaded reads must be bounded with 503');
+  assert(flood.every(status=>status===200||status===503),
+    'A busy queue must not lose sessions or produce 500 errors');
+  const healthyAfterLoad=await fetch(root+'/health');
+  assert.equal(healthyAfterLoad.status,200,'Recover from load without process restart');
 
   // Owner recovers an existing account without deleting catalogue items.
   const previousToken=admin.access_token;
