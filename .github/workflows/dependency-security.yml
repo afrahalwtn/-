@@ -20,10 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
+          package-manager-cache: false
       - name: Resolve current packages
         run: npm install --no-audit --no-fund
       - name: Report known high and critical vulnerabilities
