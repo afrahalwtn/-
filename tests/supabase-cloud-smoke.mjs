@@ -14,7 +14,7 @@ const mockPort=44882,appPort=44883;
 const root='http://127.0.0.1:'+appPort+'/api';
 const folder=mkdtempSync(path.join(tmpdir(),'afrah-cloud-test-'));
 let mockFailWrites=false,mockTransientFailures=0,raceNextProductWrite=false,proc,secondProc,logs='';
-let cloudLoadPages=0,shiftAfterFirstPage=false,productPageReads=0,slowProductReadMs=0;
+let cloudLoadPages=0,shiftAfterFirstPage=false,shiftDuringStartup=false,productPageReads=0,slowProductReadMs=0;
 let recoverySecret='';
 const mock=http.createServer(async (req,res)=>{
   if(req.headers.apikey!==secret || req.headers.authorization?.includes('sb_secret_')){
@@ -25,6 +25,13 @@ const mock=http.createServer(async (req,res)=>{
     if(req.method==='GET'){
       cloudLoadPages++;
       let all=Array.from(store.values()).sort((a,b)=>a.kind.localeCompare(b.kind)||a.id-b.id);
+      const allKindsCursor=u.searchParams.get('or');
+      if(allKindsCursor){
+        const cursor=/^\(kind\.gt\.([a-z0-9_]+),and\(kind\.eq\.\1,id\.gt\.(\d+)\)\)$/.exec(allKindsCursor);
+        if(!cursor){res.writeHead(400);res.end('Invalid composite cursor');return;}
+        const lastKind=cursor[1],lastId=Number(cursor[2]);
+        all=all.filter(row=>row.kind>lastKind||(row.kind===lastKind&&row.id>lastId));
+      }
       const kind=(u.searchParams.get('kind')||'').replace(/^eq\./,'');
       const id=(u.searchParams.get('id')||'').replace(/^eq\./,'');
       const sessionHash=(u.searchParams.get('payload->>token_hash')||'').replace(/^eq\./,'');
@@ -42,11 +49,15 @@ const mock=http.createServer(async (req,res)=>{
         select==='payload'?{payload:row.payload}:row);
       res.writeHead(200,{'content-type':'application/json'});
       res.end(JSON.stringify(filtered));
+      if(shiftDuringStartup&&!allKindsCursor&&filtered.length===500){
+        shiftDuringStartup=false;
+        store.delete('products:2000');
+      }
       // Deleting an early row between pages makes offset-based paging skip
       // the next row. ID-keyset paging must still read the boundary safely.
       if(shiftAfterFirstPage && kind==='products' && id==='gt.0' && limit===1000){
         shiftAfterFirstPage=false;
-        store.delete('products:2000');
+        store.delete('products:2001');
       }
       return;
     }
@@ -306,6 +317,7 @@ try{
     purchase_price:5,sale_price:6,image_name:null,updated_at:new Date().toISOString()}
   });
   cloudLoadPages=0;
+  shiftDuringStartup=true;
   await start();
   assert(cloudLoadPages>=3,'Must read more than first Supabase page');
   let restored=await fetch(root+'/me',{headers:{Authorization:'Bearer '+sessionBeforeRestart}});
@@ -319,7 +331,10 @@ try{
   const found=await result.json();
   assert(found.some(x=>x.id===item.id&&x.quantity===32),'Must survive a server reboot');
   result=await api('/products',admin);
-  assert((await result.json()).length>=4203,'No records may be lost after pagination');
+  const afterStartup=await result.json();
+  assert(afterStartup.length>=4202,'Remaining records must survive a concurrent deletion during startup');
+  assert(afterStartup.some(p=>p.id===2499)&&afterStartup.some(p=>p.id===6199),
+    'Composite cursor cannot skip catalogue records after an earlier item is deleted');
   // Simulate another node deleting an early item after the first batch.
   shiftAfterFirstPage=true;
   const largeGzip=await fetch(root+'/products',{
@@ -340,7 +355,8 @@ try{
     'Client opting out of gzip must get plain JSON');
   const uncompressed=await identity.json();
   assert(uncompressed.some(p=>p.id===6199),'Uncompressed catalogue must remain intact');
-  assert(!uncompressed.some(p=>p.id===2000),'Next refresh must reflect deleted items');
+  assert(!uncompressed.some(p=>p.id===2000||p.id===2001),
+    'Next refresh must reflect both startup and refresh deletions');
 
   // Unauthorized callers must be rejected BEFORE loading 4,200-item catalogues.
   const productPagesBeforeAttack=productPageReads;
