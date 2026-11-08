@@ -47,22 +47,37 @@ export interface CloudRecord {
   updated_at: string;
 }
 
-/** Download ALL pages; Supabase limits a single API response to 1000 rows. */
+/** Scan all kinds with an ordered composite cursor instead of OFFSET.
+ * A concurrent DELETE before page N must never shift and hide the next row.
+ * The cursor predicate matches the (kind ASC, id ASC) composite index.
+ */
 export async function loadCloudRecords(): Promise<CloudRecord[]> {
   if (!cloudEnabled) return [];
-  const result: CloudRecord[] = [];
-  for (let offset = 0; ; offset += 500) {
-    const response = await request('/rest/v1/app_records?select=kind,id,payload,updated_at&order=kind.asc,id.asc&limit=500&offset=' + offset);
-    const page = await response.json();
-    if (!Array.isArray(page)) throw new Error('Supabase returned invalid data');
-    for (const row of page) {
-      if (!row || typeof row.kind !== 'string' || !Number.isSafeInteger(row.id) ||
-          row.id < 1 || !row.payload || typeof row.payload !== 'object' ||
-          Array.isArray(row.payload) || typeof row.updated_at!=='string' ||
-          !Number.isFinite(Date.parse(row.updated_at))) throw new Error('Invalid Supabase record: '+String(row?.kind)+' #'+String(row?.id)+' timestamp='+String(row?.updated_at).slice(0,60));
+  const result:CloudRecord[]=[];
+  let lastKind='',lastId=0;
+  const pageSize=500;
+  for(;;){
+    const filter=lastKind
+      ? '&or='+encodeURIComponent('(kind.gt.'+lastKind+
+          ',and(kind.eq.'+lastKind+',id.gt.'+lastId+'))')
+      : '';
+    const response=await request('/rest/v1/app_records?select=kind,id,payload,updated_at&order=kind.asc,id.asc&limit='+pageSize+filter);
+    const page=await response.json();
+    if(!Array.isArray(page)||page.length>pageSize)
+      throw Error('Invalid Supabase record page');
+    for(const row of page){
+      if(!row || typeof row.kind!=='string'||
+         !/^[a-z][a-z0-9_]{0,63}$/.test(row.kind)||
+         !Number.isSafeInteger(row.id)||row.id<1||
+         (lastKind!==''&&(row.kind<lastKind||(row.kind===lastKind&&row.id<=lastId)))||
+         !row.payload||typeof row.payload!=='object'||Array.isArray(row.payload)||
+         typeof row.updated_at!=='string'||!Number.isFinite(Date.parse(row.updated_at)))
+        throw Error('Invalid or out-of-order Supabase record');
+      lastKind=row.kind;lastId=row.id;
       result.push(row);
     }
-    if (page.length < 500) break;
+    if(result.length>250000)throw Error('Supabase record count exceeds safety limit');
+    if(page.length<pageSize)break;
   }
   return result;
 }
