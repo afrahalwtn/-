@@ -182,6 +182,19 @@ try{
   result=await api('/products',admin);
   assert((await result.json()).length>=1061,'No records may be lost after pagination');
 
+  // Owner recovers an existing account without deleting catalogue items.
+  const previousToken=admin.access_token;
+  await stop();
+  recoverySecret='NewCloudOwnerPassword2026!';
+  await start();
+  const invalidated=await fetch(root+'/me',{headers:{Authorization:'Bearer '+previousToken}});
+  assert.equal(invalidated.status,401,'Recovery invalidates the previous session');
+  admin=await signIn('يوسف',recoverySecret);
+  assert(store.has('metadata:107'),'Recovery operation must be one-time');
+  assert(store.has('products:'+item.id),'Recovery keeps inventory intact');
+  await stop();
+  await start();
+  admin=await signIn('يوسف',recoverySecret);
   mockFailWrites=true;
   result=await api('/products',admin,'POST',{name:'لن يحفظ',
     manufacture:'',quantity:5,purchase_price:1,sale_price:2});
