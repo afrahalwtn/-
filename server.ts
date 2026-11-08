@@ -586,29 +586,41 @@ app.use((req,res,next)=>{
   let unlock!:()=>void;
   const released=new Promise<void>(resolve=>{unlock=resolve;});
   businessRequestTail=previous.then(()=>released);
-  let active=false,closed=false,completed=false;
+  let active=false,closed=false,completed=false,preflight=false;
+  const queueTimer=setTimeout(()=>{
+    // A queued request must not keep the browser waiting indefinitely.
+    // Its turn remains reserved so earlier writes are never overtaken.
+    if(!active&&!closed&&!res.headersSent){
+      res.setHeader('Retry-After','2');
+      res.status(503).json({detail:'ازدحام مؤقت في الطلبات، حاول مرة ثانية'});
+    }
+  },15_000);
   const release=()=>{
     if(completed)return;
     completed=true;
+    clearTimeout(queueTimer);
     businessRequestsPending--;
     unlock();
   };
-  res.once('finish',()=>{closed=true;if(active)release();});
-  res.once('close',()=>{closed=true;if(active)release();});
+  res.once('finish',()=>{closed=true;if(active&&!preflight)release();});
+  res.once('close',()=>{closed=true;if(active&&!preflight)release();});
   void previous.then(async()=>{
-    active=true;
-    if(closed||res.destroyed){release();return;}
+    active=true;preflight=true;
+    clearTimeout(queueTimer);
+    if(closed||res.destroyed){preflight=false;release();return;}
     try{
       // Authorization MUST precede potentially expensive full-catalogue scans:
       // previously any anonymous request to /api/products could trigger them.
       const ctx=await getSessionContext(req);
-      if(closed||res.destroyed){release();return;}
+      if(closed||res.destroyed){preflight=false;release();return;}
       if(!ctx){
+        preflight=false;
         res.status(401).json({detail:'يلزم تسجيل الدخول'});
         return;
       }
       (req as any).auth=ctx;
       if(!cloudStorageHealthy()){
+        preflight=false;
         res.status(503).json({detail:'الحفظ السحابي متوقف مؤقتاً'});
         return;
       }
@@ -617,10 +629,13 @@ app.use((req,res,next)=>{
         await refreshCloudKind(kind as 'users'|'products'|'quotes'|'execution_lists'|'account_audit');
         businessLastRefresh.set(kind,Date.now());
       }
+      preflight=false;
       if(closed||res.destroyed){release();return;}
       next();
     }catch(error){
+      preflight=false;
       console.error('Cloud catalogue or access check failed:',error instanceof Error?error.message:'unknown');
+      if(closed||res.destroyed){release();return;}
       if(!res.headersSent)
         res.status(503).json({detail:'تعذّر الوصول إلى بيانات الشركة من السحابة، لم يتم إجراء أي تعديل'});
       else release();
