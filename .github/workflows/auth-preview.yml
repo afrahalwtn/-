@@ -1,7 +1,7 @@
 name: Test preview login
 on:
   push:
-    branches: [main]
+    branches: [main, feature/security-stability-ui-hardening]
     paths:
       - "server.ts"
       - "web/api.js"
@@ -20,6 +20,10 @@ on:
       - "tests/auth-preview-smoke.mjs"
       - "tests/portal-credentials.mjs"
       - "web/account-portal.css"
+      - "web/afrah-stability.css"
+      - "web/afrah-brand-2026.css"
+      - "web/admin.html"
+      - "web/index.html"
       - "web/portal-handoff.js"
       - "tests/arabic-search.mjs"
       - "storage.ts"
@@ -27,6 +31,7 @@ on:
       - "tests/sqlite-persistence.mjs"
       - "tests/sqlite-server-restart.mjs"
       - "tests/ui-browser-smoke.mjs"
+      - "tests/security-hardening.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
 
@@ -62,6 +67,8 @@ jobs:
         run: node tests/portal-credentials.mjs
       - name: Verify login with blocked cookies
         run: node tests/auth-preview-smoke.mjs
+      - name: Security regression checks
+        run: node tests/security-hardening.mjs
       - name: Verify homepage and multi-item receipt in Chrome
         run: node tests/ui-browser-smoke.mjs
       - name: Attach mobile, iPad and desktop previews

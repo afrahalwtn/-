@@ -155,6 +155,20 @@ try {
   await ipad.locator('input[name="password"]').fill('admin123456');
   await ipad.locator('button[type="submit"]').click();
   await ipad.locator('.af-home').waitFor({timeout:15000});
+  // Off-canvas navigation must not be a hidden clickable overlay on the iPad.
+  assert.equal(await ipad.locator('#sidebar').evaluate(el=>getComputedStyle(el).visibility),
+    'hidden','Closed tablet menu must be genuinely hidden');
+  const palette=await ipad.evaluate(()=>{
+    const el=document.createElement('select');
+    el.innerHTML='<option value="a">الفئات</option>';
+    document.querySelector('.shell').append(el);
+    const cs=getComputedStyle(el);
+    const values={background:cs.backgroundColor,color:cs.color,
+      fontFamily:cs.fontFamily,image:cs.backgroundImage};
+    el.remove();return values;
+  });
+  assert.equal(palette.background,'rgb(248, 250, 255)','Select color must match light indigo theme');
+  assert(palette.image.includes('svg'),'Native dropdown must use the themed arrow icon');
   await ipad.screenshot({path:'screenshots/ipad-home.png',fullPage:true});
   await ipad.locator('.sidebar-toggle').click();
   await ipad.locator('.nav-link[data-section="prepare"]').click();

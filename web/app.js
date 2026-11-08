@@ -14,14 +14,32 @@ function asset(p){
   if(!p.image_url)return '<span class="product-no-image">'+icon('package',22)+'</span>';
   return '<img class="product-thumb" data-photo="'+safe(p.image_url)+'" alt="صورة '+safe(p.name)+'" loading="lazy">';
 }
+async function loadStaffPhoto(img){
+  if(!img.isConnected||img.dataset.imageLoading==='1'||img.src.startsWith('blob:'))return;
+  const url=img.dataset.photo;
+  if(!/^\/api\/images\/[0-9a-f]{32}\.(?:png|jpg|webp)$/i.test(url))return;
+  img.dataset.imageLoading='1';
+  if(!photos.has(url))photos.set(url,apiMedia(url.slice(4)).then(b=>URL.createObjectURL(b)).catch(err=>{photos.delete(url);throw err;}));
+  try{const object=await photos.get(url);if(img.isConnected)img.src=object;}
+  catch{if(img.isConnected)img.alt='صورة غير متاحة';}
+  finally{delete img.dataset.imageLoading;}
+}
+const staffPhotoObserver=typeof IntersectionObserver==='function'
+  ?new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting)continue;
+      staffPhotoObserver.unobserve(entry.target);
+      void loadStaffPhoto(entry.target);
+    }
+  },{rootMargin:'320px'}):null;
 async function paintPhotos(root){
-  await Promise.all(Array.from(root?.querySelectorAll('img[data-photo]')||[]).map(async img=>{
-    const url=img.dataset.photo;
-    if(!/^\/api\/images\/[0-9a-f]{32}\.(?:png|jpg|webp)$/i.test(url))return;
-    if(!photos.has(url))photos.set(url,apiMedia(url.slice(4)).then(b=>URL.createObjectURL(b)).catch(err=>{photos.delete(url);throw err;}));
-    try{const object=await photos.get(url);if(img.isConnected)img.src=object;}
-    catch{if(img.isConnected)img.alt='صورة غير متاحة';}
-  }));
+  const images=Array.from(root?.querySelectorAll('img[data-photo]')||[]);
+  const printing=root?.id==='print-root'||Boolean(root?.closest?.('#print-root'));
+  if(printing||!staffPhotoObserver)await Promise.all(images.map(loadStaffPhoto));
+  else for(const img of images){
+    if(!img.src.startsWith('blob:')&&img.dataset.imageLoading!=='1')
+      staffPhotoObserver.observe(img);
+  }
 }
 function message(value,error=true){
   const node=document.getElementById('staff-toast');

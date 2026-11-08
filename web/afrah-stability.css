@@ -1,0 +1,79 @@
+/* Afrah Al Watan: final responsive and dropdown consistency layer.
+   Loaded last to avoid scattering overrides across older brand themes. */
+:root {
+  --af-control-ink:#263669;
+  --af-control-bg:#f8faff;
+  --af-control-border:#d9e1f2;
+}
+html,body{max-width:100%;overflow-x:clip}
+.shell.shell-v6.page,.shell.shell-v6.page .main-shell,
+.shell.shell-v6.page .workspace{min-width:0;max-width:100%}
+.af-dual-header,.af-dual-header .af-brand-row{min-width:0}
+.af-dual-header .af-account-menu{position:relative;z-index:45}
+.af-dual-header .af-account-popover{
+  background:#fff!important;color:var(--af-control-ink)!important;
+  border-color:var(--af-control-border)!important;
+  box-shadow:0 15px 44px rgba(19,39,91,.20)!important;
+  z-index:50!important;max-width:min(280px,calc(100vw - 24px));
+}
+.af-dual-header .af-account-menu[open] .af-account-trigger{
+  background:#e9edff!important;color:#233681!important;border-color:#b9c6ed!important;
+}
+.shell select,.modal select,.af-dialog select,.quote-inputs select,
+.shell .form-select,.modal .form-select,.af-dialog .form-select{
+  display:block;max-width:100%;min-width:0;
+  appearance:none;-webkit-appearance:none;
+  background-color:var(--af-control-bg)!important;
+  color:var(--af-control-ink)!important;
+  border:1px solid var(--af-control-border)!important;
+  border-radius:11px!important;
+  padding:11px 36px 11px 13px!important;
+  min-height:44px;
+  font-family:"Tajawal",Tahoma,Arial,sans-serif!important;
+  font-size:14px;line-height:1.5;
+  color-scheme:light;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233c4b8b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;
+  background-size:16px 16px!important;
+  background-position:left 12px center!important;
+  padding-inline:12px 36px!important;
+}
+.shell select option,.modal select option,.af-dialog select option,
+.shell select optgroup,.modal select optgroup{
+  background:#fff!important;color:#243667!important;
+  font-family:"Tajawal",Tahoma,Arial,sans-serif!important;
+}
+.shell select:focus-visible,.modal select:focus-visible,.af-dialog select:focus-visible{
+  outline:2px solid #7289d0!important;outline-offset:2px;
+  border-color:#7289d0!important;
+}
+@media(max-width:950px){
+  .shell.shell-v6.page{display:block!important}
+  .shell.shell-v6.page .main-shell{width:100%;min-width:0}
+  .shell.shell-v6.page .sidebar.navbar-vertical{
+    position:fixed!important;top:0;right:0;bottom:0;
+    width:min(82vw,286px)!important;max-width:calc(100vw - 38px);
+    z-index:70!important;
+  }
+  .shell.shell-v6.page .sidebar.navbar-vertical.collapsed{
+    transform:translateX(110%)!important;visibility:hidden;
+    pointer-events:none;
+  }
+  .shell.shell-v6.page .sidebar.navbar-vertical:not(.collapsed){
+    transform:translateX(0)!important;visibility:visible;pointer-events:auto;
+  }
+  .shell .mobile-scrim.show{z-index:65!important}
+  .af-dual-header.topbar.navbar{z-index:40}
+  .af-dual-header .af-brand-row{gap:clamp(6px,2vw,18px)}
+}
+@media(max-width:700px){
+  .af-dual-header .af-brand-row{overflow:hidden}
+  .af-brand-primary,.af-brand-secondary{min-width:0;max-width:68%}
+  .af-brand-secondary{max-width:36%}
+  .af-dual-header .topbar-actions{min-width:0}
+  .af-dual-header .af-utility-intro{min-width:0;overflow:hidden}
+  .af-utility-intro strong{overflow-wrap:anywhere}
+}
+@media(prefers-reduced-motion:reduce){
+  .shell .sidebar.navbar-vertical{transition:none!important}
+}

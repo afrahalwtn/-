@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -18,6 +20,14 @@ if (cloudEnabled && process.env.NODE_ENV === 'production' && process.env.AFRAH_S
   throw new Error('Cloud production requires AFRAH_SECURE_COOKIES=true and HTTPS');
 }
 const app = express();
+app.disable('x-powered-by');
+// Only trust an explicitly configured number of known proxy hops. Never trust all.
+const trustedProxyHops=Number(process.env.AFRAH_TRUST_PROXY_HOPS||0);
+if(!Number.isSafeInteger(trustedProxyHops)||trustedProxyHops<0||trustedProxyHops>2){
+  throw Error('AFRAH_TRUST_PROXY_HOPS must be 0, 1 or 2');
+}
+if(trustedProxyHops>0)app.set('trust proxy',trustedProxyHops);
+
 
 // Ensure data and images directory
 const dataDir = storageDirectory;
@@ -445,7 +455,7 @@ function quoteDict(q: Quote) {
 
 // Multer for upload
 const upload = multer({
-  limits: { fileSize: 3 * 1024 * 1024 },
+  limits: { fileSize: 3 * 1024 * 1024, files: 1, fields: 8, parts: 12, fieldSize: 4096 },
   fileFilter: (_req, file, cb) => {
     if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
       cb(null, true);
@@ -464,8 +474,24 @@ const upload = multer({
   }),
 });
 
-// Middleware
-app.use(express.json());
+// Middleware: security headers compatible with embedded AI Studio preview.
+// Frameguard and CSP need a separate verified allowlist before enforcement.
+app.use(helmet({
+  contentSecurityPolicy:false,
+  frameguard:false,
+  crossOriginEmbedderPolicy:false,
+  crossOriginOpenerPolicy:false
+}));
+app.use('/api',rateLimit({
+  windowMs:60_000,limit:1200,standardHeaders:'draft-8',legacyHeaders:false,
+  message:{detail:'طلبات كثيرة من الجهاز، حاول بعد دقيقة'},
+}));
+app.use(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login','/api/admin/recover'],rateLimit({
+  windowMs:15*60_000,limit:25,standardHeaders:'draft-8',legacyHeaders:false,
+  skipSuccessfulRequests:true,
+  message:{detail:'محاولات دخول كثيرة، حاول لاحقاً'}
+}));
+app.use(express.json({limit:'256kb'}));
 app.use(cookieParser());
 
 // For every state-changing request, report success ONLY AFTER Supabase confirms
@@ -1208,8 +1234,22 @@ app.get('*', (req, res, next) => {
 
 // Error handling middleware
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('Unhandled error:', err);
-  res.status(err.status || 500).json({ detail: err.message || 'حدث خطأ في الخادم' });
+  // Do not leak stack traces, filesystem locations or Supabase details to clients.
+  const code=err?.code;
+  const uploadError=err instanceof multer.MulterError;
+  const invalidImage=err?.message==='الملف ليس صورة صالحة';
+  const status=uploadError?(code==='LIMIT_FILE_SIZE'?413:422):
+    invalidImage?422:(err?.type==='entity.too.large'?413:
+    (Number.isInteger(err?.status)&&err.status>=400&&err.status<500?err.status:500));
+  console.error('Request failed:',{status,code:typeof code==='string'?code:'unknown',
+    message:err instanceof Error?err.message:'unknown'});
+  if(res.headersSent)return;
+  const detail=status===413?'حجم البيانات أو الصورة أكبر من المسموح':
+    status===422?'الملف أو البيانات المرسلة غير صالحة':
+    status===400?'صيغة الطلب غير صحيحة':
+    status===500?'حدث خطأ داخلي؛ يرجى إعادة المحاولة أو التواصل مع الإدارة':
+    'تعذر تنفيذ الطلب';
+  res.status(status).json({detail});
 });
 
 // Finish initial account/metadata writes BEFORE accepting any requests.
@@ -1217,9 +1257,13 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 void (async ()=>{
   try {
     await flushCloudWrites();
-    app.listen(PORT, '0.0.0.0', () => {
+    const server=app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server is running on http://0.0.0.0:${PORT}; storage=${cloudEnabled?'supabase':'sqlite'}`);
     });
+    server.headersTimeout=30_000;
+    server.requestTimeout=180_000;
+    server.keepAliveTimeout=5_000;
+    server.maxRequestsPerSocket=1000;
   } catch (error) {
     console.error('Cannot start server: cloud data could not be confirmed',error instanceof Error?error.message:'unknown');
     process.exitCode=1;

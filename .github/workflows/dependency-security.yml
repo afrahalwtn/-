@@ -1,0 +1,30 @@
+name: Weekly dependency security audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+  push:
+    branches:
+      - main
+      - feature/security-stability-ui-hardening
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/dependency-security.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve current packages
+        run: npm install --no-audit --no-fund
+      - name: Report known high and critical vulnerabilities
+        run: npm audit --audit-level=high
