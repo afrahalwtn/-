@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -546,6 +546,45 @@ app.use((req,res,next)=>{
     return res;
   };
   next();
+});
+
+// Serialize business-data requests per server while reconciling the shared
+// catalogue. Serializing prevents an in-flight refresh from overwriting a local
+// (not yet durable) edit. All data still lives in Supabase, not this lock.
+let businessRequestTail:Promise<void>=Promise.resolve();
+const businessLastRefresh=new Map<string,number>();
+app.use((req,res,next)=>{
+  if(!cloudEnabled || !req.path.startsWith('/api/')){next();return;}
+  const route=req.path;
+  const kind=route.startsWith('/api/users/audit')?'account_audit':
+    route.startsWith('/api/users')||route==='/api/auth/change-credentials'?'users':
+    route.startsWith('/api/products')||route.startsWith('/api/alerts')?'products':
+    route.startsWith('/api/quotes')?'quotes':
+    route.startsWith('/api/execution-lists')?'execution_lists':null;
+  if(!kind){next();return;}
+  const previous=businessRequestTail;
+  let unlock!:()=>void;
+  const released=new Promise<void>(resolve=>{unlock=resolve;});
+  businessRequestTail=previous.then(()=>released);
+  void previous.then(async()=>{
+    let unlocked=false;
+    const release=()=>{if(!unlocked){unlocked=true;unlock();}};
+    res.once('finish',release);
+    res.once('close',release);
+    try{
+      // Reads reflect another node's updates without restart. A short
+      // production TTL avoids repeated 4,000-item scans on fast navigation.
+      const minAge=req.method==='GET'&&process.env.NODE_ENV!=='test'?1500:0;
+      if(Date.now()-(businessLastRefresh.get(kind)||0)>=minAge){
+        await refreshCloudKind(kind as 'users'|'products'|'quotes'|'execution_lists'|'account_audit');
+        businessLastRefresh.set(kind,Date.now());
+      }
+      next();
+    }catch(error){
+      console.error('Cloud catalogue refresh failed:',error instanceof Error?error.message:'unknown');
+      res.status(503).json({detail:'تعذّر تحديث بيانات الشركة من السحابة. لم يتم إجراء أي تعديل'});
+    }
+  }).catch(next);
 });
 
 // Security headers
