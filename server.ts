@@ -562,6 +562,8 @@ app.use((req,res,next)=>{
 // catalogue. Serializing prevents an in-flight refresh from overwriting a local
 // (not yet durable) edit. All data still lives in Supabase, not this lock.
 let businessRequestTail:Promise<void>=Promise.resolve();
+const BUSINESS_QUEUE_LIMIT=32;
+let businessRequestsPending=0;
 const businessLastRefresh=new Map<string,number>();
 app.use((req,res,next)=>{
   if(!cloudEnabled || !req.path.startsWith('/api/')){next();return;}
@@ -572,31 +574,59 @@ app.use((req,res,next)=>{
     route.startsWith('/api/quotes')?'quotes':
     route.startsWith('/api/execution-lists')?'execution_lists':null;
   if(!kind){next();return;}
+  // Bound memory and waiting time during slow cloud responses. The caller may
+  // retry a GET; write requests must check state before being sent again.
+  if(businessRequestsPending>=BUSINESS_QUEUE_LIMIT){
+    res.setHeader('Retry-After','2');
+    res.status(503).json({detail:'النظام مشغول حالياً، حاول بعد لحظات'});
+    return;
+  }
+  businessRequestsPending++;
   const previous=businessRequestTail;
   let unlock!:()=>void;
   const released=new Promise<void>(resolve=>{unlock=resolve;});
   businessRequestTail=previous.then(()=>released);
+  let active=false,closed=false,completed=false;
+  const release=()=>{
+    if(completed)return;
+    completed=true;
+    businessRequestsPending--;
+    unlock();
+  };
+  res.once('finish',()=>{closed=true;if(active)release();});
+  res.once('close',()=>{closed=true;if(active)release();});
   void previous.then(async()=>{
-    let unlocked=false;
-    const release=()=>{if(!unlocked){unlocked=true;unlock();}};
-    res.once('finish',release);
-    res.once('close',release);
+    active=true;
+    if(closed||res.destroyed){release();return;}
     try{
-      // Reads reflect another node's updates without restart. A short
-      // production TTL avoids repeated 4,000-item scans on fast navigation.
+      // Authorization MUST precede potentially expensive full-catalogue scans:
+      // previously any anonymous request to /api/products could trigger them.
+      const ctx=await getSessionContext(req);
+      if(closed||res.destroyed){release();return;}
+      if(!ctx){
+        res.status(401).json({detail:'يلزم تسجيل الدخول'});
+        return;
+      }
+      (req as any).auth=ctx;
+      if(!cloudStorageHealthy()){
+        res.status(503).json({detail:'الحفظ السحابي متوقف مؤقتاً'});
+        return;
+      }
       const minAge=req.method==='GET'&&process.env.NODE_ENV!=='test'?1500:0;
       if(Date.now()-(businessLastRefresh.get(kind)||0)>=minAge){
         await refreshCloudKind(kind as 'users'|'products'|'quotes'|'execution_lists'|'account_audit');
         businessLastRefresh.set(kind,Date.now());
       }
+      if(closed||res.destroyed){release();return;}
       next();
     }catch(error){
-      console.error('Cloud catalogue refresh failed:',error instanceof Error?error.message:'unknown');
-      res.status(503).json({detail:'تعذّر تحديث بيانات الشركة من السحابة. لم يتم إجراء أي تعديل'});
+      console.error('Cloud catalogue or access check failed:',error instanceof Error?error.message:'unknown');
+      if(!res.headersSent)
+        res.status(503).json({detail:'تعذّر الوصول إلى بيانات الشركة من السحابة، لم يتم إجراء أي تعديل'});
+      else release();
     }
-  }).catch(next);
+  }).catch(error=>{release();next(error);});
 });
-
 // Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -645,7 +675,9 @@ async function getSessionContext(req: Request): Promise<AuthContext|null> {
 
 async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
-    const ctx = await getSessionContext(req);
+    // Business routes have already verified the shared cloud session before
+    // expensive catalogue refreshes. Reuse that same validated context.
+    const ctx = ((req as any).auth as AuthContext|undefined) || await getSessionContext(req);
     if (!ctx) {
       res.status(401).json({ detail: 'يلزم تسجيل الدخول' });
       return;
