@@ -10,7 +10,10 @@ export function setAccessToken(token) {
 export async function api(path, {method='GET', data, file} = {}) {
   const headers = {};
   if (accessToken && path !== '/auth/login') headers['Authorization'] = 'Bearer ' + accessToken;
-  const options = {method, credentials:'same-origin', cache:'no-store', headers};
+  // A stuck GET must never freeze the UI indefinitely; do not automatically
+  // retry mutations because the server may already have committed the write.
+  const options = {method, credentials:'same-origin', cache:'no-store', headers,
+    ...(method==='GET'?{signal:AbortSignal.timeout(25000)}:{})};
   if (method !== 'GET') {
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
     if (file) options.body = file;
@@ -19,7 +22,15 @@ export async function api(path, {method='GET', data, file} = {}) {
       options.body = JSON.stringify(data);
     }
   }
-  const res = await fetch('/api' + path, options);
+  let res;
+  try {res=await fetch('/api' + path, options);}
+  catch(error){
+    if(method==='GET' && (error?.name==='TimeoutError'||error?.name==='AbortError'))
+      throw new Error('انتهت مهلة طلب البيانات؛ تحقق من الاتصال وحاول تحديث الصفحة.');
+    if(method!=='GET')
+      throw new Error('تعذّر تأكيد نتيجة الحفظ؛ افحص البيانات قبل إعادة إرسال العملية.');
+    throw new Error('تعذّر الاتصال بالخادم. تحقق من الشبكة.');
+  }
   let body;
   try { body = await res.json(); } catch { body = {}; }
   if (!res.ok) {
