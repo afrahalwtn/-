@@ -43,8 +43,18 @@ jobs:
         run: |
           set -euo pipefail
           filename="$RUNNER_TEMP/afrah-$(date -u +%Y%m%dT%H%M%SZ).afrah.enc"
+          umask 077
           node scripts/backup-cloud.mjs create "$filename"
           node scripts/backup-cloud.mjs verify "$filename"
+          # Test real offline recovery before publishing this archive. Unpacked
+          # account records and private images must never leave this runner.
+          restore_dir="$RUNNER_TEMP/afrah-offline-restore"
+          trap 'rm -rf "$restore_dir"' EXIT
+          node scripts/backup-cloud.mjs extract "$filename" "$restore_dir"
+          test -f "$restore_dir/app_records.ndjson"
+          test -d "$restore_dir/images"
+          rm -rf "$restore_dir"
+          trap - EXIT
       - name: Store encrypted backup outside Supabase
         if: steps.backup-config.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
