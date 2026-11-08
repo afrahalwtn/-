@@ -15,7 +15,7 @@ const rows=[
  {kind:'products',id:1,payload:{id:1,name:'قدح ورقي 200',quantity:19},updated_at:version},
  {kind:'users',id:1,payload:{id:1,username:'يوسف',password:'scrypt$EXAMPLE-PRIVATE-HASH'},updated_at:version}
 ];
-let changeDuringBackup=false,transientRecordFailures=1,transientImageFailures=1,oversizedImage='';
+let changeDuringBackup=false,transientRecordFailures=1,transientImageFailures=1,oversizedImage='',shiftDuringScan=false,cursorRequests=0;
 const secret='sb_secret_mock_backup_key';
 const mock=http.createServer(async(req,res)=>{
   if(req.headers.apikey!==secret){res.writeHead(401);res.end();return;}
@@ -24,8 +24,23 @@ const mock=http.createServer(async(req,res)=>{
   if(u.pathname==='/rest/v1/app_records'&&req.method==='GET'){
     if(transientRecordFailures>0){transientRecordFailures--;res.writeHead(503);res.end('Temporarily unavailable');return;}
     const offset=Number(u.searchParams.get('offset')||0),limit=Number(u.searchParams.get('limit')||500);
-    const ordered=[...rows].sort((a,b)=>a.kind.localeCompare(b.kind)||a.id-b.id);
-    json(ordered.slice(offset,offset+limit));return;
+    let ordered=[...rows].sort((a,b)=>a.kind.localeCompare(b.kind)||a.id-b.id);
+    const composite=u.searchParams.get('or');
+    if(composite){
+      cursorRequests++;
+      const matched=/^\(kind\.gt\.([a-z0-9_]+),and\(kind\.eq\.\1,id\.gt\.(\d+)\)\)$/.exec(composite);
+      if(!matched){res.writeHead(400);res.end('Invalid composite cursor');return;}
+      const kind=matched[1],lastId=Number(matched[2]);
+      ordered=ordered.filter(row=>row.kind>kind||(row.kind===kind&&row.id>lastId));
+    }
+    const page=ordered.slice(offset,offset+limit);
+    json(page);
+    if(shiftDuringScan&&!composite&&page.length===500){
+      shiftDuringScan=false;
+      const index=rows.findIndex(row=>row.kind==='products'&&row.id===2000);
+      if(index>=0)rows.splice(index,1);
+    }
+    return;
   }
   if(u.pathname==='/storage/v1/object/list/item-images'&&req.method==='POST'){
     json([{name:itemImage,updated_at:'2026-11-01T10:20:30.000Z',metadata:{size:bytes.length}}]);return;
@@ -83,7 +98,9 @@ try{
     payload:{id:2000+i,name:'أيتم تجريبي '+i,quantity:i%25},updated_at:version
   });
   const large=path.join(folder,'large-catalogue.afrah.enc');
+  cursorRequests=0;
   const largeCreated=await createBackup(large);
+  assert(cursorRequests>=8,'Backup must paginate using the composite ID cursor');
   assert.equal(largeCreated.records,4202);
   assert.deepEqual(await consumeBackup(large),{records:4202,images:1});
   const largeExtractDir=path.join(folder,'large-extracted');
@@ -93,6 +110,15 @@ try{
   assert.equal(restoredLarge.length,4202,'All 4,200 products must survive offline extraction');
   assert(restoredLarge.some(x=>x.kind==='products'&&x.id===6199),
     'Last catalogue page must not be lost');
+  // A deletion during the first 500-record page must not quietly produce
+  // a falsely complete archive. The second pass detects the mixed snapshot.
+  shiftDuringScan=true;
+  const unstable=path.join(folder,'unstable-scan.afrah.enc');
+  await assert.rejects(createBackup(unstable),/Data changed while backing up/,
+    'Backup must reject a catalogue that changes between paginated passes');
+  await assert.rejects(fs.stat(unstable),{code:'ENOENT'},
+    'A mixed snapshot must not leave a usable-looking encrypted archive');
+  assert.equal(shiftDuringScan,false);
   const corrupted=path.join(folder,'corrupted.afrah.enc');
   const tampered=Buffer.from(contents);tampered[tampered.length-18]^=0xff;
   await fs.writeFile(corrupted,tampered);

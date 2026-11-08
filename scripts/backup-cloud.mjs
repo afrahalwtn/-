@@ -73,18 +73,27 @@ async function readImageBounded(response,maxBytes=3*1024*1024){
 }
 async function records(origin){
   const all=[];
-  for(let offset=0;;offset+=500){
-    const response=await api(origin,'/rest/v1/app_records?select=kind,id,payload,updated_at&order=kind.asc,id.asc&limit=500&offset='+offset);
+  let lastKind='',lastId=0;
+  for(;;){
+    // Offset paging can silently skip rows deleted earlier in the scan.
+    // PostgreSQL applies this composite cursor atomically per page.
+    const cursor=lastKind?'&or='+encodeURIComponent('(kind.gt.'+lastKind+
+      ',and(kind.eq.'+lastKind+',id.gt.'+lastId+'))'):'';
+    const response=await api(origin,'/rest/v1/app_records?select=kind,id,payload,updated_at&order=kind.asc,id.asc&limit=500'+cursor);
     const page=await response.json();
-    if(!Array.isArray(page))throw Error('Invalid database page');
+    if(!Array.isArray(page)||page.length>500)throw Error('Invalid database page');
     for(const row of page){
-      if(!row||typeof row.kind!=='string'||!Number.isSafeInteger(row.id)||
-        row.id<1||!row.payload||typeof row.payload!=='object'||Array.isArray(row.payload)||
-        typeof row.updated_at!=='string')throw Error('Invalid backup record');
+      if(!row||typeof row.kind!=='string'||!/^[a-z][a-z0-9_]{0,63}$/.test(row.kind)||
+        !Number.isSafeInteger(row.id)||row.id<1||
+        (lastKind!==''&&(row.kind<lastKind||(row.kind===lastKind&&row.id<=lastId)))||
+        !row.payload||typeof row.payload!=='object'||Array.isArray(row.payload)||
+        typeof row.updated_at!=='string'||!Number.isFinite(Date.parse(row.updated_at)))
+        throw Error('Invalid or out-of-order backup record');
+      lastKind=row.kind;lastId=row.id;
       all.push(row);
     }
-    if(page.length<500)break;
     if(all.length>250000)throw Error('Record count exceeds backup safety limit');
+    if(page.length<500)break;
   }
   return all;
 }
