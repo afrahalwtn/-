@@ -35,15 +35,35 @@ const mock=http.createServer(async (req,res)=>{
       res.writeHead(503);res.end('Unavailable');return;
     }
     if(req.method==='POST'){
-      let body='';for await (const ch of req)body+=ch;
-      for(const record of JSON.parse(body))store.set(record.kind+':'+record.id,record);
-      res.writeHead(201);res.end();return;
+      let body='';for await(const ch of req)body+=ch;
+      const items=JSON.parse(body);
+      if(items.some(row=>store.has(row.kind+':'+row.id))){
+        res.writeHead(409);res.end('Duplicate key');return;
+      }
+      const stamped=items.map(row=>({...row,updated_at:new Date().toISOString()}));
+      for(const row of stamped)store.set(row.kind+':'+row.id,row);
+      res.writeHead(201,{'content-type':'application/json'});
+      res.end(JSON.stringify(stamped));return;
     }
-    if(req.method==='DELETE'){
+    if(req.method==='PATCH'||req.method==='DELETE'){
       const kind=(u.searchParams.get('kind')||'').replace(/^eq\./,'');
-      const id=(u.searchParams.get('id')||'').replace(/^eq\./,'');
-      store.delete(kind+':'+id);
-      res.writeHead(204);res.end();return;
+      const id=Number((u.searchParams.get('id')||'').replace(/^eq\./,''));
+      const version=(u.searchParams.get('updated_at')||'').replace(/^eq\./,'');
+      const key=kind+':'+id,record=store.get(key);
+      if(!record||record.updated_at!==version){
+        res.writeHead(200,{'content-type':'application/json'});res.end('[]');return;
+      }
+      if(req.method==='PATCH'){
+        let body='';for await(const ch of req)body+=ch;
+        const updates=JSON.parse(body);
+        const next={...record,...updates,kind,id};
+        store.set(key,next);
+        res.writeHead(200,{'content-type':'application/json'});
+        res.end(JSON.stringify([next]));return;
+      }
+      store.delete(key);
+      res.writeHead(200,{'content-type':'application/json'});
+      res.end(JSON.stringify([record]));return;
     }
   }
   if(u.pathname.startsWith('/storage/v1/object/item-images/')){
@@ -165,7 +185,7 @@ try{
   await stop();
   // Simulate >1000 records to exercise remote pagination (4000+ compatible).
   for(let i=2000;i<3060;i++)store.set('products:'+i,{
-    kind:'products',id:i,payload:{id:i,name:'قنينة رقم '+i,
+    kind:'products',id:i,updated_at:new Date().toISOString(),payload:{id:i,name:'قنينة رقم '+i,
     description:'',manufacture:'',quantity:1,min_quantity:0,
     purchase_price:5,sale_price:6,image_name:null,updated_at:new Date().toISOString()}
   });
@@ -210,6 +230,23 @@ try{
   assert.equal(result.status,503,'Never claim success when cloud rejects a write');
   result=await api('/products',admin);
   assert.equal(result.status,503,'Fail closed once cloud is unhealthy');
+  mockFailWrites=false;
+  await stop();
+  await start();
+  admin=await signIn('يوسف',recoverySecret);
+  // Simulate another app server changing the same item after this instance
+  // read it. The old server must NOT overwrite newer committed stock.
+  const external=store.get('products:'+item.id);
+  assert(external && external.updated_at);
+  store.set('products:'+item.id,{...external,
+    payload:{...external.payload,quantity:77},
+    updated_at:new Date(Date.parse(external.updated_at)+5000).toISOString()});
+  result=await api('/products/'+item.id+'/stock',admin,'PATCH',{quantity:41});
+  assert.equal(result.status,409,'Concurrent stale stock update must be refused');
+  assert.equal(store.get('products:'+item.id).payload.quantity,77,
+    'Latest remote stock must never be overwritten by a stale server');
+  const unhealthy=await fetch(root+'/health');
+  assert.equal(unhealthy.status,503,'Conflicted app server should fail readiness for a fresh restart');
   console.log('PASS Supabase: new cloud / permissions / durable products / cloud images / employee lists / pagination / restart / fail-closed');
 } finally {
   await stop();mock.close();rmSync(folder,{recursive:true,force:true});

@@ -44,6 +44,7 @@ export interface CloudRecord {
   kind: string;
   id: number;
   payload: Record<string,unknown>;
+  updated_at: string;
 }
 
 /** Download ALL pages; Supabase limits a single API response to 1000 rows. */
@@ -51,13 +52,14 @@ export async function loadCloudRecords(): Promise<CloudRecord[]> {
   if (!cloudEnabled) return [];
   const result: CloudRecord[] = [];
   for (let offset = 0; ; offset += 500) {
-    const response = await request('/rest/v1/app_records?select=kind,id,payload&order=kind.asc,id.asc&limit=500&offset=' + offset);
+    const response = await request('/rest/v1/app_records?select=kind,id,payload,updated_at&order=kind.asc,id.asc&limit=500&offset=' + offset);
     const page = await response.json();
     if (!Array.isArray(page)) throw new Error('Supabase returned invalid data');
     for (const row of page) {
       if (!row || typeof row.kind !== 'string' || !Number.isSafeInteger(row.id) ||
           row.id < 1 || !row.payload || typeof row.payload !== 'object' ||
-          Array.isArray(row.payload)) throw new Error('Invalid Supabase record');
+          Array.isArray(row.payload) || typeof row.updated_at!=='string' ||
+          !Number.isFinite(Date.parse(row.updated_at))) throw new Error('Invalid Supabase record: '+String(row?.kind)+' #'+String(row?.id)+' timestamp='+String(row?.updated_at).slice(0,60));
       result.push(row);
     }
     if (page.length < 500) break;
@@ -65,16 +67,42 @@ export async function loadCloudRecords(): Promise<CloudRecord[]> {
   return result;
 }
 
-export async function saveCloudRecord(kind: string, id: number, payload: Record<string,unknown>): Promise<void> {
-  await request('/rest/v1/app_records?on_conflict=kind,id', {
-    method:'POST',
-    headers: { 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
-    body:JSON.stringify([{kind,id,payload}])
-  });
+// Existing rows use atomic compare-and-swap against PostgreSQL updated_at.
+// A stale app server can never overwrite a later write from another instance.
+// New rows use INSERT without upsert, so colliding IDs cannot overwrite records.
+function changedVersion(rows:unknown,kind:string,id:number):string {
+  if(!Array.isArray(rows)||rows.length!==1||rows[0]?.kind!==kind||
+     Number(rows[0]?.id)!==id||typeof rows[0]?.updated_at!=='string')
+    throw new Error('Supabase record conflict: '+kind+' #'+id+' changed on another server');
+  return rows[0].updated_at;
 }
-export async function deleteCloudRecord(kind: string, id: number): Promise<void> {
-  await request('/rest/v1/app_records?kind=eq.' + encodeURIComponent(kind) + '&id=eq.' + id,
-    {method:'DELETE',headers:{Prefer:'return=minimal'}});
+export async function saveCloudRecord(
+  kind:string,id:number,payload:Record<string,unknown>,previous:string|null
+):Promise<string>{
+  const headers={'Content-Type':'application/json',Prefer:'return=representation'};
+  if(previous===null){
+    const response=await request('/rest/v1/app_records?select=kind,id,updated_at',{
+      method:'POST',headers,body:JSON.stringify([{kind,id,payload}])
+    });
+    return changedVersion(await response.json(),kind,id);
+  }
+  // PostgreSQL preserves microseconds in the predicate; compare with the exact
+  // version returned by Supabase, never a rounded JavaScript timestamp.
+  const future=new Date(Math.max(Date.now(),Date.parse(previous)+1)).toISOString();
+  const url='/rest/v1/app_records?kind=eq.'+encodeURIComponent(kind)+
+    '&id=eq.'+id+'&updated_at=eq.'+encodeURIComponent(previous)+
+    '&select=kind,id,updated_at';
+  const response=await request(url,{method:'PATCH',headers,
+    body:JSON.stringify({payload,updated_at:future})});
+  return changedVersion(await response.json(),kind,id);
+}
+export async function deleteCloudRecord(kind:string,id:number,previous:string|null):Promise<void>{
+  if(previous===null)throw new Error('Supabase record conflict: cannot remove an unconfirmed row');
+  const url='/rest/v1/app_records?kind=eq.'+encodeURIComponent(kind)+
+    '&id=eq.'+id+'&updated_at=eq.'+encodeURIComponent(previous)+
+    '&select=kind,id,updated_at';
+  const response=await request(url,{method:'DELETE',headers:{Prefer:'return=representation'}});
+  changedVersion(await response.json(),kind,id);
 }
 export async function uploadCloudImage(filename: string, filePath: string, mime: string): Promise<void> {
   const buffer = await fs.readFile(filePath);

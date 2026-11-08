@@ -512,8 +512,13 @@ app.use((req,res,next)=>{
     }).catch((error:unknown)=>{
       console.error('Supabase cloud save failed:',error instanceof Error?error.message:'unknown');
       if (!res.headersSent) {
-        res.status(503);
-        sendJson({detail:'تعذر تأكيد الحفظ السحابي؛ لم يتم اعتماد العملية. يرجى التواصل مع الإدارة'});
+        const conflict=error instanceof Error && (
+          error.message.startsWith('Supabase record conflict:') ||
+          /Supabase request failed: HTTP 409/.test(error.message));
+        res.status(conflict?409:503);
+        sendJson({detail:conflict?
+          'رفض النظام كتابة تعديل قديم لأن البيانات تغيّرت بخادم آخر. أعد تشغيل الخادم لتحديث النسخة قبل إعادة المحاولة.' :
+          'تعذر تأكيد الحفظ السحابي؛ لم يتم اعتماد العملية. يرجى التواصل مع الإدارة'});
       }
     });
     return res;
@@ -606,6 +611,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
 // API Routes
 app.get('/api/health', (_req, res) => {
+  if(cloudEnabled&&!cloudStorageHealthy())res.status(503);
   res.json({ status:cloudStorageHealthy()?'ok':'degraded',storage:cloudEnabled?'supabase':'sqlite' });
 });
 

@@ -1,0 +1,55 @@
+name: Independent encrypted Afrah backup
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: afrah-encrypted-backup
+  cancel-in-progress: false
+
+jobs:
+  encrypted-cloud-backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check whether backups are configured
+        id: backup-config
+        env:
+          BACKUP_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          BACKUP_SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.AFRAH_BACKUP_KEY }}
+        run: |
+          if [[ -z "$BACKUP_SUPABASE_URL" || -z "$BACKUP_SUPABASE_SECRET_KEY" || -z "$BACKUP_ENCRYPTION_KEY" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Encrypted backups are NOT enabled: GitHub Actions secrets must be configured independently from AI Studio."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create encrypted independent snapshot
+        if: steps.backup-config.outputs.configured == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          AFRAH_BACKUP_KEY: ${{ secrets.AFRAH_BACKUP_KEY }}
+        run: |
+          set -euo pipefail
+          filename="$RUNNER_TEMP/afrah-$(date -u +%Y%m%dT%H%M%SZ).afrah.enc"
+          node scripts/backup-cloud.mjs create "$filename"
+          node scripts/backup-cloud.mjs verify "$filename"
+      - name: Store encrypted backup outside Supabase
+        if: steps.backup-config.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: afrah-encrypted-backup-${{ github.run_number }}
+          path: ${{ runner.temp }}/afrah-*.afrah.enc
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
