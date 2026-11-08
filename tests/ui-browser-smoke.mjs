@@ -93,6 +93,14 @@ try {
   assert.equal(await page.locator('.af-extra-row').count(),0,'Admin can remove a custom detail');
   await page.locator('.af-dialog [data-action="close-modal"]').first().click();
 
+  // Debounced catalogue filtering must preserve visible results and keyboard focus.
+  await page.locator('#products-search').fill('no-such-afrah-item-99999');
+  await page.waitForFunction(()=>document.querySelector('.products-searchbar') &&
+    document.querySelector('.count-label')?.textContent?.includes('0'),null,{timeout:5000});
+  assert.equal(await page.locator('#products-search').inputValue(),'no-such-afrah-item-99999');
+  await page.locator('#products-search').fill('');
+  await page.waitForFunction(()=>document.querySelectorAll('.af-item-table tbody tr').length>=2,null,{timeout:5000});
+
   await page.waitForFunction(
     ()=>Array.from(document.querySelectorAll('img.product-thumb[data-private-image]')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),
     null,{timeout:15000}
