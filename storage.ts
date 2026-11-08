@@ -83,6 +83,10 @@ export async function flushCloudWrites():Promise<void> {
   if(cloudEnabled)await cloudQueue;
 }
 export function cloudStorageHealthy():boolean {return !cloudFailure;}
+export function markCloudUnhealthy(error:unknown):void {
+  if(cloudEnabled&&!cloudFailure)
+    cloudFailure=error instanceof Error?error:Error('Cloud storage unavailable');
+}
 export {cloudEnabled};
 const seedIds:Record<RecordKind,number>={users:1,products:2,quotes:3};
 const counterIds:Record<RecordKind|'execution_lists'|'account_audit'|'sessions',number>={
