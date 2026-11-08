@@ -23,6 +23,21 @@ assert.deepEqual(filterArabicProducts(products,'کرافت'),[products[2]]);
 assert.equal(matchesArabicSearch('أكْوَاب ورقية',products[2].name,products[2].description),true);
 assert.equal(matchesArabicSearch('اجهزة',products[0].name,products[0].description),false);
 assert.equal(matchesArabicSearch('   ',products[0].name),true);
+// Cached search text must not become stale after a direct item edit.
+const changing={id:44,name:'رول نايلون',description:'صنع عراقي',custom_fields:[{label:'النوع',value:'ورقي'}]};
+assert.deepEqual(filterArabicProducts([changing],'نايلون'),[changing]);
+changing.name='علبة بلاستك';
+assert.deepEqual(filterArabicProducts([changing],'نايلون'),[]);
+assert.deepEqual(filterArabicProducts([changing],'بلاستك'),[changing]);
+changing.custom_fields[0].value='معدني';
+assert.deepEqual(filterArabicProducts([changing],'معدني'),[changing]);
+assert.deepEqual(filterArabicProducts([changing],'ورقي'),[]);
+changing.description='صنع تركي';
+assert.deepEqual(filterArabicProducts([changing],'عراقي'),[]);
+assert.deepEqual(filterArabicProducts([changing],'تركي'),[changing]);
+// A fresh API catalogue replaces objects and must not inherit stale cache keys.
+assert.deepEqual(filterArabicProducts([{id:44,name:'أقداح حديثة'}],'اقداح').map(p=>p.id),[44]);
+assert.deepEqual(filterArabicProducts([{id:44,name:'أقداح حديثة'}],'بلاستك'),[]);
 const tenThousand=Array.from({length:10000},(_,i)=>({
  id:i+1,name:'مادة '+i+' أقداح ورقية',description:'علبة ٢٠٢٧ نوع ممتاز',manufacture:i%2?'تركي':'عراقي'
 }));

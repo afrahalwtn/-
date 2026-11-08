@@ -73,7 +73,12 @@ function cloudValue(kind:string,id:number):any{return cloudRows.get(kind)?.get(i
 function nextCloudId(kind: keyof typeof counterIds):number {
   const counterId=counterIds[kind];
   const last=Number(cloudValue('metadata',counterId)?.last_id||0);
-  const largest=Math.max(0,...Array.from(cloudRows.get(kind)?.keys()||[]));
+  // Avoid spreading thousands of IDs into a single function call: above
+  // V8's argument limit this can throw RangeError and stop catalogue writes.
+  let largest=0;
+  for (const id of cloudRows.get(kind)?.keys()||[]) {
+    if (id>largest) largest=id;
+  }
   const next=Math.max(last,largest)+1;
   if(!Number.isSafeInteger(next)||next<1)throw Error('Invalid cloud ID');
   putCloud('metadata',counterId,{last_id:next});

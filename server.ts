@@ -927,6 +927,11 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
   const id = Number(req.params.id);
   const p = products.get(id);
   if (!p) {
+    // Multer has already written the upload before the route checks the ID.
+    // Remove that temporary file when the item no longer exists.
+    if(req.file?.path) {
+      try {fs.unlinkSync(req.file.path);}catch(error){console.error('Upload cleanup failed');}
+    }
     res.status(404).json({ detail: 'المادة غير موجودة' });
     return;
   }

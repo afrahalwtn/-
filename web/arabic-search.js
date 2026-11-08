@@ -30,12 +30,32 @@ export function matchesArabicSearch(query, ...fields) {
   return terms.every(term => haystack.includes(term));
 }
 
+// Cache expensive Unicode normalization by product identity, while checking the
+// raw searchable fields to invalidate on in-place edits. A WeakMap does not retain
+// old catalogues after an API refresh.
+const searchableTextCache = new WeakMap();
+function searchableText(product) {
+  const raw = [
+    product.name, product.description, product.manufacture, product.item_type,
+    product.category, product.sku, product.unit,
+    ...(product.custom_fields || []).flatMap(row => [row.label, row.value]),
+  ].filter(value => value != null).join(' ');
+  const previous = searchableTextCache.get(product);
+  if (previous?.raw === raw) return previous.normalized;
+  const normalized = normalizeArabicSearch(raw);
+  searchableTextCache.set(product, {raw, normalized});
+  return normalized;
+}
+
 export function filterArabicProducts(products, query, limit = Infinity) {
+  // Previously the query was normalized once per product. Normalize it once
+  // per search and reuse cached searchable text across consecutive keystrokes.
   const terms = normalizeArabicSearch(query).split(' ').filter(Boolean);
   if (!terms.length) return products.slice(0, limit);
   const matches = [];
   for (const product of products) {
-    if (matchesArabicSearch(query, product.name, product.description, product.manufacture, product.item_type, product.category, product.sku, product.unit, ...(product.custom_fields||[]).flatMap(row=>[row.label,row.value]))) {
+    const haystack = searchableText(product);
+    if (terms.every(term => haystack.includes(term))) {
       matches.push(product);
       if (matches.length >= limit) break;
     }
