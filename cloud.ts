@@ -59,7 +59,7 @@ export async function loadCloudRecords(): Promise<CloudRecord[]> {
       if (!row || typeof row.kind !== 'string' || !Number.isSafeInteger(row.id) ||
           row.id < 1 || !row.payload || typeof row.payload !== 'object' ||
           Array.isArray(row.payload) || typeof row.updated_at!=='string' ||
-          !Number.isFinite(Date.parse(row.updated_at))) throw new Error('Invalid Supabase record');
+          !Number.isFinite(Date.parse(row.updated_at))) throw new Error('Invalid Supabase record: '+String(row?.kind)+' #'+String(row?.id));
       result.push(row);
     }
     if (page.length < 500) break;
