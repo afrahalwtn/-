@@ -138,6 +138,20 @@ export class PersistentSessionMap<T extends {token_hash:string;expires_at:number
   }
 }
 
+// One-use recovery marker is private to the server's Supabase key.
+// Store only a salted scrypt verifier; never an actual password.
+export function getAdminResetMarker():string|null {
+  if(!cloudEnabled)return null;
+  const value=cloudValue('metadata',107)?.password_hash;
+  return typeof value==='string'&&value.startsWith('scrypt$')?value:null;
+}
+export function storeAdminResetMarker(passwordHash:string):void {
+  if(!cloudEnabled||typeof passwordHash!=='string'||!passwordHash.startsWith('scrypt$')){
+    throw Error('Invalid owner reset marker');
+  }
+  putCloud('metadata',107,{password_hash:passwordHash});
+}
+
 export function hasStoredKind(kind:RecordKind):boolean {
   if (cloudEnabled) return Boolean(cloudValue('metadata',seedIds[kind]) || cloudRows.get(kind)?.size);
   return Boolean(metaGet.get('seed:'+kind));

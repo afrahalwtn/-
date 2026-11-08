@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -1252,10 +1252,36 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({detail});
 });
 
+// One-time owner-assisted reset for existing cloud administrator accounts.
+// Only the server operator who controls environment secrets can trigger this.
+// Changing AFRAH_ADMIN_PASSWORD alone intentionally never overwrites an account.
+function applyOwnerAdminPasswordReset():void {
+  const desired=process.env.AFRAH_ADMIN_RESET_PASSWORD;
+  if(!desired)return;
+  if(!cloudEnabled)throw Error('Owner cloud reset requires Supabase storage');
+  if(desired.length<12||desired.length>128||
+     !/[A-Za-z\p{L}]/u.test(desired)||!/[0-9\p{N}]/u.test(desired)){
+    throw Error('AFRAH_ADMIN_RESET_PASSWORD must be 12-128 characters with letters and numbers');
+  }
+  const alreadyUsed=getAdminResetMarker();
+  if(alreadyUsed&&verifyPassword(desired,alreadyUsed))return;
+  const admin=Array.from(users.values()).find(user=>user.role==='admin'&&user.is_active);
+  if(!admin)throw Error('Active administrator missing; owner reset was not applied');
+  if(!verifyPassword(desired,admin.password)){
+    // Never mutate the stored object in place until its replacement is ready.
+    users.set(admin.id,{...admin,password:hashPassword(desired)});
+    revokeOtherUserSessions(admin.id);
+  }
+  storeAdminResetMarker(hashPassword(desired));
+  recordAccountAudit(admin.id,admin.id,'owner_password_reset','server-controlled recovery');
+  console.info('Owner administrator password recovery applied. Remove AFRAH_ADMIN_RESET_PASSWORD from Secrets.');
+}
+
 // Finish initial account/metadata writes BEFORE accepting any requests.
 // If cloud storage is unavailable, do not start an unsynchronised server.
 void (async ()=>{
   try {
+    applyOwnerAdminPasswordReset();
     await flushCloudWrites();
     const server=app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server is running on http://0.0.0.0:${PORT}; storage=${cloudEnabled?'supabase':'sqlite'}`);

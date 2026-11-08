@@ -5,6 +5,7 @@ on:
       - feature/supabase-cloud-connection
       - feature/arabic-usernames-remember-login
       - feature/security-stability-ui-hardening
+      - feature/owner-admin-password-recovery
       - main
     paths:
       - cloud.ts
