@@ -1,7 +1,7 @@
 // أفراح الوطن — بوابة الموظف المستقلة.
 // There are no admin screens, edit forms, user controls, or quote builders here.
 // Admin UI lives in /web/admin-app.js and is served by the separate /admin entry.
-import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261106-staff';
+import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261109-reliability-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
