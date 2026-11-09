@@ -96,7 +96,7 @@ try{
   assert.equal(r.status,403,'Bad CSRF proof must be rejected');
   tested++;
  }
- const unknown=await fetch(base+'/images/../../etc/passwd',{headers});
+ const unknown=await fetch(base+'/images/%2e%2e%2f%2e%2e%2fetc%2fpasswd',{headers});
  assert.notEqual(unknown.status,200,'Malformed media path may not be served');
  console.log('PASS: '+tested+' malformed mutations/CSRF cases; no partial catalogue or stock changes');
 }finally{
