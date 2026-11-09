@@ -1,5 +1,5 @@
 import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-secure-images';
-import {icon} from './icons.js?v=20261105-price-tag';
+import {icon} from './icons.js?v=20261109-line-md-1';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
