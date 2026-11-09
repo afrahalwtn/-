@@ -37,6 +37,7 @@ on:
       - "tests/concurrent-load.mjs"
       - "image-guard.ts"
       - "tests/image-dimensions.mjs"
+      - "tests/negative-mutation-matrix.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
 
@@ -67,6 +68,8 @@ jobs:
         run: node tests/sqlite-server-restart.mjs
       - name: Stress concurrent writes, reads and staff permissions on isolated SQLite
         run: node tests/concurrent-load.mjs
+      - name: Exercise malformed inputs, CSRF and failed-write integrity
+        run: node tests/negative-mutation-matrix.mjs
       - name: Compile TypeScript server
         run: npm run build
       - name: Check frontend syntax
