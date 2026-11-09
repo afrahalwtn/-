@@ -92,6 +92,11 @@ try {
  // Atomic account update: a rejected later field must not change the
  // account username, role or purchasing visibility in memory.
  r=await itemCall('/users','POST',{
+  username:'unsafeuser',full_name:'مستخدم الاختبار',
+  password:'StrongPassword123',can_view_purchase:'false',can_view_sale:false
+ });
+ assert.equal(r.status,422,'String false must not turn into a true price permission');
+ r=await itemCall('/users','POST',{
   username:'auditstaff',full_name:'موظف الاختبار',
   password:'AuditPassword123!',can_view_purchase:false,can_view_sale:true
  });
