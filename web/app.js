@@ -146,7 +146,7 @@ function home(){
  return '<div class="af-home af-home-v4">'+
    '<section class="card af-greeting-card"><div class="card-status-top bg-blue"></div>'+
      '<div class="card-body af-greeting-body"><div class="af-greeting-tag">شركة أفراح الوطن للتجارة العامة</div>'+
-     '<h1>يــا هـلا و مـرحـبـا</h1><p>ابحث عن الايتمات، وجهّز قائمة التنفيذ، وتابع حالة المخزون بسهولة.</p></div></section>'+
+     '<h1><split-text split="words" effect="rise" trigger="load" delay="900" stagger="255" duration="1450" easing="cubic-bezier(0.16, 1, 0.3, 1)" dir="rtl" lang="ar">يا هلا ومرحبا</split-text></h1><p>ابحث عن الايتمات، وجهّز قائمة التنفيذ، وتابع حالة المخزون بسهولة.</p></div></section>'+
    '<section class="af-home-search"><label for="staff-home-search" class="af-home-search-label">ابحث عن ايتم</label>'+
      '<div class="af-search-input">'+icon('search',21)+'<input id="staff-home-search" type="search" autocomplete="off" placeholder="اسم الايتم أو وصفها أو الصنع..." value="'+safe(state.query)+'"></div>'+
      '<div id="staff-home-results" class="af-search-results" aria-live="polite">'+(state.query.trim()?results(state.query):'')+'</div></section>'+
