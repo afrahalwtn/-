@@ -21,6 +21,8 @@ try {
  assert(ready,'Test server unavailable: '+log.slice(-500));
  const health=await fetch(root+'/health');
  assert.equal(health.headers.get('x-content-type-options'),'nosniff');
+ assert.match(health.headers.get('x-request-id')||'',/^[a-f0-9-]{36}$/i,
+  'Health and API errors must expose a traceable anonymous request ID');
  const csp=health.headers.get('content-security-policy')||'';
  assert(csp.includes("script-src 'self'"),'Only first-party scripts must be executable');
  assert(csp.includes("object-src 'none'"),'Object/plugin content must be blocked');
