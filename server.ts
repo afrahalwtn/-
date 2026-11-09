@@ -860,7 +860,8 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
   const current=req.body?.current_password;
   const desired=req.body?.new_password;
   const username=req.body?.username;
-  if(typeof current!=='string'||!verifyPassword(current,ctx.user.password)){
+  if(typeof current!=='string'||current.length<1||current.length>1024||
+     !verifyPassword(current,ctx.user.password)){
     res.status(403).json({detail:'كلمة المرور الحالية غير صحيحة'});
     return;
   }
@@ -889,15 +890,17 @@ app.post('/api/auth/change-credentials',requireAuth,requireCsrf,(req,res)=>{
     res.status(422).json({detail:'أدخل اسماً جديداً أو كلمة مرور جديدة'});
     return;
   }
-  if(username!==undefined)ctx.user.username=normalizeUsername(username);
-  if(desired)ctx.user.password=hashPassword(desired);
-  rotateAuthGeneration(ctx.user);
-  // This works for sessions created on other app servers too, without
-  // accidentally inserting a duplicate session under a different cloud ID.
-  ctx.user.auth_generation_keep_hash=ctx.session.token_hash;
-  users.set(ctx.user.id,ctx.user);
-  revokeOtherUserSessions(ctx.user.id,ctx.session.token_hash);
-  res.json({user:userDict(ctx.user),message:'تم تحديث بيانات الدخول'});
+  // Stage a complete, validated replacement. Never mutate the live user
+  // object before the persistent store has received the replacement.
+  const next:User={...ctx.user};
+  if(username!==undefined)next.username=normalizeUsername(username);
+  if(desired)next.password=hashPassword(desired);
+  rotateAuthGeneration(next);
+  // Cross-instance session generation invalidation preserves only this session.
+  next.auth_generation_keep_hash=ctx.session.token_hash;
+  users.set(next.id,next);
+  revokeOtherUserSessions(next.id,ctx.session.token_hash);
+  res.json({user:userDict(next),message:'تم تحديث بيانات الدخول'});
 });
 
 // Local owner-assisted recovery is explicitly disabled unless the server operator
