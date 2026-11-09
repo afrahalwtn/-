@@ -37,6 +37,14 @@ function asyncRoute(handler:(req:Request,res:Response,next:NextFunction)=>Promis
   };
 }
 app.disable('x-powered-by');
+app.use((req,res,next)=>{
+  // Non-identifying correlation ID for tracing 4xx/5xx incidents across
+  // reverse-proxy logs. Never use user-supplied IDs or expose session tokens.
+  const requestId=crypto.randomUUID();
+  (req as any).requestId=requestId;
+  res.setHeader('X-Request-ID',requestId);
+  next();
+});
 // Only trust an explicitly configured number of known proxy hops. Never trust all.
 const trustedProxyHops=Number(process.env.AFRAH_TRUST_PROXY_HOPS||0);
 if(!Number.isSafeInteger(trustedProxyHops)||trustedProxyHops<0||trustedProxyHops>2){
@@ -1530,7 +1538,7 @@ app.get('*', (req, res, next) => {
 });
 
 // Error handling middleware
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   // Do not leak stack traces, filesystem locations or Supabase details to clients.
   const code=err?.code;
   const uploadError=err instanceof multer.MulterError;
@@ -1538,7 +1546,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status=uploadError?(code==='LIMIT_FILE_SIZE'?413:422):
     invalidImage?422:(err?.type==='entity.too.large'?413:
     (Number.isInteger(err?.status)&&err.status>=400&&err.status<600?err.status:500));
-  console.error('Request failed:',{status,code:typeof code==='string'?code:'unknown',
+  console.error('Request failed:',{requestId:(req as any).requestId,status,code:typeof code==='string'?code:'unknown',
     message:err instanceof Error?err.message:'unknown'});
   if(res.headersSent)return;
   const detail=status===413?'حجم البيانات أو الصورة أكبر من المسموح':
