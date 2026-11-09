@@ -64,7 +64,17 @@ const lineMdAnimated = {
   "menu": "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"i i-tabler af-line-md\" width=\"__SIZE__\" height=\"__SIZE__\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"> <g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" stroke-dasharray=\"16\"> <path d=\"M5 5h14\"> <animate attributeName=\"stroke-dashoffset\" dur=\"1.09s\" fill=\"freeze\" values=\"16;0\" /> </path> <path d=\"M5 12h14\" stroke-dashoffset=\"16\"> <animate attributeName=\"stroke-dashoffset\" begin=\"1.09s\" dur=\"1.09s\" fill=\"freeze\" to=\"0\" /> </path> <path d=\"M5 19h14\" stroke-dashoffset=\"16\"> <animate attributeName=\"stroke-dashoffset\" begin=\"2.18s\" dur=\"1.09s\" fill=\"freeze\" to=\"0\" /> </path> </g> </svg> "
 };
 
+// NudaUI original animated SVG components (MIT), adapted to preserve the app's icon API.
+// Source: https://github.com/sgomez-dev/NudaUI/tree/main/src/components/showcase/registry
+const nudaIconMarkup = {
+  search: '<svg xmlns="http://www.w3.org/2000/svg" class="i i-tabler nuda-icon-search__svg af-nuda-search" width="__SIZE__" height="__SIZE__" viewBox="0 0 24 24" aria-hidden="true"><circle class="nuda-icon-search__lens" cx="11" cy="11" r="6"/><line class="nuda-icon-search__handle" x1="20" y1="20" x2="15.5" y2="15.5"/><polyline class="nuda-icon-search__head" points="11 7 7 12 11 17"/></svg>',
+  bell: '<svg xmlns="http://www.w3.org/2000/svg" class="i i-tabler nuda-icon-bell__svg af-nuda-bell" width="__SIZE__" height="__SIZE__" viewBox="0 0 24 24" aria-hidden="true"><g class="nuda-icon-bell__body"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></g><path class="nuda-icon-bell__clapper" d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  menu: '<svg xmlns="http://www.w3.org/2000/svg" class="i i-tabler nuda-icon-burger__svg af-nuda-menu" width="__SIZE__" height="__SIZE__" viewBox="0 0 24 24" aria-hidden="true"><line class="nuda-icon-burger__top" x1="3" y1="6" x2="21" y2="6"/><line class="nuda-icon-burger__mid" x1="3" y1="12" x2="21" y2="12"/><line class="nuda-icon-burger__bot" x1="3" y1="18" x2="21" y2="18"/></svg>'
+};
 export function icon(name, size=20) {
+  if (Object.prototype.hasOwnProperty.call(nudaIconMarkup,name)) {
+    return nudaIconMarkup[name].replaceAll('__SIZE__',String(size));
+  }
   if (Object.prototype.hasOwnProperty.call(lineMdAnimated,name)) {
     return lineMdAnimated[name].replaceAll('__SIZE__', String(size));
   }
