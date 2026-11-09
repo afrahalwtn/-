@@ -233,8 +233,18 @@ try {
   await staff.screenshot({path:'screenshots/staff-prepare.png',fullPage:true});
   assert.equal(await staff.locator('#staff-print-list:enabled').count(),1,'Prepared list should be printable by staff');
   const previousCount=await staff.locator('.staff-history-entry').count();
-  await staff.locator('#staff-save-list').click();
+  let listSaveRequests=0;
+  const countListSaves=req=>{
+    if(req.method()==='POST'&&req.url().endsWith('/api/execution-lists'))listSaveRequests++;
+  };
+  staff.on('request',countListSaves);
+  await staff.locator('#staff-save-list').evaluate(button=>{
+    button.click();
+    button.click();
+  });
   await staff.waitForFunction(oldCount=>document.querySelectorAll('.staff-history-entry').length===oldCount+1,previousCount,{timeout:15000});
+  staff.off('request',countListSaves);
+  assert.equal(listSaveRequests,1,'Rapid employee save clicks must create one execution list');
   assert.equal(await staff.locator('.staff-history-entry').count(),previousCount+1,'Saving should add exactly one execution list');
   const recentList=staff.locator('.staff-history-entry').first();
   await recentList.locator('summary').click();
