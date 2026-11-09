@@ -439,7 +439,7 @@ document.addEventListener('click',async e=>{
   render();scrollTo(0,0);return;
  }
  if(el.dataset.logout){
-  try{await api('/auth/logout',{method:'POST'});}catch{}
+  try{await api('/auth/logout',{method:'POST'});}catch(err){message(err?.message||'لم يتأكد تسجيل الخروج؛ تحقق من الاتصال وأعد المحاولة');return;}
   reset();
  }
 });
