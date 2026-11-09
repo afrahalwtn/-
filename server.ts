@@ -1210,6 +1210,9 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async 
     res.status(422).json({detail:'اسم الدخول أو كلمة المرور غير صالحة (10 رموز على الأقل)'});
     return;
   }
+  if(typeof can_view_purchase!=='boolean'||typeof can_view_sale!=='boolean'){
+    res.status(422).json({detail:'صلاحيات الأسعار يجب أن تكون قيماً صحيحة'});return;
+  }
   const exists = Array.from(users.values()).some((u) => u.username === uname);
   if (exists) {
     res.status(409).json({ detail: 'اسم المستخدم موجود' });
@@ -1222,8 +1225,8 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async 
     full_name: String(full_name).trim(),
     password: hashPassword(String(password)),
     role: 'staff',
-    can_view_purchase: Boolean(can_view_purchase),
-    can_view_sale: Boolean(can_view_sale),
+    can_view_purchase,
+    can_view_sale,
     is_active: true,
     created_at: new Date().toISOString(),
   };
