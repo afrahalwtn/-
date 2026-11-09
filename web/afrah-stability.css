@@ -452,3 +452,116 @@ html,body{max-width:100%;overflow-x:clip}
     transform:none!important;
   }
 }
+
+
+/* NudaUI authentic icon mechanisms (MIT)
+   Source: sgomez-dev/NudaUI animated-icons.tsx
+   Integrated as SVG-only markup, no extra JS or remote packages. */
+.af-nuda-search,.af-nuda-bell,.af-nuda-menu{
+  flex:none;vertical-align:middle;overflow:visible;
+  stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;
+}
+.af-nuda-search>*{
+  transition:transform .85s cubic-bezier(.4,.2,.2,1),opacity .65s,stroke-dashoffset .85s;
+  transform-origin:center;
+}
+.af-nuda-search .nuda-icon-search__handle{transform-origin:11px 11px}
+.af-nuda-search .nuda-icon-search__head{
+  stroke-dasharray:18;stroke-dashoffset:18;opacity:0;
+}
+.af-search-input:focus-within>.af-nuda-search .nuda-icon-search__lens{
+  opacity:0;transform:scale(.4);
+}
+.af-search-input:focus-within>.af-nuda-search .nuda-icon-search__handle{
+  transform:rotate(-45deg) scaleX(1.35);
+}
+.af-search-input:focus-within>.af-nuda-search .nuda-icon-search__head{
+  opacity:1;stroke-dashoffset:0;transition-delay:.14s;
+}
+.af-search-input:focus-within>.af-nuda-search{
+  transform:none!important;
+}
+.af-nuda-bell .nuda-icon-bell__body{transform-origin:12px 4px}
+.af-nuda-bell .nuda-icon-bell__clapper{transform-origin:12px 19px}
+.top-alert:is(:hover,:focus-visible)>.af-nuda-bell .nuda-icon-bell__body,
+.af-alert-ico:hover .af-nuda-bell .nuda-icon-bell__body{
+  animation:af-nuda-icon-bell-shake 1.2s cubic-bezier(.36,.07,.19,.97);
+}
+.top-alert:is(:hover,:focus-visible)>.af-nuda-bell .nuda-icon-bell__clapper,
+.af-alert-ico:hover .af-nuda-bell .nuda-icon-bell__clapper{
+  animation:af-nuda-icon-bell-clap 1.2s cubic-bezier(.36,.07,.19,.97);
+}
+@keyframes af-nuda-icon-bell-shake{
+  0%,100%{transform:rotate(0)}10%,30%,50%,70%{transform:rotate(10deg)}
+  20%,40%,60%,80%{transform:rotate(-10deg)}
+}
+@keyframes af-nuda-icon-bell-clap{
+  0%,100%{transform:translateX(0)}15%,55%{transform:translateX(1.5px)}
+  35%,75%{transform:translateX(-1.5px)}
+}
+.af-nuda-menu line{
+  transition:transform .7s cubic-bezier(.4,.2,.2,1),opacity .45s;
+  transform-origin:center;
+}
+button:is(:hover,:focus-visible)>.af-nuda-menu .nuda-icon-burger__top{
+  transform:translateY(6px) rotate(45deg);
+}
+button:is(:hover,:focus-visible)>.af-nuda-menu .nuda-icon-burger__mid{
+  opacity:0;transform:scaleX(0);
+}
+button:is(:hover,:focus-visible)>.af-nuda-menu .nuda-icon-burger__bot{
+  transform:translateY(-6px) rotate(-45deg);
+}
+
+/* Real NudaUI "Blur Reveal" — single intact Arabic text, no LTR mask sweep.
+   Adapted directly from NudaUI text-effects.tsx MIT, preserving RTL shaping. */
+.af-home-v4 .af-greeting-body h1{
+  direction:rtl;
+  text-align:right!important;
+  animation:none!important;
+  opacity:1!important;
+  transform:none!important;
+  clip-path:none!important;
+}
+.af-home-v4 .af-greeting-body h1::after{display:none!important}
+.af-home-v4 .af-greeting-body h1 .nuda-blur-reveal{
+  --nuda-br-blur:9px;
+  --nuda-br-speed:2.15s;
+  --nuda-br-offset:13px;
+  display:inline-block;
+  direction:rtl;
+  unicode-bidi:isolate;
+  text-align:right;
+  font-size:inherit;
+  font-weight:inherit;
+  color:inherit;
+  animation:af-nuda-blur-reveal var(--nuda-br-speed) cubic-bezier(.25,.46,.45,.94) .8s both;
+}
+@keyframes af-nuda-blur-reveal{
+  from{filter:blur(var(--nuda-br-blur));opacity:0;transform:translateY(var(--nuda-br-offset))}
+  to{filter:blur(0);opacity:1;transform:translateY(0)}
+}
+.af-home-v4 .af-greeting-tag{
+  animation:af-welcome-copy 1.35s .1s cubic-bezier(.16,1,.3,1) both!important;
+}
+.af-home-v4 .af-greeting-body p{
+  animation:af-welcome-copy 1.45s 2s cubic-bezier(.16,1,.3,1) both!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .af-home-v4 .af-greeting-body h1 .nuda-blur-reveal{
+    animation:none!important;filter:none!important;opacity:1!important;transform:none!important;
+  }
+  .af-nuda-search>*,.af-nuda-menu line{transition:none!important}
+  .af-nuda-bell *,button:is(:hover,:focus-visible)>.af-nuda-menu line{
+    animation:none!important;transform:none!important;
+  }
+  .af-search-input:focus-within>.af-nuda-search .nuda-icon-search__lens{
+    opacity:1!important;transform:none!important;
+  }
+  .af-search-input:focus-within>.af-nuda-search .nuda-icon-search__handle{
+    transform:none!important;
+  }
+  .af-search-input:focus-within>.af-nuda-search .nuda-icon-search__head{
+    opacity:0!important;stroke-dashoffset:18!important;
+  }
+}
