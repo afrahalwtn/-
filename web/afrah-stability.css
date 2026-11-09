@@ -144,3 +144,45 @@ html,body{max-width:100%;overflow-x:clip}
   font-size:12px;padding-top:20px;
 }
 .shell.shell-v6.page .sidebar .sidebar-bottom-line{background:#ef4958!important}
+
+
+/* Brand alignment refinement: preserve both approved logo sizes and visual hierarchy.
+   Balance outer margins, center the marks, and avoid stretching artwork. */
+.af-dual-header .af-brand-row{
+  box-sizing:border-box;
+  align-items:center!important;
+  justify-content:space-between!important;
+}
+.af-dual-header .af-brand-primary,
+.af-dual-header .af-brand-secondary{
+  align-self:center!important;
+  margin-block:0!important;
+}
+.af-dual-header .af-brand-primary img,
+.af-dual-header .af-brand-secondary img{
+  display:block;
+  vertical-align:middle;
+  object-fit:contain!important;
+}
+@media(min-width:971px){
+  .af-dual-header .af-brand-row{
+    padding-inline-start:clamp(24px,3.1vw,48px)!important;
+    padding-inline-end:clamp(32px,3.9vw,60px)!important;
+  }
+  /* Tapello artwork's visual midpoint sits slightly above the Afrah mark. */
+  .af-dual-header .af-brand-secondary{position:relative;top:2px}
+}
+@media(min-width:701px) and (max-width:970px){
+  .af-dual-header .af-brand-row{
+    padding-inline-start:clamp(20px,2.6vw,28px)!important;
+    padding-inline-end:clamp(24px,3.5vw,36px)!important;
+  }
+  .af-dual-header .af-brand-secondary{position:relative;top:2px}
+}
+@media(max-width:700px){
+  .af-dual-header .af-brand-row{
+    padding-inline-start:clamp(12px,3vw,16px)!important;
+    padding-inline-end:clamp(12px,3vw,16px)!important;
+  }
+  .af-dual-header .af-brand-secondary{top:auto}
+}
