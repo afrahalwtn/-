@@ -378,3 +378,77 @@ html,body{max-width:100%;overflow-x:clip}
     filter:none!important;
   }
 }
+
+
+/* Production welcome v4: actual magic-spells/split-text (MIT) word-rise preset.
+   IMPORTANT: remove former physical left-to-right clipping effect; split order
+   follows the Arabic DOM reading order and no masks sweep across text. */
+.af-home-v4 .af-greeting-body h1{
+  animation:none!important;
+  clip-path:none!important;
+  filter:none!important;
+  transform:none!important;
+  opacity:1!important;
+  padding-bottom:0!important;
+  max-width:100%!important;
+  width:auto!important;
+  margin-top:6px!important;
+}
+.af-home-v4 .af-greeting-body h1::after{display:none!important}
+.af-home-v4 .af-greeting-body h1 split-text{
+  display:inline-block;
+  direction:rtl;
+  unicode-bidi:isolate;
+  white-space:normal;
+  text-align:right;
+  line-height:1.6;
+  overflow:visible;
+  --split-text-distance:65%;
+}
+.af-home-v4 .af-greeting-body h1 split-text .split-text-word{
+  direction:rtl;
+  white-space:nowrap;
+  vertical-align:baseline;
+}
+.af-home-v4 .af-greeting-tag{
+  animation:af-welcome-copy 1.45s .15s cubic-bezier(.16,1,.3,1) both!important;
+}
+.af-home-v4 .af-greeting-body p{
+  animation:af-welcome-copy 1.35s 2.1s cubic-bezier(.16,1,.3,1) both!important;
+}
+.af-home-v4 .af-greeting-card.card{
+  animation:af-welcome-appear 1.15s cubic-bezier(.16,1,.3,1) both!important;
+}
+.shell .sidebar .nav-link:hover .nav-icon,
+.shell .sidebar .nav-link:focus-visible .nav-icon{
+  transform:translateY(-3px) scale(1.065)!important;
+}
+.af-search-input:focus-within > .af-line-md{
+  transform:translateY(-2px) scale(1.095)!important;
+}
+.af-dual-header .top-alert:hover > .af-line-md,
+.af-dual-header .top-alert:focus-visible > .af-line-md{
+  transform:rotate(-13deg) scale(1.06)!important;
+}
+@media(max-width:700px){
+  .af-home-v4 .af-greeting-body h1 split-text{
+    line-height:1.6;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .af-home-v4 .af-greeting-body h1 split-text,
+  .af-home-v4 .af-greeting-body h1 split-text *{
+    opacity:1!important;
+    transform:none!important;
+    filter:none!important;
+    animation:none!important;
+    transition:none!important;
+  }
+  .shell .sidebar .nav-link:hover .nav-icon,
+  .shell .sidebar .nav-link:focus-visible .nav-icon,
+  .af-search-input:focus-within > .af-line-md,
+  .af-dual-header .top-alert:hover > .af-line-md,
+  .af-dual-header .top-alert:focus-visible > .af-line-md{
+    transform:none!important;
+  }
+}
