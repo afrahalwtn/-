@@ -138,6 +138,35 @@ try {
   'Rejected PATCH must never mutate the original username');
  assert.equal(unchanged.can_view_purchase,false,
   'Rejected PATCH must never elevate staff purchase visibility');
+ // Exercise live permission changes and immediate revocation on a running session.
+ const staffLogin=await fetch(root+'/staff/auth/login',{
+  method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({username:'auditstaff',password:'AuditPassword123!'})
+ });
+ assert.equal(staffLogin.status,200,'Test employee signs in');
+ const staffSession=await staffLogin.json();
+ const staffHeaders={Authorization:'Bearer '+staffSession.access_token};
+ let staffCatalogue=await fetch(root+'/products',{headers:staffHeaders});
+ assert.equal(staffCatalogue.status,200);
+ let staffItem=(await staffCatalogue.json()).find(p=>p.id===item.id);
+ assert.equal(staffItem.sale_price,1500,'Authorized sale price appears before revocation');
+ assert.equal(staffItem.purchase_price,undefined,'Purchase price stays restricted');
+ r=await itemCall('/users/'+staff.id,'PATCH',{can_view_sale:false});
+ assert.equal(r.status,200,'Administrator can revoke viewing sale prices');
+ staffCatalogue=await fetch(root+'/products',{headers:staffHeaders});
+ assert.equal(staffCatalogue.status,200);
+ staffItem=(await staffCatalogue.json()).find(p=>p.id===item.id);
+ assert.equal(staffItem.sale_price,undefined,'Revoked sale prices disappear on next request');
+ assert.equal(staffItem.purchase_price,undefined,'Purchase prices remain hidden');
+ r=await itemCall('/users/'+staff.id+'/revoke-sessions','POST',{});
+ assert.equal(r.status,200,'Administrator can revoke all employee sessions');
+ const revokedResponse=await fetch(root+'/products',{headers:staffHeaders});
+ assert.equal(revokedResponse.status,401,'Revoked session must never read inventory');
+ const deniedWrite=await fetch(root+'/execution-lists',{method:'POST',
+  headers:{...staffHeaders,'X-CSRF-Token':staffSession.csrf,'Content-Type':'application/json'},
+  body:JSON.stringify({items:[{product_id:item.id,quantity:1}]})});
+ assert.equal(deniedWrite.status,401,'Revoked employee must not write execution lists');
+
  const file=new FormData();
  file.set('file',new Blob(['not a real image'],{type:'image/png'}),'f.png');
  r=await fetch(root+'/products/1/image',{method:'POST',
