@@ -37,6 +37,21 @@ try{
   method,headers:{...headers,...extra},
   body:JSON.stringify(data),signal:AbortSignal.timeout(12000)
  });
+ // Missing JSON bodies must be rejected cleanly, never trigger a 500.
+ for(const endpoint of ['/products','/users']){
+  const response=await fetch(base+endpoint,{
+   method:'POST',
+   headers:{Authorization:headers.Authorization,'X-CSRF-Token':headers['X-CSRF-Token']},
+   signal:AbortSignal.timeout(12000)
+  });
+  assert.equal(response.status,422,'Missing body must be a validation failure: '+endpoint);
+  tested++;
+ }
+ const emptyEdit=await fetch(base+'/products/1',{method:'PUT',
+  headers:{Authorization:headers.Authorization,'X-CSRF-Token':headers['X-CSRF-Token']},
+  signal:AbortSignal.timeout(12000)});
+ assert.equal(emptyEdit.status,200,'An empty product patch cannot crash the server');
+ tested++;
  const baselineResponse=await fetch(base+'/products',{headers});
  const baseline=await baselineResponse.json();
  // A malformed field must not silently turn negative/NaN/arrays into stock.
