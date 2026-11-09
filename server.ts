@@ -9,6 +9,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
+import {validProductImageDimensions, type ImageMime} from './image-guard.js';
 import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
@@ -1148,6 +1149,20 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
   if (!valid) {
     fs.unlinkSync(req.file.path);
     res.status(422).json({detail:'ملف الصورة غير صالح أو امتداده لا يطابق محتواه'});
+    return;
+  }
+  // A very small compressed image can declare an enormous decoded bitmap.
+  // Read the already-limited (3 MB) upload for metadata validation before
+  // publishing it to other devices or putting it in cloud object storage.
+  let safeDimensions=false;
+  try {
+    safeDimensions=validProductImageDimensions(fs.readFileSync(req.file.path),mime as ImageMime);
+  }catch{
+    safeDimensions=false;
+  }
+  if(!safeDimensions){
+    fs.unlinkSync(req.file.path);
+    res.status(422).json({detail:'أبعاد الصورة غير صالحة أو أكبر من الحد الآمن (40 ميغابكسل)'});
     return;
   }
   if (cloudEnabled) {
