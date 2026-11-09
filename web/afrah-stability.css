@@ -302,3 +302,79 @@ html,body{max-width:100%;overflow-x:clip}
     transform:none!important;
   }
 }
+
+
+/* Refined welcome motion sequence v3.
+   A single composed greeting: institutional byline -> RTL text reveal -> supporting copy.
+   Lightweight CSS only; no continuous animation or JS animation dependency. */
+.af-home-v4 .af-greeting-card.card{
+  animation:af-welcome-appear 1.75s cubic-bezier(.16,.7,.2,1) both!important;
+}
+.af-home-v4 .af-greeting-body.card-body{
+  position:relative;
+  overflow:visible;
+}
+.af-home-v4 .af-greeting-tag{
+  animation:af-welcome-copy 1.45s .4s cubic-bezier(.18,.8,.22,1) both!important;
+}
+.af-home-v4 .af-greeting-body h1{
+  position:relative;
+  display:block;
+  width:max-content;
+  max-width:100%;
+  padding-bottom:12px;
+  overflow:visible;
+  animation:af-welcome-title-reveal 2.4s .92s cubic-bezier(.2,.68,.2,1) both!important;
+}
+.af-home-v4 .af-greeting-body h1::after{
+  content:"";
+  display:block;
+  position:absolute;
+  right:0;
+  bottom:3px;
+  width:min(82px,28%);
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#ef4958,#4656a6);
+  transform-origin:right center;
+  animation:af-welcome-rule-draw 1.45s 1.75s ease-out both;
+}
+.af-home-v4 .af-greeting-body p{
+  animation:af-welcome-copy 1.55s 2.15s cubic-bezier(.2,.7,.2,1) both!important;
+}
+@keyframes af-welcome-title-reveal{
+  0%{opacity:0;clip-path:inset(0 100% 0 0);transform:translateY(11px);filter:blur(3px)}
+  25%{opacity:1}
+  100%{opacity:1;clip-path:inset(0 0 0 0);transform:translateY(0);filter:blur(0)}
+}
+@keyframes af-welcome-rule-draw{
+  from{opacity:0;transform:scaleX(0)}
+  to{opacity:1;transform:scaleX(1)}
+}
+.af-search-input > .af-line-md{transition-duration:.8s!important}
+.af-dual-header .top-alert > .af-line-md{transition-duration:.75s!important}
+.shell .sidebar .nav-link,
+.shell .sidebar .nav-link .nav-icon{transition-duration:.55s!important}
+@media(max-width:700px){
+  .af-home-v4 .af-greeting-body h1{
+    max-width:100%;
+    padding-bottom:9px;
+  }
+  .af-home-v4 .af-greeting-body h1::after{
+    width:58px;
+    height:2px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .af-home-v4 .af-greeting-card.card,
+  .af-home-v4 .af-greeting-tag,
+  .af-home-v4 .af-greeting-body h1,
+  .af-home-v4 .af-greeting-body h1::after,
+  .af-home-v4 .af-greeting-body p{
+    animation:none!important;
+    opacity:1!important;
+    transform:none!important;
+    clip-path:none!important;
+    filter:none!important;
+  }
+}
