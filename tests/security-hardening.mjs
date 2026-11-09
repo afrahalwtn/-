@@ -134,6 +134,18 @@ try {
  // A missing item must not leave orphan files in the local upload directory.
  const beforeMissingUpload=readdirSync(path.join(folder,'images')).length;
  const validPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
+ // Reject tiny compressed headers that declare enough pixels to exhaust RAM.
+ const pixelBomb=Buffer.from(validPng);
+ pixelBomb.writeUInt32BE(100000,16);
+ pixelBomb.writeUInt32BE(100000,20);
+ const bombForm=new FormData();
+ bombForm.set('file',new Blob([pixelBomb],{type:'image/png'}),'huge-dimensions.png');
+ const beforeBomb=readdirSync(path.join(folder,'images')).length;
+ r=await fetch(root+'/products/1/image',{method:'POST',
+  headers:{Authorization:'Bearer '+admin.access_token,'X-CSRF-Token':admin.csrf},body:bombForm});
+ assert.equal(r.status,422,'Huge decoded image dimensions must be rejected');
+ assert.equal(readdirSync(path.join(folder,'images')).length,beforeBomb,
+  'Rejected pixel bomb must not retain an upload file');
  const orphanForm=new FormData();
  orphanForm.set('file',new Blob([validPng],{type:'image/png'}),'orphan.png');
  r=await fetch(root+'/products/999999/image',{method:'POST',
