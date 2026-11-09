@@ -203,8 +203,8 @@ html,body{max-width:100%;overflow-x:clip}
 .af-dual-header .top-alert,
 .af-home-v4 .af-home-search,
 .af-home-v4 .af-home-alerts{
-  transition:background-color .22s ease,color .22s ease,border-color .22s ease,
-             box-shadow .22s ease,transform .22s ease!important;
+  transition:background-color .38s ease,color .38s ease,border-color .38s ease,
+             box-shadow .38s ease,transform .38s ease!important;
 }
 .shell .sidebar .nav-link:hover .nav-icon,
 .shell .sidebar .nav-link:focus-visible .nav-icon{
@@ -213,14 +213,14 @@ html,body{max-width:100%;overflow-x:clip}
 .af-search-input:focus-within > .af-line-md{
   transform:translateY(-1px) scale(1.065);
 }
-.af-search-input > .af-line-md{transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+.af-search-input > .af-line-md{transition:transform .55s cubic-bezier(.2,.8,.2,1)}
 .af-dual-header .top-alert:hover > .af-line-md,
 .af-dual-header .top-alert:focus-visible > .af-line-md{
   transform:rotate(-9deg);
 }
-.af-dual-header .top-alert > .af-line-md{transition:transform .24s ease}
+.af-dual-header .top-alert > .af-line-md{transition:transform .55s ease}
 .af-home-v4 .af-greeting-card.card{
-  animation:af-welcome-appear .52s cubic-bezier(.2,.75,.2,1) both;
+  animation:af-welcome-appear 1.15s cubic-bezier(.2,.75,.2,1) both;
 }
 .af-home-v4 .af-greeting-body.card-body{
   display:flex!important;
@@ -246,7 +246,7 @@ html,body{max-width:100%;overflow-x:clip}
   font-weight:900!important;
   color:#334483!important;
   box-shadow:none!important;
-  animation:af-welcome-copy .45s .12s ease-out both;
+  animation:af-welcome-copy 1s .25s ease-out both;
 }
 .af-home-v4 .af-greeting-tag::before{
   content:"";
@@ -260,10 +260,10 @@ html,body{max-width:100%;overflow-x:clip}
 }
 .af-home-v4 .af-greeting-body h1{
   margin-top:5px!important;
-  animation:af-welcome-copy .5s .19s ease-out both;
+  animation:af-welcome-copy 1.2s .45s ease-out both;
 }
 .af-home-v4 .af-greeting-body p{
-  animation:af-welcome-copy .5s .28s ease-out both;
+  animation:af-welcome-copy 1.2s .7s ease-out both;
 }
 @keyframes af-welcome-appear{
   from{opacity:0;transform:translateY(9px)}
