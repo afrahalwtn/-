@@ -269,6 +269,8 @@ try {
   assert.equal(notAuthorized.status,401,'Private product images require login');
   const authorized=await fetch(origin+uploadedImage,{headers:auth});
   assert.equal(authorized.status,200,'Product images must load using bearer session without cookies');
+  assert.match(authorized.headers.get('cache-control')||'',/no-store/,
+    'Private product images must not remain cached when sessions are revoked');
   assert((authorized.headers.get('content-type')||'').includes('image/png'),'Image MIME type must be correct');
   assert.equal((await authorized.arrayBuffer()).byteLength,png.length);
 
