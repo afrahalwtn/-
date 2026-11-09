@@ -153,6 +153,21 @@ try {
  assert.equal(r.status,404,'Missing item must reject image upload');
  assert.equal(readdirSync(path.join(folder,'images')).length,beforeMissingUpload,
   'Rejected upload must not leak temporary files');
+ // Exercise the multipart concurrency guard and prove slots are released.
+ const uploadBurst=await Promise.all(Array.from({length:10},()=>{
+  const form=new FormData();
+  form.set('file',new Blob([validPng],{type:'image/png'}),'normal.png');
+  return fetch(root+'/products/1/image',{method:'POST',
+    headers:{Authorization:'Bearer '+admin.access_token,'X-CSRF-Token':admin.csrf},body:form});
+ }));
+ assert(uploadBurst.every(x=>x.status===200||x.status===503),
+  'Concurrent upload burst must succeed or fail gracefully, never crash');
+ const afterBurst=new FormData();
+ afterBurst.set('file',new Blob([validPng],{type:'image/png'}),'after-burst.png');
+ r=await fetch(root+'/products/1/image',{method:'POST',
+  headers:{Authorization:'Bearer '+admin.access_token,'X-CSRF-Token':admin.csrf},body:afterBurst});
+ assert.equal(r.status,200,'Upload slots must be released after burst completion');
+
  for(let i=0;i<28;i++){
   r=await fetch(root+'/auth/login',{method:'POST',
    headers:{'Content-Type':'application/json'},
