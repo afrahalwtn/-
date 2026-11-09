@@ -186,3 +186,119 @@ html,body{max-width:100%;overflow-x:clip}
   }
   .af-dual-header .af-brand-secondary{top:auto}
 }
+
+
+/* Light motion pass, November 2026.
+   Line MD animations come from the MIT-licensed original SVG assets.
+   No infinite loops, no 3D canvas, no extra runtime libraries. */
+.af-line-md{
+  flex:none;
+  vertical-align:middle;
+  overflow:visible;
+}
+.shell .sidebar .nav-link,
+.shell .sidebar .nav-link .nav-icon,
+.af-search-input,
+.af-dual-header .icon-btn,
+.af-dual-header .top-alert,
+.af-home-v4 .af-home-search,
+.af-home-v4 .af-home-alerts{
+  transition:background-color .22s ease,color .22s ease,border-color .22s ease,
+             box-shadow .22s ease,transform .22s ease!important;
+}
+.shell .sidebar .nav-link:hover .nav-icon,
+.shell .sidebar .nav-link:focus-visible .nav-icon{
+  transform:translateY(-2px);
+}
+.af-search-input:focus-within > .af-line-md{
+  transform:translateY(-1px) scale(1.065);
+}
+.af-search-input > .af-line-md{transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+.af-dual-header .top-alert:hover > .af-line-md,
+.af-dual-header .top-alert:focus-visible > .af-line-md{
+  transform:rotate(-9deg);
+}
+.af-dual-header .top-alert > .af-line-md{transition:transform .24s ease}
+.af-home-v4 .af-greeting-card.card{
+  animation:af-welcome-appear .52s cubic-bezier(.2,.75,.2,1) both;
+}
+.af-home-v4 .af-greeting-body.card-body{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  text-align:right!important;
+  justify-content:center!important;
+}
+.af-home-v4 .af-greeting-tag{
+  /* Institutional signature, separated from the welcome headline. */
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  align-self:flex-start;
+  max-width:100%;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  padding:0 14px 0 0!important;
+  margin:0 0 9px!important;
+  font-size:clamp(12px,1.15vw,14px)!important;
+  line-height:1.7!important;
+  font-weight:900!important;
+  color:#334483!important;
+  box-shadow:none!important;
+  animation:af-welcome-copy .45s .12s ease-out both;
+}
+.af-home-v4 .af-greeting-tag::before{
+  content:"";
+  position:absolute;
+  inset-inline-start:0;
+  top:18%;
+  bottom:18%;
+  width:3px;
+  border-radius:8px;
+  background:#ef4958;
+}
+.af-home-v4 .af-greeting-body h1{
+  margin-top:5px!important;
+  animation:af-welcome-copy .5s .19s ease-out both;
+}
+.af-home-v4 .af-greeting-body p{
+  animation:af-welcome-copy .5s .28s ease-out both;
+}
+@keyframes af-welcome-appear{
+  from{opacity:0;transform:translateY(9px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes af-welcome-copy{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media(max-width:700px){
+  .af-home-v4 .af-greeting-body.card-body{
+    align-items:flex-start!important;
+    text-align:right!important;
+  }
+  .af-home-v4 .af-greeting-tag{
+    font-size:11.5px!important;
+    padding-inline-start:12px!important;
+    margin-bottom:7px!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .af-home-v4 .af-greeting-card.card,
+  .af-home-v4 .af-greeting-tag,
+  .af-home-v4 .af-greeting-body h1,
+  .af-home-v4 .af-greeting-body p{
+    animation:none!important;
+    opacity:1!important;
+    transform:none!important;
+  }
+  .af-line-md animate{display:none!important}
+  .af-line-md [stroke-dashoffset]{stroke-dashoffset:0!important}
+  .shell .sidebar .nav-link,.shell .sidebar .nav-link .nav-icon,
+  .af-search-input,.af-search-input>.af-line-md,
+  .af-dual-header .top-alert>.af-line-md{
+    transition:none!important;
+    transform:none!important;
+  }
+}
