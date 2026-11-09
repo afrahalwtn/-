@@ -29,7 +29,7 @@ async function loadStaffPhoto(img){
       throw err;
     });
     photos.set(url,pending);
-    while(photos.size>160){
+    while(photos.size>(window.innerWidth<700?60:120)){
       const oldest=photos.keys().next().value;
       if(oldest===undefined)break;
       const evicted=photos.get(oldest);
