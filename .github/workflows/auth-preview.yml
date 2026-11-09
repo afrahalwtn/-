@@ -35,6 +35,8 @@ on:
       - "tests/ui-browser-smoke.mjs"
       - "tests/security-hardening.mjs"
       - "tests/concurrent-load.mjs"
+      - "image-guard.ts"
+      - "tests/image-dimensions.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
 
@@ -57,6 +59,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test Arabic letter variations on 10000 simulated products
         run: node tests/arabic-search.mjs
+      - name: Validate uploaded image dimensions against memory bombs
+        run: node --import tsx tests/image-dimensions.mjs
       - name: Test persistent SQLite database with 4200 product records
         run: node --import tsx tests/sqlite-persistence.mjs
       - name: Test real server restart with SQLite file
