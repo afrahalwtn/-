@@ -134,8 +134,19 @@ try {
   assert(await page.locator('#prepare-total').textContent(),'Sheet must recalculate total');
   await page.screenshot({path:'screenshots/mobile-receipt.png',fullPage:true});
 
-  await page.locator('[data-action="quote-create"]').click();
+  let quoteWriteRequests=0;
+  const countQuoteWrites=req=>{
+    if(req.method()==='POST'&&req.url().endsWith('/api/quotes'))quoteWriteRequests++;
+  };
+  page.on('request',countQuoteWrites);
+  // Two very rapid clicks must never save the same quotation twice.
+  await page.locator('[data-action="quote-create"]').evaluate(button=>{
+    button.click();
+    button.click();
+  });
   await page.locator('.quote-preview').waitFor({timeout:15000});
+  page.off('request',countQuoteWrites);
+  assert.equal(quoteWriteRequests,1,'Rapid repeated save clicks must create one quotation only');
   assert.equal(await page.locator('.quote-preview tbody tr').count(),2,'Saved quotation must contain both selected items');
   assert.equal(await page.locator('.nav-link[data-section="quotes"]').count(),1,'Saved quotations remain a separate section');
 
