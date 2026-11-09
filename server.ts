@@ -1061,17 +1061,18 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
   if([parsedQuantity,parsedMinQuantity,parsedPurchase,parsedSale].some(value=>value===null)){
     res.status(422).json({detail:'أدخل أعداداً صحيحة غير سالبة للكميات وأسعاراً مالية صالحة'});return;
   }
-  if (name !== undefined) p.name = String(name).trim();
-  if (description !== undefined) p.description = String(description);
-  if (manufacture !== undefined) p.manufacture = String(manufacture);
-  if (parsedQuantity !== undefined) p.quantity = parsedQuantity!;
-  if (parsedMinQuantity !== undefined) p.min_quantity = parsedMinQuantity!;
-  if (parsedPurchase !== undefined) p.purchase_price = parsedPurchase!;
-  if (parsedSale !== undefined) p.sale_price = parsedSale!;
-  Object.assign(p,extras);
-  p.updated_at = new Date().toISOString();
-  products.set(p.id,p);
-  res.json(productDict(p, ctx.user));
+  const next:Product={...p};
+  if (name !== undefined) next.name = String(name).trim();
+  if (description !== undefined) next.description = String(description);
+  if (manufacture !== undefined) next.manufacture = String(manufacture);
+  if (parsedQuantity !== undefined) next.quantity = parsedQuantity!;
+  if (parsedMinQuantity !== undefined) next.min_quantity = parsedMinQuantity!;
+  if (parsedPurchase !== undefined) next.purchase_price = parsedPurchase!;
+  if (parsedSale !== undefined) next.sale_price = parsedSale!;
+  Object.assign(next,extras);
+  next.updated_at = new Date().toISOString();
+  products.set(next.id,next);
+  res.json(productDict(next, ctx.user));
 });
 
 app.patch('/api/products/:id/stock', requireAuth, requireCsrf, requireAdmin, (req, res) => {
@@ -1087,10 +1088,9 @@ app.patch('/api/products/:id/stock', requireAuth, requireCsrf, requireAdmin, (re
     res.status(422).json({detail:'العدد يجب أن يكون صحيحاً بين صفر ومئة مليون'});
     return;
   }
-  p.quantity = parsed;
-  p.updated_at = new Date().toISOString();
-  products.set(p.id,p);
-  res.json(productDict(p, ctx.user));
+  const next:Product={...p,quantity:parsed,updated_at:new Date().toISOString()};
+  products.set(next.id,next);
+  res.json(productDict(next, ctx.user));
 });
 
 app.delete('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) => {
@@ -1143,9 +1143,8 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
     }
     fs.unlinkSync(req.file.path);
   }
-  p.image_name = req.file.filename;
-  p.updated_at = new Date().toISOString();
-  products.set(p.id,p);
+  const next:Product={...p,image_name:req.file.filename,updated_at:new Date().toISOString()};
+  products.set(next.id,next);
   res.json({ image_url: `/api/images/${req.file.filename}` });
 }));
 
