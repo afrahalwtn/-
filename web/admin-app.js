@@ -583,7 +583,10 @@ async function backendAvailable() {
   } catch {return false;}
   finally {clearTimeout(timeout);}
 }
+const formsInFlight = new WeakSet();
 async function handleForm(form) {
+  if(formsInFlight.has(form))return;
+  formsInFlight.add(form);
   const type=form.dataset.form;
   const fields=new FormData(form);
   const submit=form.querySelector('button[type="submit"]');
@@ -694,6 +697,7 @@ async function handleForm(form) {
       if(feedback){feedback.textContent=err?.message||'تعذّرت استعادة الحساب';feedback.hidden=false;}
     } else errorToast(err);
   } finally {
+    formsInFlight.delete(form);
     if (submit) {
       submit.disabled=false;
       if (type==='login') {submit.innerHTML=submit.dataset.originalLabel||'تسجيل الدخول';submit.removeAttribute('aria-busy');}
@@ -804,12 +808,23 @@ async function handleAction(action, el) {
     }
     case 'quote-remove': state.draft.splice(Number(el.dataset.idx),1);renderWorkspace();return;
     case 'quote-create': {
-      if (!state.draft.length) return;
+      if (!state.draft.length || state.quoteSaving) return;
+      state.quoteSaving=true;
+      const originalLabel=el.innerHTML;
+      el.disabled=true;
+      el.setAttribute('aria-busy','true');
+      el.textContent='جارٍ حفظ عرض الأسعار...';
       try {
-        const q=await api('/quotes',{method:'POST',data:{items:state.draft}});
+        const items=state.draft.map(item=>({...item}));
+        const q=await api('/quotes',{method:'POST',data:{items}});
         state.selectedQuote=q;state.draft=[];state.quoteSearch='';state.section='quotes';await refresh();renderWorkspace();showToast('تم حفظ عرض الأسعار');
         document.querySelector('.quote-preview')?.scrollIntoView({behavior:'smooth'});
-      } catch(err){errorToast(err);}return;
+      } catch(err){errorToast(err);}
+      finally {
+        state.quoteSaving=false;
+        if(el.isConnected){el.disabled=false;el.removeAttribute('aria-busy');el.innerHTML=originalLabel;}
+      }
+      return;
     }
     case 'quote-open': {
       try { state.selectedQuote=await api(`/quotes/${Number(el.dataset.id)}`);renderWorkspace();document.querySelector('.quote-preview')?.scrollIntoView({behavior:'smooth'});}
