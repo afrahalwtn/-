@@ -1224,6 +1224,9 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, rese
 }));
 
 app.get('/api/images/:filename', requireAuth, async (req, res) => {
+  // Product photos belong to authenticated company data. Browser or shared
+  // caches must not retain them after the user loses access.
+  res.setHeader('Cache-Control','private, no-store');
   const filename = String(req.params.filename || '');
   if (!/^[0-9a-f]{32}\.(?:webp|png|jpg)$/i.test(filename)) {
     res.status(404).json({ detail: 'الصورة غير موجودة' });
@@ -1232,7 +1235,7 @@ app.get('/api/images/:filename', requireAuth, async (req, res) => {
   if (cloudEnabled) {
     try {
       const remote = await loadCloudImage(filename);
-      res.setHeader('Cache-Control','private, max-age=300');
+
       res.type(filename.endsWith('.png')?'image/png':filename.endsWith('.jpg')?'image/jpeg':'image/webp');
       res.send(remote.data);
     } catch (error) {
