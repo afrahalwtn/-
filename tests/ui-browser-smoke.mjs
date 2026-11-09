@@ -316,6 +316,35 @@ try {
   assert((await staff.locator('.staff-product-row').count())>100,
     'Staff must be able to browse all records in batches');
 
+  // Stored product content is untrusted. Both portals must display it as
+  // text, never as executable HTML or a browser event handler.
+  const hostileName='تجربة XSS <img src=x onerror="window.__afrah_xss=1">';
+  const hostileResponse=await fetch(base+'/api/products',{
+    method:'POST',
+    headers:{'Content-Type':'application/json',
+      Authorization:'Bearer '+catalogAuth.access_token,
+      'X-CSRF-Token':catalogAuth.csrf},
+    body:JSON.stringify({name:hostileName,description:'<svg onload="window.__afrah_xss=1"></svg>',quantity:1})
+  });
+  assert.equal(hostileResponse.status,201,'Hostile input may be stored as literal text');
+  await desktop.reload({waitUntil:'domcontentloaded'});
+  await desktop.locator('.nav-link[data-section="products"]').click();
+  await desktop.locator('#products-search').fill('تجربة XSS');
+  await desktop.waitForTimeout(250);
+  assert.equal(await desktop.locator('.af-item-table tbody tr').count(),1);
+  assert.equal(await desktop.locator('.af-item-table tbody tr img[src="x"]').count(),0,
+    'Product names must not inject executable HTML on admin page');
+  assert.equal(await desktop.evaluate(()=>Boolean(window.__afrah_xss)),false,
+    'Stored product text must never execute script in admin portal');
+  await staff.reload({waitUntil:'domcontentloaded'});
+  await staff.locator('.sidebar-toggle').click();
+  await staff.locator('.nav-link[data-nav="products"]').click();
+  await staff.locator('#staff-products-search').fill('تجربة XSS');
+  assert.equal(await staff.locator('img[src="x"]').count(),0,
+    'Product names must not inject executable HTML in employee portal');
+  assert.equal(await staff.evaluate(()=>Boolean(window.__afrah_xss)),false,
+    'Stored product text must never execute script in employee portal');
+
   assert.equal(errors.length,0,'JavaScript runtime errors: '+errors.join('; '));
   console.log('PASS: separated admin/staff portals, shared Prepare List, role-safe price columns, and responsive mobile/iPad/desktop');
 } finally {
