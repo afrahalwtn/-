@@ -36,6 +36,16 @@ try {
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify({username:'a'.repeat(300000),password:'bad'})});
  assert.equal(r.status,413,'Oversized JSON must be rejected early');
+ // Malformed/oversized credentials are rejected without expensive password hashing.
+ r=await fetch(root+'/auth/login',{method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({username:'admin',password:'x'.repeat(25000)})});
+ assert.equal(r.status,401,'Very long login passwords must be rejected cheaply');
+ r=await fetch(root+'/auth/login',{method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({username:{nested:'admin'},password:'x'})});
+ assert.equal(r.status,401,'Object usernames must not be accepted');
+
  // Business-input regressions: never coerce invalid numbers to zero or one.
  const itemCall=(route,method,data)=>fetch(root+route,{
   method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+admin.access_token,
@@ -52,6 +62,10 @@ try {
   r=await itemCall('/products','POST',payload);
   assert.equal(r.status,422,'Invalid catalogue data must be rejected');
  }
+ r=await itemCall('/products','POST',{name:'وصف طويل',description:'و'.repeat(4500)});
+ assert.equal(r.status,422,'Oversized product description should fail before storage');
+ r=await itemCall('/users','POST',{username:'newstaff',full_name:'X'.repeat(130),password:'strong-password-123'});
+ assert.equal(r.status,422,'Oversized employee display name should be rejected');
  r=await itemCall('/products','POST',{name:'أيتم اختبار',quantity:12,
   min_quantity:3,purchase_price:800,sale_price:1500});
  assert.equal(r.status,201,'Valid item must still be accepted');
