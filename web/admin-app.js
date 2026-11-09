@@ -734,7 +734,7 @@ async function handleAction(action, el) {
     case 'recovery-toggle': state.showRecovery=!state.showRecovery;render();return;
     case 'switch-staff': await switchPortal(api,'/');return;
     case 'logout':
-      try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);}
+      try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);return;}
       state.user=null;setCsrf(null);setAccessToken(null);forgetPrivateImages();state.draft=[];render();return;
     case 'add-extra-field': {
       const holder=document.getElementById('af-extra-fields');
