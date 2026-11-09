@@ -35,7 +35,19 @@ try {
  });
  assert.equal(login.status,200);
  const admin=await login.json();
- let r=await fetch(root+'/auth/login',{method:'POST',
+ let // A giant current password must not trigger expensive password hashing
+ // or modify the authenticated account.
+ r=await fetch(root+'/auth/change-credentials',{method:'POST',
+  headers:{'Content-Type':'application/json',
+    Authorization:'Bearer '+admin.access_token,'X-CSRF-Token':admin.csrf},
+  body:JSON.stringify({username:'shouldnotchange',current_password:'a'.repeat(6000)})});
+ assert.equal(r.status,403,'Oversized current passwords must be rejected before scrypt');
+ const identity=await fetch(root+'/me',{
+  headers:{Authorization:'Bearer '+admin.access_token}
+ });
+ assert.equal((await identity.json()).user.username,'admin',
+  'Rejected credential mutation must leave the account unchanged');
+ r=await fetch(root+'/auth/login',{method:'POST',
   headers:{'Content-Type':'application/json'},body:'{'});
  assert.equal(r.status,400);
  assert.equal((await r.json()).detail,'صيغة الطلب غير صحيحة');
