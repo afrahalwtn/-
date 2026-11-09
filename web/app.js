@@ -19,7 +19,24 @@ async function loadStaffPhoto(img){
   const url=img.dataset.photo;
   if(!/^\/api\/images\/[0-9a-f]{32}\.(?:png|jpg|webp)$/i.test(url))return;
   img.dataset.imageLoading='1';
-  if(!photos.has(url))photos.set(url,apiMedia(url.slice(4)).then(b=>URL.createObjectURL(b)).catch(err=>{photos.delete(url);throw err;}));
+  if(photos.has(url)){
+    const cached=photos.get(url);
+    photos.delete(url);
+    photos.set(url,cached);
+  }else{
+    const pending=apiMedia(url.slice(4)).then(b=>URL.createObjectURL(b)).catch(err=>{
+      if(photos.get(url)===pending)photos.delete(url);
+      throw err;
+    });
+    photos.set(url,pending);
+    while(photos.size>160){
+      const oldest=photos.keys().next().value;
+      if(oldest===undefined)break;
+      const evicted=photos.get(oldest);
+      photos.delete(oldest);
+      evicted.then(objectURL=>URL.revokeObjectURL(objectURL)).catch(()=>{});
+    }
+  }
   try{const object=await photos.get(url);if(img.isConnected)img.src=object;}
   catch{if(img.isConnected)img.alt='صورة غير متاحة';}
   finally{delete img.dataset.imageLoading;}
