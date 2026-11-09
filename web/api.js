@@ -49,14 +49,32 @@ export async function api(path, {method='GET', data, file} = {}) {
 let activeMediaRequests=0;
 const mediaWaiters=[];
 const MAX_ACTIVE_MEDIA_REQUESTS=5;
+const MAX_MEDIA_QUEUE=100;
 async function acquireMediaSlot(){
-  if(activeMediaRequests<MAX_ACTIVE_MEDIA_REQUESTS){activeMediaRequests++;return;}
-  await new Promise(resolve=>mediaWaiters.push(resolve));
+  if(activeMediaRequests<MAX_ACTIVE_MEDIA_REQUESTS){
+    activeMediaRequests++;
+    return;
+  }
+  if(mediaWaiters.length>=MAX_MEDIA_QUEUE)
+    throw new Error('تحميل الصور مشغول؛ افتح عدداً أقل من الصور');
+  // The fetch timeout does not cover time spent waiting for a free slot.
+  // Bound waiting separately and remove timed-out tasks from the queue.
+  await new Promise((resolve,reject)=>{
+    const waiter={resolve,timer:null};
+    waiter.timer=setTimeout(()=>{
+      const index=mediaWaiters.indexOf(waiter);
+      if(index>=0)mediaWaiters.splice(index,1);
+      reject(new Error('تأخر انتظار تحميل الصورة؛ حاول مرة ثانية'));
+    },15000);
+    mediaWaiters.push(waiter);
+  });
 }
 function releaseMediaSlot(){
   const waiter=mediaWaiters.shift();
-  if(waiter)waiter(); // Hand off the existing slot without incrementing.
-  else activeMediaRequests=Math.max(0,activeMediaRequests-1);
+  if(waiter){
+    clearTimeout(waiter.timer);
+    waiter.resolve(); // Transfer the current permit.
+  }else activeMediaRequests=Math.max(0,activeMediaRequests-1);
 }
 export async function apiMedia(path) {
   if (!/^\/images\/[a-f0-9]{32}\.(png|jpg|webp)$/i.test(path)) throw new Error('مسار الصورة غير صالح');
