@@ -565,3 +565,50 @@ button:is(:hover,:focus-visible)>.af-nuda-menu .nuda-icon-burger__bot{
     opacity:0!important;stroke-dashoffset:18!important;
   }
 }
+
+
+/* Afrah Al Watan — agreed typography system, November 2026.
+   Beiruti = headlines/section titles; Zain = content, forms, labels, numbers.
+   Both SIL Open Font License families, served by Google Fonts CSS2. */
+:root{
+  --af-font-heading:"Beiruti","Zain","Tajawal",Arial,sans-serif;
+  --af-font-body:"Zain","Tajawal",Arial,sans-serif;
+}
+html,body,
+body .shell,
+body .auth-page,
+body .modal,
+body .af-dialog,
+body .toast,
+body .footer,
+body .print-sheet{
+  font-family:var(--af-font-body)!important;
+}
+button,input,select,textarea,option,table,
+.tabulator,.tabulator *{
+  font-family:var(--af-font-body)!important;
+}
+body :is(h1,h2,h3,h4,h5,h6),
+body :is(.page-title,.panel-head,.af-greeting-body,.af-home-search-label,.af-home-alert-heading,.af-prep-heading,.modal-head,.af-dialog-title,.auth-brand,.auth-box,.sidebar-head,.sidebar-titles,.brand-heading,.top-identity,.section-title) :is(h1,h2,h3,h4,h5,h6),
+body :is(.sidebar-titles strong,.top-identity strong,.auth-brand,.auth-box h1,
+  .af-greeting-tag,.af-greeting-body h1,.af-prep-overline,
+  .af-home-search-label,.menu-caption,.panel-head h2,
+  .page-title .eyebrow,.af-utility-intro strong,
+  .modal-head h2,.af-dialog-title,.af-prep-heading h1){
+  font-family:var(--af-font-heading)!important;
+}
+body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
+  .af-greeting-body p,.af-alert-value,.field-note,.form-control,
+  .data-table td,.data-table th,.tabulator-cell,.tabulator-col-title,
+  .nav-link,.btn,.af-link,.quote-meta,.quote-sum,.user-detail,
+  .sidebar-bottom,.footer){
+  font-family:var(--af-font-body)!important;
+}
+@media print{
+  body,.print-sheet,.print-sheet table,.print-sheet td{
+    font-family:var(--af-font-body)!important;
+  }
+  .print-sheet :is(h1,h2,h3,h4){
+    font-family:var(--af-font-heading)!important;
+  }
+}
