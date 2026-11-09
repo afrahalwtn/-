@@ -812,6 +812,16 @@ app.post('/api/auth/handoff', requireAuth, requireCsrf, requireAdmin, (req,res) 
   for(const [key,item] of handoffs){
     if(item.expiresAt<Date.now())handoffs.delete(key);
   }
+  // At most one outstanding ticket per existing administrator session.
+  // Repeated tab switching must not accumulate unredeemed handoff secrets.
+  for(const [key,item] of handoffs){
+    if(item.oldSessionHash===ctx.session.token_hash)handoffs.delete(key);
+  }
+  if(handoffs.size>=500){
+    res.setHeader('Retry-After','2');
+    res.status(503).json({detail:'خدمة الانتقال مشغولة مؤقتاً، حاول مرة ثانية'});
+    return;
+  }
   const ticket=crypto.randomBytes(32).toString('base64url');
   handoffs.set(tokenDigest(ticket),{
     userId:ctx.user.id,
