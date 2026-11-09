@@ -38,6 +38,8 @@ on:
       - "image-guard.ts"
       - "tests/image-dimensions.mjs"
       - "tests/negative-mutation-matrix.mjs"
+      - "tests/media-backpressure.mjs"
+      - "web/api.js"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
 
@@ -62,6 +64,8 @@ jobs:
         run: node tests/arabic-search.mjs
       - name: Validate uploaded image dimensions against memory bombs
         run: node --import tsx tests/image-dimensions.mjs
+      - name: Test five-at-a-time image download backpressure
+        run: node tests/media-backpressure.mjs
       - name: Test persistent SQLite database with 4200 product records
         run: node --import tsx tests/sqlite-persistence.mjs
       - name: Test real server restart with SQLite file
