@@ -283,8 +283,10 @@ function renderPreparedGrid(){
   if(totals)totals.innerHTML=preparedTotals();
  });
 }
+let executionSaveInFlight=false;
 async function saveExecutionList(){
- if(!state.draft.length)return;
+ if(!state.draft.length||executionSaveInFlight)return;
+ executionSaveInFlight=true;
  const button=document.getElementById('staff-save-list');
  if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
  try{
@@ -297,6 +299,8 @@ async function saveExecutionList(){
  }catch(error){
   message(error?.message||'تعذّر حفظ القائمة');
   if(button){button.disabled=false;button.innerHTML='حفظ قائمة التنفيذ';}
+ }finally{
+  executionSaveInFlight=false;
  }
 }
 async function printPreparedList(){
