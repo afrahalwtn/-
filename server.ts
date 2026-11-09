@@ -1006,6 +1006,10 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(asy
     res.status(422).json({ detail: 'اسم الأيتم مطلوب وبحد أقصى 200 رمز' });
     return;
   }
+  if(typeof description!=='string'||description.length>4000||
+     typeof manufacture!=='string'||manufacture.length>200){
+    res.status(422).json({detail:'وصف الأيتم أو بلد الصنع أطول من الحد المسموح'});return;
+  }
   const parsedQuantity=stockCount(quantity),parsedMinQuantity=stockCount(min_quantity);
   const parsedPurchase=moneyAmount(purchase_price),parsedSale=moneyAmount(sale_price);
   if ([parsedQuantity,parsedMinQuantity,parsedPurchase,parsedSale].some(value=>value===null)) {
@@ -1045,6 +1049,10 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
   catch(error){res.status(422).json({detail:(error as Error).message});return;}
   if(name !== undefined && (typeof name !== 'string' || !name.trim() || name.trim().length>200)){
     res.status(422).json({detail:'اسم الأيتم مطلوب وبحد أقصى 200 رمز'});return;
+  }
+  if((description!==undefined&&(typeof description!=='string'||description.length>4000))||
+     (manufacture!==undefined&&(typeof manufacture!=='string'||manufacture.length>200))){
+    res.status(422).json({detail:'وصف الأيتم أو بلد الصنع أطول من الحد المسموح'});return;
   }
   const parsedQuantity=quantity===undefined?undefined:stockCount(quantity);
   const parsedMinQuantity=min_quantity===undefined?undefined:stockCount(min_quantity);
@@ -1195,6 +1203,9 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async 
     res.status(422).json({ detail: 'جميع الحقول مطلوبة' });
     return;
   }
+  if(typeof full_name!=='string'||!full_name.trim()||full_name.length>120){
+    res.status(422).json({detail:'الاسم الكامل يجب أن يكون من 1 إلى 120 رمزاً'});return;
+  }
   const uname = normalizeUsername(String(username));
   if(!validUsername(username) || typeof password!=='string'||password.length<10||password.length>128){
     res.status(422).json({detail:'اسم الدخول أو كلمة المرور غير صالحة (10 رموز على الأقل)'});
@@ -1248,7 +1259,10 @@ app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) =
       return;
     }
   }
-  if (full_name !== undefined) u.full_name = String(full_name).trim();
+  if(full_name!==undefined&&(typeof full_name!=='string'||!full_name.trim()||full_name.length>120)){
+    res.status(422).json({detail:'الاسم الكامل يجب أن يكون من 1 إلى 120 رمزاً'});return;
+  }
+  if (full_name !== undefined) u.full_name = full_name.trim();
   if ((password !== undefined && password !== '') || is_active===false)
     rotateAuthGeneration(u);
   if (password !== undefined && password !== '') {
