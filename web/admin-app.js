@@ -31,13 +31,27 @@ function forgetPrivateImages() {
   privateImages.clear();
 }
 function getPrivateImage(url) {
-  if (!privateImages.has(url)) {
-    const pending=apiMedia(url.slice(4)).then(blob=>URL.createObjectURL(blob)).catch(err=>{
-      privateImages.delete(url);throw err;
-    });
-    privateImages.set(url,pending);
+  if (privateImages.has(url)) {
+    // Refresh insertion order for an upper-bounded LRU object-URL cache.
+    const cached=privateImages.get(url);
+    privateImages.delete(url);
+    privateImages.set(url,cached);
+    return cached;
   }
-  return privateImages.get(url);
+  const pending=apiMedia(url.slice(4)).then(blob=>URL.createObjectURL(blob)).catch(err=>{
+    if(privateImages.get(url)===pending)privateImages.delete(url);
+    throw err;
+  });
+  privateImages.set(url,pending);
+  while(privateImages.size>160){
+    const oldest=privateImages.keys().next().value;
+    if(oldest===undefined)break;
+    const unused=privateImages.get(oldest);
+    privateImages.delete(oldest);
+    // Old off-screen images must not keep large compressed blobs forever.
+    unused.then(objectURL=>URL.revokeObjectURL(objectURL)).catch(()=>{});
+  }
+  return pending;
 }
 async function loadPrivateImage(node){
   if(!node.isConnected||node.dataset.imageLoading==='1'||node.src.startsWith('blob:'))return;
