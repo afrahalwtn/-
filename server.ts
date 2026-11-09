@@ -1038,7 +1038,7 @@ app.get('/api/products', requireAuth, (req, res) => {
 
 app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
   const ctx = (req as any).auth as AuthContext;
-  const { name, description = '', manufacture = '', quantity = 0, min_quantity = 0, purchase_price = 0, sale_price = 0 } = req.body;
+  const { name, description = '', manufacture = '', quantity = 0, min_quantity = 0, purchase_price = 0, sale_price = 0 } = req.body || {};
   if (typeof name !== 'string' || !name.trim() || name.trim().length>200) {
     res.status(422).json({ detail: 'اسم الأيتم مطلوب وبحد أقصى 200 رمز' });
     return;
@@ -1083,7 +1083,7 @@ app.put('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, res) 
     res.status(404).json({ detail: 'المادة غير موجودة' });
     return;
   }
-  const { name, description, manufacture, quantity, min_quantity, purchase_price, sale_price } = req.body;
+  const { name, description, manufacture, quantity, min_quantity, purchase_price, sale_price } = req.body || {};
   let extras:Partial<Product>;
   try { extras=parseProductExtras(req.body||{}); }
   catch(error){res.status(422).json({detail:(error as Error).message});return;}
@@ -1279,7 +1279,7 @@ app.get('/api/users', requireAuth, requireAdmin, (_req, res) => {
 });
 
 app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
-  const { username, full_name, password, can_view_purchase = false, can_view_sale = false } = req.body;
+  const { username, full_name, password, can_view_purchase = false, can_view_sale = false } = req.body || {};
   if (!username || !full_name || !password) {
     res.status(422).json({ detail: 'جميع الحقول مطلوبة' });
     return;
