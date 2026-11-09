@@ -1554,6 +1554,33 @@ void (async ()=>{
     server.requestTimeout=180_000;
     server.keepAliveTimeout=5_000;
     server.maxRequestsPerSocket=1000;
+    // Render deployments send SIGTERM. Drain accepted requests and confirm
+    // queued Supabase writes before allowing the process to exit. A hard
+    // deadline prevents hanging forever if the network has disappeared.
+    let shuttingDown=false;
+    const shutdown=(signal:string)=>{
+      if(shuttingDown)return;
+      shuttingDown=true;
+      console.info('Graceful server shutdown requested:',signal);
+      const deadline=setTimeout(()=>{
+        console.error('Shutdown deadline exceeded; terminating the process');
+        process.exit(1);
+      },25_000);
+      void new Promise<void>((resolve,reject)=>{
+        server.close(error=>error?reject(error):resolve());
+        server.closeIdleConnections?.();
+      }).then(async()=>{
+        await flushCloudWrites();
+        clearTimeout(deadline);
+        process.exit(0);
+      }).catch((error:unknown)=>{
+        clearTimeout(deadline);
+        console.error('Shutdown could not confirm pending cloud writes:',error instanceof Error?error.message:'unknown');
+        process.exit(1);
+      });
+    };
+    process.once('SIGTERM',()=>shutdown('SIGTERM'));
+    process.once('SIGINT',()=>shutdown('SIGINT'));
   } catch (error) {
     console.error('Cannot start server: cloud data could not be confirmed',error instanceof Error?error.message:'unknown');
     process.exitCode=1;
