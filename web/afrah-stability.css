@@ -77,3 +77,70 @@ html,body{max-width:100%;overflow-x:clip}
 @media(prefers-reduced-motion:reduce){
   .shell .sidebar.navbar-vertical{transition:none!important}
 }
+
+
+/* 2026-11-09: One unified mobile-approved sidebar on all viewport widths.
+   Presentation only: keep existing navigation, authentication and actions. */
+.shell.shell-v6.page .sidebar.navbar-vertical{
+  background:linear-gradient(165deg,#f1f3ff 0%,#fff 54%,#f7f8ff 100%)!important;
+  color:#203265!important;
+  border:0!important;
+  border-inline-start:1px solid #e2e5f4!important;
+  box-shadow:-8px 0 32px rgba(22,31,74,.10)!important;
+  overflow-x:hidden;
+}
+.shell.shell-v6.page .sidebar .sidebar-head{
+  border-bottom:1px solid #e2e6f6!important;
+  padding:15px 9px 20px;
+  min-height:86px;
+  margin-bottom:9px;
+}
+.shell.shell-v6.page .sidebar .sidebar-titles strong{color:#212f6f!important;font-size:17px}
+.shell.shell-v6.page .sidebar .sidebar-titles small{color:#7984a6!important}
+.shell.shell-v6.page .sidebar .brand-square{
+  color:#344292!important;background:#e8ebff!important;
+  border:1px solid #d5dcfa!important;box-shadow:none!important;
+}
+.shell.shell-v6.page .sidebar .menu-caption{
+  color:#7e88ac!important;font-size:11px;font-weight:800;
+  margin:16px 12px 9px;
+}
+.shell.shell-v6.page .sidebar nav{gap:5px}
+.shell.shell-v6.page .sidebar .nav-link{
+  color:#35456c!important;
+  background:transparent!important;
+  border:1px solid transparent!important;
+  border-radius:12px!important;
+  min-height:49px;padding:6px 10px;
+  font-size:13px;font-weight:800;
+  box-shadow:none!important;
+}
+.shell.shell-v6.page .sidebar .nav-link .nav-icon{
+  color:#4b60a0!important;background:#f0f2ff!important;
+  border:1px solid #e5e9fa!important;border-radius:10px;
+}
+.shell.shell-v6.page .sidebar .nav-link:hover{
+  color:#243581!important;background:#eef1ff!important;
+  border-color:#dfe4fa!important;
+}
+.shell.shell-v6.page .sidebar .nav-link.active,
+.shell.shell-v6.page .sidebar .nav-link[aria-current="page"]{
+  color:#26377d!important;
+  background:linear-gradient(100deg,#e6eaff,#f5f5ff)!important;
+  border-color:#d9dffa!important;
+  box-shadow:inset -3px 0 #ef4958!important;
+}
+.shell.shell-v6.page .sidebar .nav-link.active .nav-icon,
+.shell.shell-v6.page .sidebar .nav-link[aria-current="page"] .nav-icon{
+  color:#303e91!important;background:#dce2ff!important;
+  border-color:#cdd6ff!important;
+}
+.shell.shell-v6.page .sidebar .nav-count{
+  background:#ef4958!important;color:#fff!important;
+}
+.shell.shell-v6.page .sidebar .sidebar-bottom{
+  border-top:1px solid #e3e7f3!important;
+  color:#68749b!important;
+  font-size:12px;padding-top:20px;
+}
+.shell.shell-v6.page .sidebar .sidebar-bottom-line{background:#ef4958!important}
