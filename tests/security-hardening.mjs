@@ -89,6 +89,31 @@ try {
  r=await itemCall('/quotes','POST',{items:[{product_id:item.id,quantity:2}]});
  assert.equal(r.status,201,'Valid quotes still work');
  assert.equal((await r.json()).total,3000);
+ // Atomic account update: a rejected later field must not change the
+ // account username, role or purchasing visibility in memory.
+ r=await itemCall('/users','POST',{
+  username:'auditstaff',full_name:'موظف الاختبار',
+  password:'AuditPassword123!',can_view_purchase:false,can_view_sale:true
+ });
+ assert.equal(r.status,201,'Create test employee');
+ const staff=await r.json();
+ r=await itemCall('/users/'+staff.id,'PATCH',{
+  username:'unexpectedname',full_name:'ع'.repeat(130)
+ });
+ assert.equal(r.status,422,'Invalid display name must abort whole account edit');
+ r=await itemCall('/users/'+staff.id,'PATCH',{
+  username:'unexpectedname',can_view_purchase:'false'
+ });
+ assert.equal(r.status,422,'String permission flags must not be converted to true');
+ r=await fetch(root+'/users',{
+  headers:{Authorization:'Bearer '+admin.access_token}
+ });
+ assert.equal(r.status,200,'Admin can read users');
+ const unchanged=(await r.json()).find(u=>u.id===staff.id);
+ assert.equal(unchanged.username,'auditstaff',
+  'Rejected PATCH must never mutate the original username');
+ assert.equal(unchanged.can_view_purchase,false,
+  'Rejected PATCH must never elevate staff purchase visibility');
  const file=new FormData();
  file.set('file',new Blob(['not a real image'],{type:'image/png'}),'f.png');
  r=await fetch(root+'/products/1/image',{method:'POST',
