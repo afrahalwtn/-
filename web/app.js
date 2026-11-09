@@ -85,7 +85,7 @@ function pricing(p){
 function loginView(){
   return '<div class="auth-page auth-v6 page page-center">'+
     '<div class="auth-visual"><div class="auth-visual-inner">'+
-      '<div class="auth-brand-mark"><img class="af-auth-main-logo" src="/assets/afrah-alwatan.svg?v=20261106" alt="أفراح الوطن"></div>'+
+      '<div class="auth-brand-mark"><img class="af-auth-main-logo" src="/assets/afrah-alwatan.svg?v=20261109-original" alt="أفراح الوطن"></div>'+
       '<div class="auth-preview"><img class="auth-logo" src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello"></div>'+
     '</div></div>'+
     '<section class="auth-content"><div class="auth-box card"><span class="auth-kicker">بوابة الموظفين</span>'+
@@ -108,7 +108,7 @@ function shell(){
    <div class="mobile-scrim ${state.sidebarOpen?'show':''}" data-toggle="menu"></div>
    <div class="main-shell"><header class="topbar navbar af-dual-header">
         <div class="af-brand-row" aria-label="الهوية الرسمية للشركة">
-          <a class="af-brand-primary" href="/" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261106" alt="Afrah Al Watan — أفراح الوطن"></a>
+          <a class="af-brand-primary" href="/" title="أفراح الوطن — الرئيسية"><img src="/assets/afrah-alwatan.svg?v=20261109-original" alt="Afrah Al Watan — أفراح الوطن"></a>
           <div class="af-brand-secondary" aria-label="العلامة التجارية Tapello">
             <span class="af-brand-secondary-copy">علامتنا التجارية للمنتجات اللاصقة</span>
             <img src="/assets/tapello.svg?v=20261105-pdf-logo" alt="Tapello">
