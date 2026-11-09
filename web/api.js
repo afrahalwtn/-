@@ -44,20 +44,39 @@ export async function api(path, {method='GET', data, file} = {}) {
 }
 // Authenticated media fetch for embedded Google AI Studio previews.
 // <img src> cannot attach the in-memory bearer token when cookies are blocked.
+// Bound media downloads so a 100-image catalogue or printed receipt cannot
+// open hundreds of concurrent connections to Render/Supabase.
+let activeMediaRequests=0;
+const mediaWaiters=[];
+const MAX_ACTIVE_MEDIA_REQUESTS=5;
+async function acquireMediaSlot(){
+  if(activeMediaRequests<MAX_ACTIVE_MEDIA_REQUESTS){activeMediaRequests++;return;}
+  await new Promise(resolve=>mediaWaiters.push(resolve));
+}
+function releaseMediaSlot(){
+  const waiter=mediaWaiters.shift();
+  if(waiter)waiter(); // Hand off the existing slot without incrementing.
+  else activeMediaRequests=Math.max(0,activeMediaRequests-1);
+}
 export async function apiMedia(path) {
   if (!/^\/images\/[a-f0-9]{32}\.(png|jpg|webp)$/i.test(path)) throw new Error('مسار الصورة غير صالح');
   const headers = {};
   if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
-  let res;
+  await acquireMediaSlot();
   try {
-    res = await fetch('/api' + path, {method:'GET',credentials:'same-origin',cache:'no-store',headers,signal:AbortSignal.timeout(30000)});
-  } catch {
-    throw new Error('تأخر تحميل الصورة بسبب الاتصال؛ حاول فتحها لاحقاً');
+    let res;
+    try {
+      res = await fetch('/api' + path, {method:'GET',credentials:'same-origin',cache:'no-store',headers,signal:AbortSignal.timeout(30000)});
+    } catch {
+      throw new Error('تأخر تحميل الصورة بسبب الاتصال؛ حاول فتحها لاحقاً');
+    }
+    if (!res.ok) throw new Error('تعذّر تحميل الصورة');
+    const blob = await res.blob();
+    if (!blob.type.startsWith('image/') || blob.size>3*1024*1024) throw new Error('ملف الصورة غير متوقع');
+    return blob;
+  } finally {
+    releaseMediaSlot();
   }
-  if (!res.ok) throw new Error('تعذّر تحميل الصورة');
-  const blob = await res.blob();
-  if (!blob.type.startsWith('image/') || blob.size>3*1024*1024) throw new Error('ملف الصورة غير متوقع');
-  return blob;
 }
 export function money(value) { return new Intl.NumberFormat('ar-IQ-u-nu-latn').format(value ?? 0) + ' د.ع'; }
 export function number(value) { return new Intl.NumberFormat('ar-IQ-u-nu-latn').format(value ?? 0); }
