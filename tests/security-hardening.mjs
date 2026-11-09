@@ -21,6 +21,11 @@ try {
  assert(ready,'Test server unavailable: '+log.slice(-500));
  const health=await fetch(root+'/health');
  assert.equal(health.headers.get('x-content-type-options'),'nosniff');
+ const csp=health.headers.get('content-security-policy')||'';
+ assert(csp.includes("script-src 'self'"),'Only first-party scripts must be executable');
+ assert(csp.includes("object-src 'none'"),'Object/plugin content must be blocked');
+ assert(!csp.includes("unsafe-eval"),'Dynamic code evaluation must stay disallowed');
+ assert(!csp.includes("frame-ancestors"),'Authorized preview embedding remains compatible');
  assert(health.headers.has('ratelimit'),'API must declare its rate limit');
  const login=await fetch(root+'/admin/auth/login',{
   method:'POST',headers:{'Content-Type':'application/json'},
