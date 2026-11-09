@@ -512,10 +512,25 @@ const upload = multer({
   }),
 });
 
-// Middleware: security headers compatible with embedded AI Studio preview.
-// Frameguard and CSP need a separate verified allowlist before enforcement.
+// Browser defense in depth: permit the first-party app, protected blob images,
+// and official font stylesheets, but prevent injected third-party scripts.
+// frame-ancestors remains unset until the embed allowlist is confirmed; this
+// preserves the existing Google AI Studio preview without weakening script CSP.
 app.use(helmet({
-  contentSecurityPolicy:false,
+  contentSecurityPolicy:{
+    useDefaults:false,
+    directives:{
+      defaultSrc:["'self'"],
+      baseUri:["'self'"],
+      objectSrc:["'none'"],
+      scriptSrc:["'self'"],
+      styleSrc:["'self'","'unsafe-inline'","https://fonts.googleapis.com"],
+      fontSrc:["'self'","https://fonts.gstatic.com","data:"],
+      imgSrc:["'self'","blob:","data:"],
+      connectSrc:["'self'"],
+      formAction:["'self'"]
+    }
+  },
   frameguard:false,
   crossOriginEmbedderPolicy:false,
   crossOriginOpenerPolicy:false
