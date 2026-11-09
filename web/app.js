@@ -7,7 +7,7 @@ import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100};
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
 function asset(p){
@@ -164,12 +164,12 @@ function pageHeading(title,subtitle){
 function productRows(list,inventory=false){
  return '<section class="panel card"><div class="panel-head"><h2>'+ (inventory?'جرد الايتمات':'الايتمات المسجّلة')+
     '</h2><span class="count-label">'+number(list.length)+' ايتم</span></div>'+
-   '<div class="staff-list">'+list.map(p=>
+   '<div class="staff-list">'+list.slice(0,state.catalogLimit).map(p=>
      '<article class="staff-product-row">'+asset(p)+
        '<div class="staff-product-info"><strong>'+safe(p.name)+'</strong><small>'+safe(p.description)+'</small>'+
        '<span>الصنع: '+safe(p.manufacture||'—')+'</span>'+itemSpecs(p)+'</div>'+
        '<div class="staff-product-meta"><span class="staff-qty">العدد: '+number(p.quantity)+'</span>'+status(p)+
-       (inventory?'':pricing(p))+'</div></article>').join('')+'</div></section>';
+       (inventory?'':pricing(p))+'</div></article>').join('')+'</div>'+ (list.length>state.catalogLimit?'<div class="af-catalog-more"><span>معروض '+number(state.catalogLimit)+' من '+number(list.length)+' أيتم</span><button type="button" class="btn quiet" data-more="catalog">عرض 100 أيتم إضافي</button></div>':'')+'</section>';
 }
 function products(){
  const rows=state.query.trim()?filterArabicProducts(state.products,state.query):state.products;
@@ -387,7 +387,7 @@ document.addEventListener('submit',async e=>{
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
 document.addEventListener('click',async e=>{
- const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],#staff-print-list,#staff-save-list');
+ const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
  if(el?.dataset.switch==='admin'&&state.user?.role==='admin'){
    try{await switchPortal(api,'/admin');}catch(err){message(err?.message||'تعذر الانتقال للإدارة');}
    return;
@@ -411,7 +411,12 @@ document.addEventListener('click',async e=>{
  if(el?.id==='staff-save-list' && state.user){await saveExecutionList();return;}
  if(!el||!state.user)return;
  if(el.dataset.toggle){state.sidebarOpen=!state.sidebarOpen;render();return;}
+ if(el.dataset.more==='catalog'){
+  state.catalogLimit=Math.min(state.products.length,state.catalogLimit+100);
+  workspace();return;
+ }
  if(el.dataset.nav){
+  state.catalogLimit=100;
   state.section=el.dataset.nav;state.query='';
   if(innerWidth<950)state.sidebarOpen=false;
   render();scrollTo(0,0);return;
@@ -439,6 +444,7 @@ document.addEventListener('input',e=>{
  }
  if(input.id==='staff-products-search'){
   state.query=input.value;
+  state.catalogLimit=100;
   clearTimeout(staffSearchTimer);
   staffSearchTimer=setTimeout(()=>{
    if(state.section!=='products')return;
