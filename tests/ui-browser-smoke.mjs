@@ -258,6 +258,43 @@ try {
   await recoveryPage.locator('form[data-form="recovery"]').waitFor();
   await recoveryPage.screenshot({path:'screenshots/admin-account-recovery.png',fullPage:true});
 
+  // Stress the browser with >100 catalogue rows without constructing all DOM
+  // rows at once. The complete catalogue remains searchable and accessible.
+  const catalogLogin=await fetch(base+'/api/admin/auth/login',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'admin',password:'admin123456'})
+  });
+  assert.equal(catalogLogin.status,200,'Catalog stress test admin login');
+  const catalogAuth=await catalogLogin.json();
+  for(let n=0;n<105;n++){
+    const inserted=await fetch(base+'/api/products',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',
+        Authorization:'Bearer '+catalogAuth.access_token,
+        'X-CSRF-Token':catalogAuth.csrf},
+      body:JSON.stringify({name:'اختبار حمل الايتم '+n,quantity:3})
+    });
+    assert.equal(inserted.status,201,'Stress catalogue item must be saved');
+  }
+  await desktop.reload({waitUntil:'domcontentloaded'});
+  await desktop.locator('.nav-link[data-section="products"]').click();
+  await desktop.locator('.af-item-table tbody tr').first().waitFor();
+  assert.equal(await desktop.locator('.af-item-table tbody tr').count(),100,
+    'Admin catalogue must not render more than 100 initial rows');
+  await desktop.locator('[data-action="catalog-more"]').click();
+  assert((await desktop.locator('.af-item-table tbody tr').count())>100,
+    'Admin catalogue must reveal additional rows on demand');
+
+  await staff.reload({waitUntil:'domcontentloaded'});
+  await staff.locator('.sidebar-toggle').click();
+  await staff.locator('.nav-link[data-nav="products"]').click();
+  await staff.locator('.staff-product-row').first().waitFor();
+  assert.equal(await staff.locator('.staff-product-row').count(),100,
+    'Staff catalogue must initially show at most 100 rows');
+  await staff.locator('[data-more="catalog"]').click();
+  assert((await staff.locator('.staff-product-row').count())>100,
+    'Staff must be able to browse all records in batches');
+
   assert.equal(errors.length,0,'JavaScript runtime errors: '+errors.join('; '));
   console.log('PASS: separated admin/staff portals, shared Prepare List, role-safe price columns, and responsive mobile/iPad/desktop');
 } finally {
