@@ -27,7 +27,17 @@ try{
  // Failed fetches must return the concurrency permit to the pool.
  const recovered=await apiMedia('/images/000000000000000000000000000000fe.png');
  assert.equal(recovered.type,'image/png');
- console.log('PASS: queued media fetches max concurrency='+peak+', permits recovered after failure');
+ // Even a runaway UI must never queue an unbounded number of image fetches.
+ const flood=await Promise.allSettled(Array.from({length:120},(_,i)=>
+  apiMedia('/images/'+(i+400).toString(16).padStart(32,'0')+'.png')));
+ const fulfilled=flood.filter(item=>item.status==='fulfilled').length;
+ const rejected=flood.filter(item=>item.status==='rejected').length;
+ assert.equal(fulfilled+rejected,120);
+ assert(rejected>=15,'Media queue must refuse requests once 100 are waiting');
+ assert(peak<=5,'Media queue must never exceed five active network requests');
+ const final=await apiMedia('/images/000000000000000000000000000000fd.png');
+ assert.equal(final.type,'image/png','Queue should recover fully after high load');
+ console.log('PASS: bounded image downloads, overflow rejected='+rejected+', peak='+peak+', permits recovered');
 }finally{
  globalThis.fetch=originalFetch;
 }
