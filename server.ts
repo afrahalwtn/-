@@ -1271,7 +1271,11 @@ app.get('/api/alerts', requireAuth, (_req, res) => {
 // Users
 app.get('/api/users', requireAuth, requireAdmin, (_req, res) => {
   const list = Array.from(users.values()).sort((a, b) => a.id - b.id);
-  res.json(list.map((u) => ({...userDict(u),active_sessions:Array.from(sessions.values()).filter(sess=>sess.user_id===u.id).length})));
+  // Counting every session for every employee scales as users × sessions.
+  // Aggregate once to keep the admin account screen responsive over time.
+  const sessionCounts=new Map<number,number>();
+  for(const sess of sessions.values())sessionCounts.set(sess.user_id,(sessionCounts.get(sess.user_id)||0)+1);
+  res.json(list.map((u) => ({...userDict(u),active_sessions:sessionCounts.get(u.id)||0})));
 });
 
 app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async (req, res) => {
@@ -1377,10 +1381,12 @@ app.post('/api/users/:id/revoke-sessions',requireAuth,requireCsrf,requireAdmin,(
     res.status(404).json({detail:'المستخدم غير موجود أو لا يمكن إنهاء جلساته'});
     return;
   }
-  rotateAuthGeneration(u);
-  users.set(u.id,u);
+  // Stage revocation rather than mutating the shared live user entry.
+  const next:User={...u};
+  rotateAuthGeneration(next);
+  users.set(next.id,next);
   const count=terminateUserAccess(id);
-  recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'revoke_sessions',u.username);
+  recordAccountAudit(((req as any).auth as AuthContext).user.id,id,'revoke_sessions',next.username);
   res.json({ok:true,revoked_sessions:count,message:'تم تسجيل خروج المستخدم من جميع الأجهزة'});
 });
 app.delete('/api/users/:id',requireAuth,requireCsrf,requireAdmin,(req,res)=>{
@@ -1391,7 +1397,8 @@ app.delete('/api/users/:id',requireAuth,requireCsrf,requireAdmin,(req,res)=>{
   }
   const ctx=(req as any).auth as AuthContext;
   const confirmation=req.body?.current_password;
-  if(typeof confirmation!=='string'||!verifyPassword(confirmation,ctx.user.password)){
+  if(typeof confirmation!=='string'||confirmation.length<1||confirmation.length>1024||
+     !verifyPassword(confirmation,ctx.user.password)){
     res.status(403).json({detail:'يجب إدخال كلمة مرور الإدارة الصحيحة لتأكيد الحذف النهائي'});
     return;
   }
