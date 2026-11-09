@@ -46,8 +46,14 @@ try{
 
  const handoff=await post('/auth/handoff',{},admin);
  assert.equal(handoff.status,200);
- const ticket=(await handoff.json()).ticket;
+ const previousTicket=(await handoff.json()).ticket;
+ const replacement=await post('/auth/handoff',{},admin);
+ assert.equal(replacement.status,200,'Admin may retry handoff safely');
+ const ticket=(await replacement.json()).ticket;
  assert.match(ticket,/^[A-Za-z0-9_-]{43}$/);
+ assert.notEqual(ticket,previousTicket,'New handoff uses an independent secure token');
+ assert.equal((await post('/auth/handoff/exchange',{ticket:previousTicket})).status,401,
+  'Older outstanding ticket must be revoked before a replacement is issued');
  const first=await post('/auth/handoff/exchange',{ticket});
  assert.equal(first.status,200,'Admin handoff redeems without employee credentials');
  const transferred=await first.json();
