@@ -1,5 +1,5 @@
 import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261105-secure-images';
-import {icon} from './icons.js?v=20261109-line-md-slow-3';
+import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
@@ -215,7 +215,7 @@ function homeView() {
       <div class="card-status-top bg-blue"></div>
       <div class="card-body af-greeting-body">
         <div class="af-greeting-tag">شركة أفراح الوطن للتجارة العامة</div>
-        <h1><split-text split="words" effect="rise" trigger="load" delay="900" stagger="255" duration="1450" easing="cubic-bezier(0.16, 1, 0.3, 1)" dir="rtl" lang="ar">يا هلا ومرحبا</split-text></h1>
+        <h1><span class="nuda-blur-reveal" dir="rtl" lang="ar">يا هلا ومرحبا</span></h1>
         <p>اكتشف الايتمات، تابع المخزون، وجهّز طلباتك بسهولة من مكان واحد.</p>
       </div>
     </section>
