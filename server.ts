@@ -1031,6 +1031,10 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(asy
     res.status(422).json({detail:'أدخل أعداداً صحيحة غير سالبة للكميات وأسعاراً مالية صالحة'});
     return;
   }
+  // Invalid optional specs must not reserve an ID or touch cloud metadata.
+  let validatedExtras:Partial<Product>;
+  try { validatedExtras=parseProductExtras(req.body||{}); }
+  catch(error){res.status(422).json({detail:(error as Error).message});return;}
   const id = await allocateRecordId('products');
   const p: Product = {
     id,
@@ -1044,8 +1048,7 @@ app.post('/api/products', requireAuth, requireCsrf, requireAdmin, asyncRoute(asy
     image_name: null,
     updated_at: new Date().toISOString(),
   };
-  try { Object.assign(p,parseProductExtras(req.body||{})); }
-  catch(error){res.status(422).json({detail:(error as Error).message});return;}
+  Object.assign(p,validatedExtras);
   products.set(id, p);
   res.status(201).json(productDict(p, ctx.user));
 }));
