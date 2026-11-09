@@ -13,7 +13,7 @@ export async function api(path, {method='GET', data, file} = {}) {
   // A stuck GET must never freeze the UI indefinitely; do not automatically
   // retry mutations because the server may already have committed the write.
   const options = {method, credentials:'same-origin', cache:'no-store', headers,
-    ...(method==='GET'?{signal:AbortSignal.timeout(25000)}:{})};
+    signal:AbortSignal.timeout(method==='GET'?30000:90000)};
   if (method !== 'GET') {
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
     if (file) options.body = file;
@@ -48,7 +48,12 @@ export async function apiMedia(path) {
   if (!/^\/images\/[a-f0-9]{32}\.(png|jpg|webp)$/i.test(path)) throw new Error('مسار الصورة غير صالح');
   const headers = {};
   if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
-  const res = await fetch('/api' + path, {method:'GET',credentials:'same-origin',cache:'no-store',headers});
+  let res;
+  try {
+    res = await fetch('/api' + path, {method:'GET',credentials:'same-origin',cache:'no-store',headers,signal:AbortSignal.timeout(30000)});
+  } catch {
+    throw new Error('تأخر تحميل الصورة بسبب الاتصال؛ حاول فتحها لاحقاً');
+  }
   if (!res.ok) throw new Error('تعذّر تحميل الصورة');
   const blob = await res.blob();
   if (!blob.type.startsWith('image/') || blob.size>3*1024*1024) throw new Error('ملف الصورة غير متوقع');
