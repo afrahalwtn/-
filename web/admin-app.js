@@ -43,7 +43,7 @@ function getPrivateImage(url) {
     throw err;
   });
   privateImages.set(url,pending);
-  while(privateImages.size>160){
+  while(privateImages.size>(window.innerWidth<700?60:120)){
     const oldest=privateImages.keys().next().value;
     if(oldest===undefined)break;
     const unused=privateImages.get(oldest);
