@@ -34,6 +34,7 @@ on:
       - "tests/sqlite-server-restart.mjs"
       - "tests/ui-browser-smoke.mjs"
       - "tests/security-hardening.mjs"
+      - "tests/concurrent-load.mjs"
       - ".github/workflows/auth-preview.yml"
   workflow_dispatch:
 
@@ -60,6 +61,8 @@ jobs:
         run: node --import tsx tests/sqlite-persistence.mjs
       - name: Test real server restart with SQLite file
         run: node tests/sqlite-server-restart.mjs
+      - name: Stress concurrent writes, reads and staff permissions on isolated SQLite
+        run: node tests/concurrent-load.mjs
       - name: Compile TypeScript server
         run: npm run build
       - name: Check frontend syntax
