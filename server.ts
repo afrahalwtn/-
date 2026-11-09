@@ -1235,56 +1235,56 @@ app.post('/api/users', requireAuth, requireCsrf, requireAdmin, asyncRoute(async 
 
 app.patch('/api/users/:id', requireAuth, requireCsrf, requireAdmin, (req, res) => {
   const id = Number(req.params.id);
-  const u = users.get(id);
-  if (!u || u.role !== 'staff') {
+  const current = users.get(id);
+  if (!current || current.role !== 'staff') {
     res.status(404).json({ detail: 'المستخدم غير موجود أو لا يمكن تعديله' });
     return;
   }
-  const { username, full_name, password, can_view_purchase, can_view_sale, is_active } = req.body;
-  if(username!==undefined){
-    if(!validUsername(username)){
+  // Validate the *entire* edit before touching the original Map entry.
+  // A rejected password/display-name must never leave a partial username change.
+  const { username, full_name, password, can_view_purchase, can_view_sale, is_active } = req.body || {};
+  let nextUsername: string | undefined;
+  if (username !== undefined) {
+    if (!validUsername(username)) {
       res.status(422).json({detail:'اسم الدخول يجب أن يكون بالعربي أو الإنجليزي، من 3 إلى 60 رمزاً'});
       return;
     }
-    const normalized=normalizeUsername(username);
-    if(Array.from(users.values()).some(x=>x.id!==u.id&&x.username===normalized)){
+    nextUsername=normalizeUsername(username);
+    if(Array.from(users.values()).some(x=>x.id!==current.id&&x.username===nextUsername)){
       res.status(409).json({detail:'اسم الدخول مستخدم'});
       return;
     }
-    u.username=normalized;
   }
-  if(password!==undefined && password!==''){
-    if(typeof password!=='string'||password.length<10||password.length>128){
-      res.status(422).json({detail:'كلمة المرور يجب أن تكون من 10 إلى 128 رمزاً'});
-      return;
-    }
+  const changingPassword=password !== undefined && password !== '';
+  if(changingPassword && (typeof password!=='string'||password.length<10||password.length>128)){
+    res.status(422).json({detail:'كلمة المرور يجب أن تكون من 10 إلى 128 رمزاً'});
+    return;
   }
-  if(full_name!==undefined&&(typeof full_name!=='string'||!full_name.trim()||full_name.length>120)){
-    res.status(422).json({detail:'الاسم الكامل يجب أن يكون من 1 إلى 120 رمزاً'});return;
+  if(full_name !== undefined &&
+     (typeof full_name!=='string'||!full_name.trim()||full_name.length>120)){
+    res.status(422).json({detail:'الاسم الكامل يجب أن يكون من 1 إلى 120 رمزاً'});
+    return;
   }
-  if (full_name !== undefined) u.full_name = full_name.trim();
-  if ((password !== undefined && password !== '') || is_active===false)
-    rotateAuthGeneration(u);
-  if (password !== undefined && password !== '') {
-    u.password = hashPassword(String(password));
-    // Invalidate sessions for this user
-    for (const [hash, sess] of Array.from(sessions.entries())) {
-      if (sess.user_id === u.id) sessions.delete(hash);
-    }
+  if((can_view_purchase!==undefined&&typeof can_view_purchase!=='boolean')||
+     (can_view_sale!==undefined&&typeof can_view_sale!=='boolean')||
+     (is_active!==undefined&&typeof is_active!=='boolean')){
+    res.status(422).json({detail:'صلاحيات الموظف وحالة الحساب يجب أن تكون صحيحة'});
+    return;
   }
-  if (can_view_purchase !== undefined) u.can_view_purchase = Boolean(can_view_purchase);
-  if (can_view_sale !== undefined) u.can_view_sale = Boolean(can_view_sale);
-  if (is_active !== undefined) {
-    u.is_active = Boolean(is_active);
-    if (!u.is_active) {
-      for (const [hash, sess] of Array.from(sessions.entries())) {
-        if (sess.user_id === u.id) sessions.delete(hash);
-      }
-    }
-  }
-  users.set(u.id,u);
-  recordAccountAudit(((req as any).auth as AuthContext).user.id,u.id,'update',u.username);
-  res.json(userDict(u));
+  const next:User={...current};
+  if(nextUsername!==undefined)next.username=nextUsername;
+  if(full_name!==undefined)next.full_name=full_name.trim();
+  if(changingPassword)next.password=hashPassword(password);
+  if(can_view_purchase!==undefined)next.can_view_purchase=can_view_purchase;
+  if(can_view_sale!==undefined)next.can_view_sale=can_view_sale;
+  if(is_active!==undefined)next.is_active=is_active;
+  if(changingPassword || is_active===false)rotateAuthGeneration(next);
+  users.set(next.id,next);
+  // Session invalidation follows the accepted account update. Generation
+  // revocation also covers sessions issued by other cloud app instances.
+  if(changingPassword || is_active===false)terminateUserAccess(next.id);
+  recordAccountAudit(((req as any).auth as AuthContext).user.id,next.id,'update',next.username);
+  res.json(userDict(next));
 });
 
 // Destructive account controls are always server-side, manager-only and CSRF protected.
