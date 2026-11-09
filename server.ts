@@ -378,6 +378,12 @@ function recordLoginFailure(key:string):void {
   else entry.count++;
   if(loginFailures.size>3000){
     for(const [k,v] of loginFailures)if(v.until<=now)loginFailures.delete(k);
+    // A flood of distinct proxy IPs must not grow process memory forever.
+    while(loginFailures.size>4096){
+      const oldest=loginFailures.keys().next().value;
+      if(oldest===undefined)break;
+      loginFailures.delete(oldest);
+    }
   }
 }
 
@@ -737,7 +743,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Auth
-app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], async (req, res) => {
+app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], asyncRoute(async (req, res) => {
   const { username, password } = req.body || {};
   const throttleKey=loginThrottleKey(req);
   if(loginTooFast(throttleKey)){
@@ -745,11 +751,13 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], as
     res.status(429).json({detail:'محاولات دخول كثيرة من هذا الجهاز. حاول لاحقاً'});
     return;
   }
-  if (!username || !password) {
+  if(typeof username!=='string'||username.length>60||!validUsername(username)||
+     typeof password!=='string'||password.length<1||password.length>128){
+    recordLoginFailure(throttleKey);
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     return;
   }
-  const uname = normalizeUsername(String(username));
+  const uname = normalizeUsername(username);
   let candidates:User[];
   try {
     candidates=cloudEnabled?await listCloudUsers() as unknown as User[]:Array.from(users.values());
@@ -759,7 +767,7 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], as
     return;
   }
   const u = candidates.find((user) => normalizeUsername(user.username) === uname);
-  if (!u || !u.is_active || !verifyPassword(String(password),u.password)) {
+  if (!u || !u.is_active || !verifyPassword(password,u.password)) {
     recordLoginFailure(throttleKey);
     res.status(401).json({ detail: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     return;
@@ -771,7 +779,7 @@ app.post(['/api/auth/login','/api/admin/auth/login','/api/staff/auth/login'], as
   loginFailures.delete(throttleKey);
   const {rawToken,csrf}=createAuthSession(u);
   sendAuthSession(res,u,rawToken,csrf);
-});
+}));
 
 // Administrator can enter the employee view without knowing an employee password.
 // Handoff tickets are random, single-use and tied to a pre-authenticated admin.
@@ -1087,7 +1095,7 @@ app.delete('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, re
   res.json({ ok: true });
 });
 
-app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, upload.single('file'), async (req, res) => {
+app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, upload.single('file'), asyncRoute(async (req, res) => {
   const id = Number(req.params.id);
   const p = products.get(id);
   if (!p) {
@@ -1131,7 +1139,7 @@ app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, uplo
   p.updated_at = new Date().toISOString();
   products.set(p.id,p);
   res.json({ image_url: `/api/images/${req.file.filename}` });
-});
+}));
 
 app.get('/api/images/:filename', requireAuth, async (req, res) => {
   const filename = String(req.params.filename || '');
