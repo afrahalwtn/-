@@ -1122,7 +1122,28 @@ app.delete('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, re
   res.json({ ok: true });
 });
 
-app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, upload.single('file'), asyncRoute(async (req, res) => {
+// Keep upload storms from exhausting temporary disk space or RAM. Multer
+// writes the file before the route checks it, so reserve capacity first.
+let activeProductUploads=0;
+const MAX_SIMULTANEOUS_UPLOADS=4;
+function reserveImageUploadSlot(_req:Request,res:Response,next:NextFunction){
+  if(activeProductUploads>=MAX_SIMULTANEOUS_UPLOADS){
+    res.setHeader('Retry-After','2');
+    res.status(503).json({detail:'رفع صور كثيرة بنفس الوقت؛ حاول بعد لحظات'});
+    return;
+  }
+  activeProductUploads++;
+  let released=false;
+  const release=()=>{
+    if(released)return;
+    released=true;
+    activeProductUploads--;
+  };
+  res.once('finish',release);
+  res.once('close',release);
+  next();
+}
+app.post('/api/products/:id/image', requireAuth, requireCsrf, requireAdmin, reserveImageUploadSlot, upload.single('file'), asyncRoute(async (req, res) => {
   const id = Number(req.params.id);
   const p = products.get(id);
   if (!p) {
