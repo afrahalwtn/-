@@ -5,7 +5,7 @@ import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2
 
 const state = {
   user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[], accountAudit:[],
-  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false,
+  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false, catalogLimit:100,
 };
 const app = document.getElementById('app');
 const printRoot = document.getElementById('print-root');
@@ -250,7 +250,7 @@ function productTable(rows, inventory=false) {
   if (!rows.length) return emptyState('لا توجد ايتمات لعرضها','ابدأ بإضافة ايتمات من حساب الإدارة.','package');
   return `<div class="table-wrap"><table class="data-table af-item-table">
     <thead><tr><th>الايتم</th><th>الصنع</th><th>العدد</th>${inventory?'<th>حد التنبيه</th>':''}<th>الحالة</th>${!inventory&&canPurchase()?'<th>الشراء</th>':''}${!inventory&&canSale()?'<th>المفرد</th><th>الجملة</th>':''}${isAdmin()?'<th>الإجراء</th>':''}</tr></thead>
-    <tbody>${rows.map(p=>`<tr>
+    <tbody>${rows.slice(0,state.catalogLimit).map(p=>`<tr>
       <td><div class="product-name">${image(p)}<div><strong>${safe(p.name)}</strong><small>${safe(p.description||'—')}</small>
         ${itemSummary(p)?`<small class="af-item-meta">${safe(itemSummary(p))}</small>`:''}
         ${(p.custom_fields||[]).length?`<small class="af-item-meta">${safe(p.custom_fields.slice(0,3).map(x=>x.label+': '+x.value).join(' • '))}</small>`:''}
@@ -263,7 +263,7 @@ function productTable(rows, inventory=false) {
         <td class="num"><b>${p.wholesale_price_iqd===null||p.wholesale_price_iqd===undefined?'—':money(p.wholesale_price_iqd)}</b>
         <small class="af-price-alt">${priceUsd(p.wholesale_price_usd)}</small></td>`:''}
       ${isAdmin()?`<td><div class="table-actions">${inventory?`<button class="tiny-btn" title="تعديل العدد" data-action="count" data-id="${p.id}">${icon('clipboard',17)}</button>`:`<button class="tiny-btn" title="تعديل الايتم" data-action="edit-product" data-id="${p.id}">${icon('edit',17)}</button><button class="tiny-btn red" title="حذف الايتم" data-action="delete-product" data-id="${p.id}">${icon('trash',16)}</button>`}</div></td>`:''}
-    </tr>`).join('')}</tbody></table></div>`;
+    </tr>`).join('')}</tbody></table>${rows.length>state.catalogLimit?`<div class="af-catalog-more"><span>معروض ${number(state.catalogLimit)} من ${number(rows.length)} أيتم</span><button type="button" class="btn quiet" data-action="catalog-more">عرض 100 أيتم إضافي</button></div>`:''}</div>`;
 }
 function productsView() {
   const rows=filterArabicProducts(state.products,state.search);
@@ -705,10 +705,13 @@ async function handleAction(action, el) {
     case 'nav': {
       const section=el.dataset.section;
       if (!isAdmin()&&['users','quotes','prepare'].includes(section)) return;
-      state.section=section;state.selectedQuote=null;
+      state.section=section;state.selectedQuote=null;state.catalogLimit=100;
       if (window.innerWidth<950) {state.sidebarOpen=false;document.getElementById('sidebar')?.classList.add('collapsed');document.querySelector('.mobile-scrim')?.classList.remove('show');}
       renderWorkspace();window.scrollTo(0,0);return;
     }
+    case 'catalog-more':
+      state.catalogLimit=Math.min(state.products.length,state.catalogLimit+100);
+      renderWorkspace();return;
     case 'toggle-sidebar':
       state.sidebarOpen=!state.sidebarOpen;
       document.getElementById('sidebar')?.classList.toggle('collapsed',!state.sidebarOpen);
@@ -831,6 +834,7 @@ document.addEventListener('input',(e)=>{
   }
   if (e.target.id==='products-search') {
     state.search=e.target.value;
+    state.catalogLimit=100;
     clearTimeout(productsSearchTimer);
     productsSearchTimer=setTimeout(()=>{
       if (state.section!=='products') return;
