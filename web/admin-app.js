@@ -1,15 +1,17 @@
 import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261109-media-pool-3';
 import {parseLocalizedNumber, quantityEditor} from './numeric-input.js?v=20261110-safari-1';
+import {makeOfflineVault} from './offline-vault.js?v=20261110-vault-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const state = {
   user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[], accountAudit:[],
-  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false, catalogLimit:100,
+  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false, catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,
 };
 const app = document.getElementById('app');
 const printRoot = document.getElementById('print-root');
+const vault=makeOfflineVault('admin');
 const isAdmin = () => state.user?.role === 'admin';
 const canPurchase = () => state.user?.can_view_purchase;
 const canSale = () => state.user?.can_view_sale;
@@ -109,6 +111,7 @@ async function refresh() {
     const [users, quotes, audit] = await Promise.all([api('/users'), api('/quotes'), api('/users/audit')]);
     state.users=users; state.quotes=quotes; state.accountAudit=audit;
   } else { state.users=[]; state.quotes=[]; state.accountAudit=[]; }
+  if(vault.unlocked&&!state.offlineMode)void vault.refreshSnapshot({user:state.user,products:state.products,alerts:state.alerts}).catch(()=>{});
 }
 async function boot() {
   try {
@@ -154,6 +157,12 @@ function loginView() {
           <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
         </form>`}
         <button class="auth-recovery-toggle" type="button" data-action="recovery-toggle">${state.showRecovery?'الرجوع لتسجيل الدخول':'رمز الإدارة ما يشتغل؟ استعادة الحساب'}</button>
+        <form class="af-offline-login" data-form="offline-unlock">
+          <strong>فتح نسخة الأوفلاين المشفّرة</strong>
+          <label>عبارة حماية الجهاز<input type="password" name="passphrase" minlength="10" autocomplete="off" required></label>
+          <button type="submit" class="btn quiet">فتح دون إنترنت</button>
+          <p>يلزم تجهيز النسخة مسبقاً أثناء الاتصال. البيانات قديمة ولا يمكن اعتماد الجرد أو الأسعار دون الاتصال.</p>
+        </form>
       </div>
     </section>
   </div><div id="toast" class="toast" role="status"></div>`;
@@ -313,7 +322,20 @@ function accountView() {
       <p class="account-hint">إذا تريد تغيّر الاسم فقط، اترك كلمة المرور الجديدة فارغة. التغيير ينحفظ بقاعدة البيانات ويلغي جلسات الأجهزة الثانية.</p>
       <button class="btn primary" type="submit">${icon('save',18)} حفظ بيانات الدخول</button>
     </form>
-  </section>`;
+  </section>
+  <section class="panel card af-offline-setup">
+    <div class="panel-head"><h2>النسخة المشفّرة دون إنترنت</h2></div>
+    <p>هذه نسخة على جهازك تتضمن الأسعار المصرّح بها؛ لا تحفظها على جهاز مشترك. الكميات والأسعار للعرض فقط حين تنقطع الشبكة.</p>
+    ${state.offlineMode?'':`<form class="af-offline-form" data-form="offline-enable">
+      <label>عبارة حماية محلية (10 رموز على الأقل)<input type="password" name="passphrase" minlength="10" maxlength="256" autocomplete="new-password" required></label>
+      <button type="submit" class="btn primary">تجهيز نسخة أوفلاين</button>
+    </form>`}
+    <form class="af-offline-form" data-form="offline-restore">
+      <label>استعادة مسودة عرض أسعار مشفّرة<input type="password" name="passphrase" minlength="10" autocomplete="off" required></label>
+      <button type="submit" class="btn quiet">استعادة المسودة</button>
+    </form>
+    <button type="button" class="btn quiet" data-action="offline-clear">مسح نسخة الجهاز</button>
+  </section>
 }
 function usersView() {
   if (!isAdmin()) return '';
@@ -447,6 +469,7 @@ function drawPreparedGrid() {
       return;
     }
     item.quantity=n;
+    if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>showToast('تعذّر حفظ العدد محلياً',true));
     cell.getRow().update({total:n*d.unit_price});
     syncSummary();
   });
@@ -455,7 +478,13 @@ function drawPreparedGrid() {
 function renderWorkspace() {
   const w = document.getElementById('workspace');
   if (prepareTable) {prepareTable.destroy();prepareTable=null;}
-  if (w) {w.innerHTML=workspaceView();void hydrateImages(w);if(state.section==='prepare')drawPreparedGrid();}
+  if (w) {
+    w.innerHTML=(state.offlineMode?
+      '<aside class="af-offline-banner" role="status"><strong>وضع أوفلاين — البيانات ليست مباشرة</strong><span>آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ'))+'</span><button type="button" class="btn quiet" data-action="offline-reconnect">الاتصال بالخادم</button></aside>':'')+workspaceView();
+    void hydrateImages(w);
+    if(state.section==='prepare')drawPreparedGrid();
+    if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>showToast('تعذّر حفظ المسودة المحلية',true));
+  }
   document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.section===state.section));
   const alertNode=document.querySelector('.top-alert span');
   if (alertNode) alertNode.textContent=number(state.alerts.length);
