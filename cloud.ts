@@ -277,3 +277,34 @@ export async function loadCloudImage(filename: string): Promise<{data:Buffer;mim
   return { data:Buffer.from(await response.arrayBuffer()),
     mime:response.headers.get('content-type') || 'application/octet-stream' };
 }
+
+
+/** One PostgreSQL transaction checks inventory, deducts counts, and records an
+ * idempotent execution list. Never update several products with separate HTTP
+ * requests: partial deduction would be unacceptable for a staff dispatch. */
+export async function commitCloudStockDispatch(actorId:number,receiptId:number,requestId:string,
+  items:Array<{product_id:number;quantity:number}>):Promise<any>{
+  if(!cloudEnabled)throw Error('Supabase is not configured');
+  const endpoint='/rest/v1/rpc/afrah_commit_stock_dispatch';
+  const response=await fetch(url+endpoint,{
+    method:'POST',signal:AbortSignal.timeout(25000),
+    headers:{...headers(),'Content-Type':'application/json'},
+    body:JSON.stringify({p_actor_id:actorId,p_receipt_id:receiptId,p_request_id:requestId,p_items:items})
+  });
+  if(!response.ok){
+    const result=await response.json().catch(()=>({}));
+    const code=String(result?.message||'');
+    if(code.startsWith('STOCK_INSUFFICIENT:')||code.startsWith('STOCK_ITEM_MISSING:')||
+       code.startsWith('STOCK_REQUEST_CONFLICT')||code.startsWith('INVALID_OR_DUPLICATE_STOCK_LINE')){
+      const issue=Object.assign(new Error(code),{status:409});
+      throw issue;
+    }
+    if(code==='INVALID_STOCK_REQUEST')throw Object.assign(new Error(code),{status:422});
+    throw Error('Supabase stock transaction failed: HTTP '+response.status);
+  }
+  const result=await response.json();
+  if(!result||!Number.isSafeInteger(result.id)||result.created_by_id!==actorId||
+     !Array.isArray(result.items)||result.stock_deducted!==true)
+    throw Error('Supabase stock transaction returned an invalid receipt');
+  return result;
+}
