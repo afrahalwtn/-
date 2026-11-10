@@ -51,7 +51,7 @@ try{
  await page.locator('#staff-offline-enable').waitFor();
  await page.locator('#staff-offline-enable [name=passphrase]').fill('Test phrase only 987654');
  await page.locator('#staff-offline-enable button[type=submit]').click();
- await page.locator('#staff-toast').getByText('جهزنا نسخة', {exact:false}).waitFor({timeout:10000});
+ await page.waitForFunction(()=>document.getElementById('staff-toast')?.textContent?.includes('جهزنا نسخة'),null,{timeout:10000});
  await page.locator('[data-nav="prepare"]').click();
  await page.locator('#staff-prepare-search').fill('رول');
  await page.locator('.staff-add-to-list').first().click();
@@ -75,7 +75,7 @@ try{
  let savedRequests=0;
  page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/execution-lists'))savedRequests++;});
  await page.locator('#staff-save-list').click();
- await page.locator('#staff-toast').getByText('لم تُرسل للخادم',{exact:false}).waitFor({timeout:7000});
+ await page.waitForFunction(()=>document.getElementById('staff-toast')?.textContent?.includes('لم تُرسل للخادم'),null,{timeout:7000});
  assert.equal(savedRequests,0,'Offline draft must not send mutation requests');
  assert.equal(await page.locator('#staff-grid .tabulator-row').count(),1,'Offline draft was lost');
  await context.setOffline(false);
