@@ -301,7 +301,7 @@ let pendingSyncInFlight=false;
 async function syncPendingLists(){
  if(pendingSyncInFlight||state.offlineMode||state.user?.role!=='staff'||!state.pendingLists.length)return;
  pendingSyncInFlight=true;
- let synced=0,failed=null;
+ let synced=0,failed=null,needsReview=0;
  try{
   for(const record of [...state.pendingLists]){
    try{
@@ -312,11 +312,15 @@ async function syncPendingLists(){
     state.pendingLists=await vault.listPending();
     if(!state.executionLists.some(x=>x.id===saved.id))state.executionLists.unshift(saved);
     synced++;
-   }catch(error){failed=error;break;}
+   }catch(error){
+    if([400,409,422].includes(error?.status)){needsReview++;continue;}
+    failed=error;break;
+   }
   }
   if(!state.offlineEnabled&&state.pendingLists.length===0)await vault.clear();
   if(state.section==='prepare')workspace();
   if(synced)message('تمت مزامنة '+number(synced)+' قائمة محفوظة مع الشركة',false);
+  if(needsReview)message(number(needsReview)+' قائمة تحتاج مراجعة؛ بقيت مشفّرة على الجهاز بدون حذف');
   if(failed)message('بقيت قوائم محلية لم تتأكد مزامنتها: '+(failed?.message||'تحقق من الاتصال'));
  }finally{pendingSyncInFlight=false;}
 }
