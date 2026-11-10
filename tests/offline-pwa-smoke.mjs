@@ -64,6 +64,17 @@ try{
  await page.locator('.af-home').waitFor({timeout:15000});
  assert.equal(await page.locator('[name=passphrase],#staff-offline-enable,#staff-offline-unlock').count(),0,
   'Staff must never see offline unlock or setup controls');
+ // Even a signed-in staff user with a real CSRF token cannot change the switch.
+ const forbidden=await page.evaluate(async()=>{
+  const session=await(await fetch('/api/me',{credentials:'include'})).json();
+  const response=await fetch('/api/offline-mode',{
+   method:'POST',credentials:'include',
+   headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},
+   body:JSON.stringify({enabled:false})
+  });
+  return response.status;
+ });
+ assert.equal(forbidden,403,'Only management may flip offline availability');
  await page.evaluate(async()=>navigator.serviceWorker.ready);
  assert(await page.evaluate(()=>Boolean(navigator.serviceWorker.controller)));
  // Verify the company-wide setting created this device's snapshot before disconnecting.
