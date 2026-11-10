@@ -3,7 +3,7 @@
 // Admin UI lives in /web/admin-app.js and is served by the separate /admin entry.
 import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261109-media-pool-3';
 import {quantityEditor} from './numeric-input.js?v=20261110-safari-1';
-import {makeOfflineVault} from './offline-vault.js?v=20261110-outbox-3';
+import {makeOfflineVault} from './offline-vault.js?v=20261111-stock-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal,switchPortalOffline,consumeOfflinePortal} from './portal-handoff.js?v=20261110-offline-portals-1';
