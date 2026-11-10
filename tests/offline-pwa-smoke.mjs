@@ -54,6 +54,26 @@ try{
  const status=await admin.evaluate(async()=>await(await fetch('/api/offline-mode')).json());
  assert.equal(status.enabled,true,'Admin switch must persist enabled policy');
 
+  // Administrator can move between both cached portals when the site has no internet.
+  await admin.waitForFunction(()=>Boolean(navigator.serviceWorker.controller),null,{timeout:15000});
+  await adminContext.setOffline(true);
+  await admin.reload({waitUntil:'domcontentloaded'});
+  await admin.locator('.af-offline-banner').waitFor({timeout:15000});
+  await admin.locator('.af-account-trigger').click();
+  await admin.locator('[data-action="switch-staff"]').click();
+  await admin.locator('#staff-workspace .af-home').waitFor({timeout:15000});
+  assert.equal(await admin.locator('.af-offline-banner').count(),1,
+    'Staff portal must stay offline after switching without internet');
+  await admin.locator('.af-account-trigger').click();
+  await admin.locator('[data-switch="admin"]').click();
+  await admin.locator('#workspace .af-home').waitFor({timeout:15000});
+  assert.equal(await admin.locator('.af-offline-banner').count(),1,
+    'Return to administration must work without cloud handoff');
+  await adminContext.setOffline(false);
+  await admin.reload({waitUntil:'domcontentloaded'});
+  await admin.locator('.af-home').waitFor({timeout:15000});
+
+
  const context=await browser.newContext({viewport:{width:1200,height:900},serviceWorkers:'allow'});
  const page=await context.newPage();
  page.on('pageerror',error=>errors.push('staff: '+error.message));
