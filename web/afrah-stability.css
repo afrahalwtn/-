@@ -808,3 +808,40 @@ body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
   -webkit-appearance:none;
   appearance:none;
 }
+
+/* Explicit opt-in offline vault; no hidden sync claims. */
+.af-offline-login,.af-offline-setup{
+  display:flex;flex-direction:column;gap:12px;
+  margin-top:20px;padding:18px;
+  border:1px solid #dce5f3;border-radius:15px;background:#f8faff;
+}
+.af-offline-login strong,.af-offline-setup h2{color:#25366e;font-size:17px;font-weight:900}
+.af-offline-login label,.af-offline-form label{
+  display:flex;flex-direction:column;gap:7px;color:#34476e;
+  font-size:13px;font-weight:750;
+}
+.af-offline-login input,.af-offline-form input{
+  display:block;width:100%;min-height:44px;
+  border:1px solid #ccd8ec;border-radius:10px;
+  padding:8px 12px;background:#fff;color:#24345d;
+  font-size:16px;direction:ltr;
+}
+.af-offline-login p,.af-offline-setup>p{
+  margin:0;color:#617393;font-size:13px;line-height:1.85;
+}
+.af-offline-login .btn,.af-offline-form .btn,.af-offline-setup>.btn{align-self:flex-start;min-height:42px}
+.af-offline-form{display:flex;flex-direction:column;gap:12px;padding:8px 0}
+.af-offline-banner{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  padding:12px 16px;margin-bottom:16px;
+  border:1px solid #b8c5dd;border-radius:12px;
+  background:#eef2fa;color:#24366d;
+}
+.af-offline-banner strong{font-weight:900}
+.af-offline-banner span{font-size:13px;flex:1}
+.af-offline-banner button{flex:none}
+@media(max-width:700px){
+  .af-offline-banner{align-items:stretch;flex-direction:column}
+  .af-offline-banner button{align-self:flex-start}
+  .af-offline-setup{margin-inline:0;padding:14px}
+}

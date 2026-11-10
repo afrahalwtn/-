@@ -1535,6 +1535,12 @@ app.get('/vendor/tabler.rtl.min.css', (_req, res) => {
   res.type('text/css').sendFile(cssFile);
 });
 // Tajawal is packaged locally so the Arabic UI works entirely offline.
+// Offline shell contains only public frontend assets; API responses stay no-store.
+app.get('/sw.js',(_req,res)=>{
+  res.setHeader('Service-Worker-Allowed','/');
+  res.setHeader('Cache-Control','no-cache');
+  res.type('application/javascript').sendFile(path.join(__dirname,'web','service-worker.js'));
+});
 app.use('/vendor/tajawal', express.static(path.join(__dirname, 'node_modules', '@fontsource', 'tajawal')));
 app.use('/assets', express.static(path.join(__dirname, 'web', 'assets')));
 app.use('/web', express.static(path.join(__dirname, 'web')));
