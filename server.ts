@@ -10,8 +10,8 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
 import {validProductImageDimensions, type ImageMime} from './image-guard.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, createIdempotentExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, getOfflinePolicy, setOfflinePolicy, type ExecutionLine } from './storage.js';
-import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, createIdempotentExecutionList, commitLocalStockDispatch, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, getOfflinePolicy, setOfflinePolicy, type ExecutionLine } from './storage.js';
+import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession, commitCloudStockDispatch } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1430,6 +1430,70 @@ app.delete('/api/users/:id',requireAuth,requireCsrf,requireAdmin,(req,res)=>{
   // Retain business execution lists under their historical author ID for auditability.
   res.json({ok:true,revoked_sessions:count,message:'حُذف حساب المستخدم نهائياً مع إبقاء سجلات العمل'});
 });
+
+
+/** Save + deduct stock is a separate explicit action; ordinary quotation and
+ * preview endpoints must never change inventory. Cloud uses one PostgreSQL RPC
+ * transaction, local mode one SQLite BEGIN IMMEDIATE transaction. */
+app.post('/api/execution-lists/dispatch', requireAuth, requireCsrf, asyncRoute(async (req,res)=>{
+  const ctx=(req as any).auth as AuthContext;
+  if(ctx.user.role!=='staff'){
+    res.status(403).json({detail:'خصم المخزون عند التجهيز مخصص لبوابة الموظفين'});return;
+  }
+  const entries=req.body?.items,requestId=req.body?.client_request_id;
+  if(typeof requestId!=='string'||
+     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)||
+     !Array.isArray(entries)||entries.length<1||entries.length>500){
+    res.status(422).json({detail:'قائمة الخصم أو معرّف العملية غير صالح'});return;
+  }
+  const seen=new Set<number>();
+  const selected:Array<{product_id:number;quantity:number}>=[];
+  const lines:ExecutionLine[]=[];
+  for(const entry of entries){
+    const id=entry?.product_id,quantity=entry?.quantity;
+    if(!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(quantity)||quantity<1||
+       quantity>100000000||seen.has(id)){
+      res.status(422).json({detail:'العدد أو الأيتم غير صالح أو مكرر'});return;
+    }
+    seen.add(id);
+    selected.push({product_id:id,quantity});
+    const p=products.get(id);
+    lines.push({product_id:id,name:p?.name||'أيتم محذوف',
+      description:p?.description||'',manufacture:p?.manufacture||'',
+      image_url:p?.image_name?'/api/images/'+p.image_name:null,quantity});
+  }
+  let record;
+  try{
+    if(cloudEnabled){
+      const hashed=crypto.createHash('sha256').update(ctx.user.id+':'+requestId.toLowerCase()).digest();
+      const receiptId=1_000_000_000+(hashed.readUInt32BE(0)%1_000_000_000);
+      record=await commitCloudStockDispatch(ctx.user.id,receiptId,requestId,selected);
+      await refreshCloudKind('products');
+      await refreshCloudKind('execution_lists');
+    }else{
+      const saved=commitLocalStockDispatch(ctx.user.id,lines,requestId,selected);
+      record=saved.record;
+      for(const updated of saved.products){
+        const p=products.get(updated.id);
+        if(p)Map.prototype.set.call(products,updated.id,{...p,...updated});
+      }
+    }
+  }catch(error){
+    const msg=error instanceof Error?error.message:'';
+    const status=Number((error as any)?.status)||(/تعارض|الكمية المتوفرة|غير موجود/.test(msg)?409:0);
+    if(status===409){
+      const shortage=msg.match(/^STOCK_INSUFFICIENT:(\d+):(\d+)$/);
+      const missing=msg.match(/^STOCK_ITEM_MISSING:(\d+)$/);
+      res.status(409).json({detail:shortage?
+        'الكمية المتوفرة لا تكفي للأيتم رقم '+shortage[1]+'؛ المتوفر '+shortage[2]:
+        missing?'الأيتم رقم '+missing[1]+' لم يعد موجوداً في الجرد':
+        (/^[A-Z_]+$/.test(msg)?'تعارض في طلب الخصم؛ راجع القائمة ثم أعد المحاولة':msg)});return;
+    }
+    if(status===422){res.status(422).json({detail:'بيانات طلب الخصم غير صالحة'});return;}
+    throw error;
+  }
+  res.status(201).json(record);
+}));
 
 // Execution lists: staff record what they carried out from existing catalogue
 // materials. They cannot create products, change inventory, or write price data.
