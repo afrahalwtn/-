@@ -262,8 +262,8 @@ function renderPreparedGrid(){
  if(typeof window.Tabulator!=='function'){host.textContent='مكتبة الجدول غير متاحة. أعد تشغيل الخادم.';return;}
  const columns=[
   {title:'ت',formatter:'rownum',width:56,minWidth:56,hozAlign:'center',headerSort:false},
-  {title:'الصورة',field:'image_url',width:90,minWidth:90,headerSort:false,formatter(cell){return asset(cell.getRow().getData()).replace('class="product-thumb"','class="af-grid-photo"');}},
   {title:'اسم المنتج',field:'name',width:230,minWidth:230,variableHeight:true,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>';}},
+  {title:'الصورة',field:'image_url',width:90,minWidth:90,headerSort:false,formatter(cell){return asset(cell.getRow().getData()).replace('class="product-thumb"','class="af-grid-photo"');}},
   {title:'الوصف',field:'description',width:235,minWidth:235,variableHeight:true,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>';}},
   {title:'الصنع',field:'manufacture',width:145,minWidth:145,formatter(cell){return safe(cell.getValue()||'—');}},
   {title:'العدد',field:'quantity',width:120,minWidth:120,hozAlign:'center',editor:quantityEditor,
