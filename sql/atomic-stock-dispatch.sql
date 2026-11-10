@@ -63,8 +63,8 @@ BEGIN
   -- double-subtract and a shortage aborts the entire PostgreSQL transaction.
   FOR v_entry IN
     SELECT value AS item FROM jsonb_array_elements(p_items) AS t(value)
-    ORDER BY CASE WHEN element->>'product_id' ~ '^[0-9]{1,9}$'
-      THEN (element->>'product_id')::integer ELSE 2147483647 END
+    ORDER BY CASE WHEN value->>'product_id' ~ '^[0-9]{1,9}$'
+      THEN (value->>'product_id')::integer ELSE 2147483647 END
   LOOP
     IF jsonb_typeof(v_entry.item)<>'object'
       OR COALESCE(v_entry.item->>'product_id','') !~ '^[1-9][0-9]{0,8}$'
