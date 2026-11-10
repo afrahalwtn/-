@@ -65,10 +65,10 @@ function validateDraft(draft){
     Number.isSafeInteger(row?.quantity)&&row.quantity>=1&&row.quantity<=100000000
   ).slice(0,500).map(row=>({product_id:row.product_id,quantity:row.quantity}));
 }
-function validSnapshot(data,portal){
+function validSnapshot(data,portal,{allowExpired=false}={}){
   return data?.portal===portal&&data?.user?.id>0&&
     Array.isArray(data.products)&&typeof data.generation==='string'&&data.generation.length>0&&
-    Number.isFinite(data.updatedAt)&&Date.now()-data.updatedAt<=TTL_MS&&
+    Number.isFinite(data.updatedAt)&&(allowExpired||Date.now()-data.updatedAt<=TTL_MS)&&
     data.updatedAt<=Date.now()+60000;
 }
 export function makeOfflineVault(portal){
@@ -101,7 +101,7 @@ export function makeOfflineVault(portal){
       // Note: never rotate another account's device key without checking for pending work.
       if(!key||owner!==payload.user.id||generation!==serverGeneration){
         try{
-          const existing=await this.unlock({ignoreBlock:true});
+          const existing=await this.unlock({ignoreBlock:true,allowExpired:true});
           if(existing.user.id!==payload.user.id){
             if(existing.pendingLists.length)throw Error('قوائم مستخدم آخر غير مرسلة؛ لا يمكن استبدالها');
             lock();
@@ -128,13 +128,13 @@ export function makeOfflineVault(portal){
       lastDraft=previous&&lastDraft!==null?lastDraft:JSON.stringify(normalized);
       return updatedAt;
     },
-    async unlock({ignoreBlock=false}={}){
+    async unlock({ignoreBlock=false,allowExpired=false}={}){
       ensure();
       if(!ignoreBlock&&await read(prefix+'blocked'))throw Error('أوقفت الإدارة الأوفلاين على هذا الجهاز؛ يلزم الاتصال بالخادم');
       const snapshot=await read(prefix+'snapshot');
       if(!snapshot)throw Error('ماكو نسخة أوفلاين محفوظة على هذا الجهاز');
       const data=await decrypt(snapshot.key,snapshot);
-      if(!validSnapshot(data,portal))
+      if(!validSnapshot(data,portal,{allowExpired}))
         throw Error('انتهت صلاحية النسخة المحلية أو صارت غير صالحة؛ اتصل بالإنترنت');
       const record=await read(prefix+'draft');
       const draftValue=record?await decrypt(snapshot.key,record):{};
