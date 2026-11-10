@@ -103,7 +103,7 @@ export function makeOfflineVault(portal){
         try{
           const existing=await this.unlock({ignoreBlock:true,allowExpired:true});
           if(existing.user.id!==payload.user.id){
-            if(existing.pendingLists.length)throw Error('قوائم مستخدم آخر غير مرسلة؛ لا يمكن استبدالها');
+            if(existing.pendingLists.length||existing.draft.length)throw Error('قوائم أو مسودات مستخدم آخر غير مرسلة؛ لا يمكن استبدالها');
             lock();
           }
         }catch(error){
