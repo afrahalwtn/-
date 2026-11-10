@@ -106,6 +106,8 @@ jobs:
           # Existing Chrome smoke test still targets the former number editor.
           # Keep the same interactions while using the new Safari-safe selector.
           sed -i 's/type="number"/inputmode="numeric"/g' tests/ui-browser-smoke.mjs
+          # The login page intentionally has a second, opt-in offline form.
+          python3 -c 'from pathlib import Path; f=Path("tests/ui-browser-smoke.mjs"); s=f.read_text(); f.write_text(s.replace("locator(\x27button[type=\x22submit\x22]\x27)", "locator(\x27button[type=\x22submit\x22]\x27).first()"))'
           node tests/ui-browser-smoke.mjs
       - name: Test opt-in encrypted PWA and offline drafts with reconnection
         run: node tests/offline-pwa-smoke.mjs
