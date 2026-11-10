@@ -1165,57 +1165,6 @@ app.delete('/api/products/:id', requireAuth, requireCsrf, requireAdmin, (req, re
   res.json({ ok: true });
 });
 
-// Reconcile one offline stock/price edit. No silent last-write-wins:
-// an admin must refresh and review on version conflict, even within a millisecond.
-function nextProductUpdatedAt(previous:string):string{
-  const old=Date.parse(previous);
-  return new Date(Math.max(Date.now(),Number.isFinite(old)?old+1:0)).toISOString();
-}
-app.post('/api/products/:id/offline-apply', requireAuth, requireCsrf, requireAdmin, (req,res)=>{
-  const ctx=(req as any).auth as AuthContext;
-  const id=Number(req.params.id);
-  if(!Number.isSafeInteger(id)||id<1){res.status(422).json({detail:'معرّف الايتم غير صالح'});return;}
-  const p=products.get(id);
-  if(!p){res.status(404).json({detail:'الأيتم لم يعد موجوداً. راجع المسودة المحلية'});return;}
-  const source=req.body;
-  if(!source||typeof source!=='object'||Array.isArray(source)||
-     typeof source.expected_updated_at!=='string'||source.expected_updated_at.length>64){
-    res.status(422).json({detail:'يلزم إرسال إصدار الأيتم الذي بُني عليه التعديل'});return;
-  }
-  if(source.expected_updated_at!==p.updated_at){
-    res.status(409).json({detail:'تغيّرت بيانات الأيتم على جهاز آخر؛ راجع الفرق قبل إعادة التعديل',current:productDict(p,ctx.user)});
-    return;
-  }
-  const changes=source.changes;
-  if(!changes||typeof changes!=='object'||Array.isArray(changes)){
-    res.status(422).json({detail:'تغييرات الأيتم غير صالحة'});return;
-  }
-  const stockFields=new Set(['quantity','min_quantity']);
-  const fixedPrices=new Set(['purchase_price','sale_price']);
-  const optionalPrices=new Set(['purchase_price_usd','retail_price_usd','wholesale_price_iqd','wholesale_price_usd']);
-  const keys=Object.keys(changes);
-  if(keys.length<1||keys.length>8||keys.some(key=>!stockFields.has(key)&&!fixedPrices.has(key)&&!optionalPrices.has(key))){
-    res.status(422).json({detail:'الأوفلاين يسمح بتحديث العدد والأسعار فقط'});return;
-  }
-  const update:Record<string,number|null>={};
-  for(const field of keys){
-    const value=changes[field];
-    if(optionalPrices.has(field)&&value===null){update[field]=null;continue;}
-    if(stockFields.has(field)){
-      const parsed=stockCount(value);
-      if(parsed===null){res.status(422).json({detail:'العدد يجب أن يكون صحيحاً من صفر إلى مئة مليون'});return;}
-      update[field]=parsed;
-    }else{
-      const parsed=moneyAmount(value);
-      if(parsed===null){res.status(422).json({detail:'السعر يجب أن يكون مبلغاً صالحاً'});return;}
-      update[field]=parsed;
-    }
-  }
-  const next:Product={...p,...update,updated_at:nextProductUpdatedAt(p.updated_at)};
-  products.set(id,next);
-  res.json({ok:true,product:productDict(next,ctx.user)});
-});
-
 // Keep upload storms from exhausting temporary disk space or RAM. Multer
 // writes the file before the route checks it, so reserve capacity first.
 let activeProductUploads=0;
