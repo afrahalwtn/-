@@ -9,7 +9,7 @@ import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:''};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],pendingLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:''};
 const vault=makeOfflineVault('staff');
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
@@ -236,6 +236,15 @@ function prepare(){
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
   '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
   (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ مسودة محلية':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
+  (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
+   '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
+   '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
+     '<details class="staff-history-entry"><summary><span>قائمة محلية '+number(index+1)+'</span><small>'+safe(new Date(entry.created_at).toLocaleString('ar-IQ'))+
+     ' — '+number(entry.items.length)+' أيتم</small></summary><div class="staff-history-items">'+entry.items.map(row=>{
+       const product=state.products.find(p=>p.id===row.product_id);
+       return '<div class="staff-history-item"><div><strong>'+safe(product?.name||'أيتم رقم '+row.product_id)+'</strong></div><b>العدد: '+number(row.quantity)+'</b></div>';
+     }).join('')+'</div></details>').join('')+'</div>'+
+   (!state.offlineMode?'<button type="button" class="btn primary" id="staff-sync-pending">مزامنة القوائم المحفوظة</button>':'')+'</section>':'')+
   '<section class="card staff-execution-history"><div class="staff-history-heading"><h2>قوائم التنفيذ المحفوظة</h2><span>'+number(state.executionLists.length)+' قائمة</span></div>'+
   '<div class="staff-history-body">'+(state.executionLists.length?state.executionLists.map(record=>
    '<details class="staff-history-entry"><summary><span>قائمة رقم '+number(record.id)+'</span><small>'+
@@ -296,9 +305,11 @@ async function saveExecutionList(){
  if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
  try{
   if(state.offlineMode){
-    await vault.saveDraft(state.draft);
-    message('انحفظت مسودة القائمة على الجهاز فقط؛ لم تُرسل للخادم',false);
-    if(button){button.disabled=false;button.textContent='حفظ مسودة محلية';}
+    await vault.enqueueExecutionList(state.draft);
+    state.pendingLists=await vault.listPending();
+    state.draft=[];state.prepareQuery='';
+    workspace();
+    message('انحفظت قائمة مستقلة على الجهاز؛ تگدر تباشر بقائمة جديدة',false);
     return;
   }
   const items=state.draft.map(item=>({product_id:item.product_id,quantity:item.quantity}));
@@ -375,7 +386,7 @@ async function refresh(){
  }
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineGeneration='';
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.pendingLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineGeneration='';
  vault.lock();
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
@@ -394,7 +405,7 @@ async function boot(){
     if(['staff','admin'].includes(snapshot.user?.role)){
      state.user=snapshot.user;state.products=snapshot.products;
      state.alerts=snapshot.alerts||[];state.executionLists=snapshot.executionLists||[];
-     state.draft=snapshot.draft;state.offlineMode=true;state.offlineEnabled=true;
+     state.draft=snapshot.draft;state.pendingLists=snapshot.pendingLists||[];state.offlineMode=true;state.offlineEnabled=true;
      state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
      state.section='home';
     }
