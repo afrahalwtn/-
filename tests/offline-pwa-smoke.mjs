@@ -105,17 +105,49 @@ try{
  await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor();
  let offlineWrites=0;
  page.on('request',req=>{if(req.method()==='POST'&&req.url().endsWith('/api/execution-lists'))offlineWrites++;});
+ // The first offline save must become a separate encrypted list, not one draft.
  await page.locator('#staff-save-list').click();
- await page.waitForFunction(()=>document.getElementById('staff-toast')?.textContent?.includes('لم تُرسل للخادم'),null,{timeout:8000});
- assert.equal(offlineWrites,0,'Offline draft must not write to server');
- assert.equal(await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1);
+ await page.waitForFunction(()=>document.querySelectorAll('.af-offline-outbox .staff-history-entry').length===1);
+ assert.equal(await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),0);
+ // Create a SECOND list without internet.
+ await page.locator('#staff-prepare-search').fill('علب');
+ await page.locator('.staff-add-to-list').first().click();
+ await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor();
+ await page.locator('#staff-save-list').click();
+ await page.waitForFunction(()=>document.querySelectorAll('.af-offline-outbox .staff-history-entry').length===2);
+ assert.equal(offlineWrites,0,'Offline saves must never contact server');
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.locator('.af-offline-banner').waitFor({timeout:12000});
+ await page.locator('[data-nav=prepare]').click();
+ assert.equal(await page.locator('.af-offline-outbox .staff-history-entry').count(),2,'Offline lists lost after restart');
+ // The automatic reconnect checks authentication, sends each durable local list,
+ // then removes it from the device only after a server-confirmed response.
  await context.setOffline(false);
- await page.locator('#staff-reconnect').click();
- await page.locator('.af-offline-banner').waitFor({state:'detached',timeout:15000});
- assert.equal(await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'Draft lost on reconnect');
- await page.locator('#staff-save-list').click();
- await page.locator('.staff-history-entry').first().waitFor({timeout:15000});
-
+ await page.locator('.af-offline-banner').waitFor({state:'detached',timeout:16000});
+ await page.waitForFunction(()=>document.querySelectorAll('.af-offline-outbox .staff-history-entry').length===0
+   &&document.querySelectorAll('.staff-execution-history .staff-history-entry').length>=2,
+   null,{timeout:25000});
+ const transferred=await page.evaluate(async()=>{
+  const response=await fetch('/api/execution-lists',{credentials:'include',cache:'no-store'});
+  if(!response.ok)throw Error('Failed to verify uploaded lists');
+  return response.json();
+ });
+ assert.equal(transferred.length,2,'Exactly two distinct offline lists should reach the server');
+ // Server must be idempotent if a prior upload succeeded but the response was lost.
+ const replay=await page.evaluate(async()=>{
+  const session=await(await fetch('/api/me',{credentials:'include'})).json();
+  const products=await(await fetch('/api/products',{credentials:'include'})).json();
+  const body=JSON.stringify({items:[{product_id:products[0].id,quantity:2}],
+    client_request_id:crypto.randomUUID()});
+  const upload=()=>fetch('/api/execution-lists',{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body});
+  const first=await upload(),a=await first.json();
+  const second=await upload(),b=await second.json();
+  return {first:first.status,second:second.status,ids:[a.id,b.id]};
+ });
+ assert.equal(replay.first,201);
+ assert.equal(replay.second,201);
+ assert.equal(replay.ids[0],replay.ids[1],'Offline upload replay duplicated a list');
  // Turning OFF is central; devices clear encrypted snapshots when online again.
  await toggle.click();
  await admin.waitForFunction(()=>document.querySelector('[data-action=offline-toggle]')?.textContent?.includes('تشغيل الأوفلاين'),null,{timeout:15000});
@@ -129,7 +161,7 @@ try{
 
  assert.equal(errors.length,0,'Browser errors: '+errors.join('; '));
  await context.close();await adminContext.close();
- console.log('PASS: single admin toggle, no codes, staff auto-cache, offline resume, manual reconnect, remote disable after reconnect');
+ console.log('PASS: admin toggle, no codes, 2 persisted offline lists, reconnect auto-sync, idempotent retries, admin disable');
 }finally{
  await browser?.close();
  server.kill('SIGTERM');
