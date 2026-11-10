@@ -293,14 +293,25 @@ try {
   const previousCount=await staff.locator('.staff-history-entry').count();
   let listSaveRequests=0;
   const countListSaves=req=>{
-    if(req.method()==='POST'&&req.url().endsWith('/api/execution-lists'))listSaveRequests++;
+    if(req.method()==='POST'&&req.url().endsWith('/api/execution-lists/dispatch'))listSaveRequests++;
   };
   staff.on('request',countListSaves);
   await staff.locator('#staff-save-list').evaluate(button=>{
     button.click();
     button.click();
   });
-  await staff.waitForFunction(oldCount=>document.querySelectorAll('.staff-history-entry').length===oldCount+1,previousCount,{timeout:15000});
+  try{
+    await staff.waitForFunction(oldCount=>document.querySelectorAll('.staff-history-entry').length===oldCount+1,previousCount,{timeout:15000});
+   }catch(err){
+    const debug=await staff.evaluate(()=>({
+      toast:document.getElementById('staff-toast')?.textContent,
+      button:document.getElementById('staff-save-list')?.textContent,
+      pending:document.querySelectorAll('.af-offline-outbox .staff-history-entry').length,
+      stored:document.querySelectorAll('.staff-execution-history .staff-history-entry').length,
+      url:location.pathname
+    }));
+    throw Error('Staff save did not update history: '+JSON.stringify(debug),{cause:err});
+   }
   staff.off('request',countListSaves);
   assert.equal(listSaveRequests,1,'Rapid employee save clicks must create one execution list');
   assert.equal(await staff.locator('.staff-history-entry').count(),previousCount+1,'Saving should add exactly one execution list');
