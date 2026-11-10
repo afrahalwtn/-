@@ -2,6 +2,7 @@
 // There are no admin screens, edit forms, user controls, or quote builders here.
 // Admin UI lives in /web/admin-app.js and is served by the separate /admin entry.
 import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261109-media-pool-3';
+import {quantityEditor} from './numeric-input.js?v=20261110-safari-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
@@ -253,7 +254,7 @@ function renderPreparedGrid(){
   {title:'اسم المنتج',field:'name',width:190,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>';}},
   {title:'الوصف',field:'description',width:200,variableHeight:true,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>';}},
   {title:'الصنع',field:'manufacture',width:130,formatter(cell){return safe(cell.getValue()||'—');}},
-  {title:'العدد',field:'quantity',width:108,hozAlign:'center',editor:'number',editorParams:{min:1,max:100000000,step:1},
+  {title:'العدد',field:'quantity',width:108,hozAlign:'center',editor:quantityEditor,
    validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>';}},
  ];
  if(state.user?.can_view_purchase)columns.push({title:'سعر الشراء',field:'purchase_price',width:145,formatter(cell){return money(cell.getValue());}});
@@ -482,4 +483,8 @@ document.addEventListener('input',e=>{
   },120);
  }
 });
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.af-account-menu'))
+    document.querySelectorAll('.af-account-menu[open]').forEach(menu=>menu.open=false);
+},true);
 boot();
