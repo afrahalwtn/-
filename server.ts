@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
 import {validProductImageDimensions, type ImageMime} from './image-guard.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, getOfflinePolicy, setOfflinePolicy, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, createIdempotentExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, getOfflinePolicy, setOfflinePolicy, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -1444,6 +1444,13 @@ app.post('/api/execution-lists', requireAuth, requireCsrf, asyncRoute(async (req
   return;
  }
  const entries=req.body?.items;
+ const requestId=req.body?.client_request_id;
+ if(requestId!==undefined&&(
+   typeof requestId!=='string'||
+   !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
+ )){
+   res.status(422).json({detail:'معرّف القائمة المحلية غير صالح'});return;
+ }
  if(!Array.isArray(entries)||entries.length<1||entries.length>500){
   res.status(422).json({detail:'القائمة يجب أن تحتوي من مادة إلى 500 مادة'});
   return;
@@ -1471,7 +1478,17 @@ app.post('/api/execution-lists', requireAuth, requireCsrf, asyncRoute(async (req
    quantity,
   });
  }
- const record=await createExecutionList(ctx.user.id,lines);
+ let record;
+ try{
+   record=requestId?
+     await createIdempotentExecutionList(ctx.user.id,lines,requestId,entries):
+     await createExecutionList(ctx.user.id,lines);
+ }catch(error){
+   if(error instanceof Error&&/تعارض|تغيّرت محتويات/.test(error.message)){
+     res.status(409).json({detail:error.message});return;
+   }
+   throw error;
+ }
  // This is a historical record only; no inventory deduction occurs.
  res.status(201).json(record);
 }));
