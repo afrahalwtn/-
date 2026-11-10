@@ -479,7 +479,9 @@ document.addEventListener('click',async e=>{
    const oldUser=state.user,oldProducts=state.products,oldAlerts=state.alerts,oldLists=state.executionLists;
    const draft=state.draft;
    state.user=self.user;setCsrf(self.csrf);
-   await refresh();state.offlineMode=false;state.draft=draft;workspace();
+   await refresh();state.offlineMode=false;state.draft=draft;
+   await vault.refreshSnapshot({user:state.user,products:state.products,alerts:state.alerts,executionLists:state.executionLists});
+   workspace();
    message('اتصلنا بالخادم. راجع المسودة ثم احفظها',false);
   }catch(err){message(err.message||'تعذّر الاتصال؛ المسودة ما زالت محلية');}
   return;
