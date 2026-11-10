@@ -335,7 +335,7 @@ function accountView() {
       <button type="submit" class="btn quiet">استعادة المسودة</button>
     </form>
     <button type="button" class="btn quiet" data-action="offline-clear">مسح نسخة الجهاز</button>
-  </section>
+  </section>`;
 }
 function usersView() {
   if (!isAdmin()) return '';
