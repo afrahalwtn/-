@@ -109,7 +109,7 @@ try{
  },null,{timeout:15000});
  await page.locator('[data-nav=prepare]').click();
  await page.locator('#staff-prepare-search').fill('رول');
- await page.locator('.staff-add-to-list').first().click();
+ await page.locator('.staff-add-to-list[data-add="1"]').click();
  await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor();
  // local snapshot save is async after first login; pause only for deterministic test.
  await page.waitForTimeout(350);
@@ -127,7 +127,7 @@ try{
  await page.locator('[data-nav=prepare]').click();
  await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor();
  let offlineWrites=0;
- page.on('request',req=>{if(req.method()==='POST'&&req.url().endsWith('/api/execution-lists'))offlineWrites++;});
+ page.on('request',req=>{if(req.method()==='POST'&&req.url().includes('/api/execution-lists'))offlineWrites++;});
  // The first offline save must become a separate encrypted list, not one draft.
  await page.locator('#staff-save-list').click();
  await page.waitForFunction(()=>document.querySelectorAll('.af-offline-outbox .staff-history-entry').length===1);
