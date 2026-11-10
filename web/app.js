@@ -3,12 +3,14 @@
 // Admin UI lives in /web/admin-app.js and is served by the separate /admin entry.
 import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261109-media-pool-3';
 import {quantityEditor} from './numeric-input.js?v=20261110-safari-1';
+import {makeOfflineVault} from './offline-vault.js?v=20261110-vault-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0};
+const vault=makeOfflineVault('staff');
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
 function asset(p){
@@ -113,6 +115,11 @@ function loginView(){
       '<label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" dir="ltr"></label>'+
       '<button type="submit" class="btn primary btn-primary full">تسجيل الدخول '+icon('arrow',18)+'</button>'+
       '<p id="staff-login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>'+
+      '</form><form id="staff-offline-unlock" class="af-offline-login">'+
+      '<strong>فتح البيانات المحفوظة بدون إنترنت</strong>'+
+      '<label>عبارة الحماية المحلية<input name="passphrase" type="password" required minlength="10" autocomplete="off"></label>'+
+      '<button type="submit" class="btn quiet">فتح أوفلاين</button>'+
+      '<p>يجب تجهيز النسخة مسبقاً وأنت متصل بالإنترنت. الكميات والأسعار قديمة.</p>'+
       '</form></div></section></div><div id="staff-toast" class="toast" role="status"></div>';
 }
 const sections=[['home','الرئيسية','home'],['products','الايتمات','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell'],['prepare','جهّز قائمة','table'],['account','بيانات الدخول','shield']];
@@ -282,6 +289,7 @@ function renderPreparedGrid(){
   if(state.user?.can_view_sale)cell.getRow().update({sale_total:n*row.sale_price});
   const totals=document.getElementById('staff-prep-total');
   if(totals)totals.innerHTML=preparedTotals();
+  if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>message('تعذّر حفظ العدد محلياً'));
  });
 }
 let executionSaveInFlight=false;
@@ -291,6 +299,11 @@ async function saveExecutionList(){
  const button=document.getElementById('staff-save-list');
  if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
  try{
+  if(state.offlineMode){
+    await vault.saveDraft(state.draft);
+    message('انحفظت مسودة القائمة على الجهاز فقط؛ لم تُرسل للخادم',false);
+    return;
+  }
   const items=state.draft.map(item=>({product_id:item.product_id,quantity:item.quantity}));
   const saved=await api('/execution-lists',{method:'POST',data:{items}});
   state.executionLists.unshift(saved);
@@ -332,13 +345,20 @@ function account(){
  '<label>تأكيد كلمة المرور الجديدة<input class="form-control" name="confirm_password" type="password" autocomplete="new-password" dir="ltr"></label>'+
  '<p class="account-hint">إذا تريد تغير اسم الدخول فقط، اترك خانة كلمة المرور الجديدة فارغة.</p>'+
  '<p id="staff-account-feedback" class="login-feedback" role="alert" hidden></p>'+
- '<button class="btn primary" type="submit">'+icon('save',18)+' حفظ بيانات الدخول</button></form></section>';
+ '<button class="btn primary" type="submit">'+icon('save',18)+' حفظ بيانات الدخول</button></form></section>'+
+ '<section class="panel card af-offline-setup"><div class="panel-head"><h2>النسخة دون إنترنت</h2></div>'+
+ '<p>تُحفظ الايتمات والقوائم مشفّرة على هذا الجهاز باختيارك. لا يتم إرسال الجرد أو الأسعار بدون اتصال.</p>'+
+ (state.offlineMode?'':'<form id="staff-offline-enable" class="af-offline-form"><label>عبارة حماية محلية (10 رموز على الأقل)<input type="password" name="passphrase" minlength="10" maxlength="256" autocomplete="new-password" required></label><button type="submit" class="btn primary">تجهيز الأوفلاين</button></form>')+
+ '<form id="staff-offline-restore" class="af-offline-form"><label>استعادة مسودة (عبارة الحماية)<input type="password" name="passphrase" minlength="10" autocomplete="off" required></label><button type="submit" class="btn quiet">استعادة المسودة</button></form>'+
+ '<button type="button" class="btn quiet" id="staff-offline-clear">مسح النسخة المحلية</button></section>';
 }
 function workspace(){
  const root=document.getElementById('staff-workspace');
  if(!root)return;
  if(prepareGrid){prepareGrid.destroy();prepareGrid=null;}
- root.innerHTML=({home,products,inventory,alerts,prepare,account}[state.section]||home)();
+ root.innerHTML=(state.offlineMode?'<aside class="af-offline-banner" role="status"><strong>وضع أوفلاين — البيانات ليست مباشرة</strong><span>آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ'))+'</span><button class="btn quiet" type="button" id="staff-reconnect">الاتصال بالخادم</button></aside>':'')+
+   ({home,products,inventory,alerts,prepare,account}[state.section]||home)();
+ if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>message('تعذر حفظ المسودة محلياً'));
  void paintPhotos(root);
  if(state.section==='prepare')renderPreparedGrid();
 }
@@ -351,9 +371,11 @@ async function refresh(){
  state.products=products;
  state.alerts=alerts;
  state.executionLists=executionLists;
+ if(vault.unlocked&&!state.offlineMode)void vault.refreshSnapshot({user:state.user,products,alerts,executionLists}).catch(()=>{});
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;
+ vault.lock();
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
 async function boot(){
@@ -361,7 +383,7 @@ async function boot(){
   await resumePortal(api,setAccessToken,setCsrf);
   const self=await api('/me');
   if(!['staff','admin'].includes(self.user?.role))throw Error('Invalid role');
-  state.user=self.user;setCsrf(self.csrf);await refresh();
+  state.user=self.user;setCsrf(self.csrf);state.offlineMode=false;await refresh();
  } catch {setAccessToken(null);setCsrf(null);state.user=null;}
  render();
 }
