@@ -3,7 +3,7 @@ import {parseLocalizedNumber, quantityEditor} from './numeric-input.js?v=2026111
 import {makeOfflineVault} from './offline-vault.js?v=20261110-vault-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
-import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
+import {resumePortal,switchPortal,switchPortalOffline,consumeOfflinePortal} from './portal-handoff.js?v=20261110-offline-portals-1';
 
 const state = {
   user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[], accountAudit:[],
@@ -122,6 +122,16 @@ async function refresh() {
 }
 async function boot() {
   try {
+    if(consumeOfflinePortal('/admin')){
+      const snapshot=await vault.unlock();
+      if(snapshot.user?.role!=='admin')throw Error('نسخة الإدارة المحلية غير متاحة لهذا الحساب');
+      state.user=snapshot.user;state.products=snapshot.products;
+      state.alerts=snapshot.alerts||[];state.users=[];state.quotes=[];state.accountAudit=[];
+      state.draft=snapshot.draft;state.offlineEnabled=true;state.offlineMode=true;
+      state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
+      state.section='home';state.sidebarOpen=window.innerWidth>=950;
+      render();return;
+    }
     await resumePortal(api,setAccessToken,setCsrf);
     const res = await api('/admin/me');
     if (res.user?.role !== 'admin') throw new Error('هذه الصفحة للإدارة فقط');
@@ -791,7 +801,7 @@ async function handleAction(action, el) {
     renderWorkspace();showToast('اتصلنا بالخادم. راجع المسودة قبل اعتماد الأسعار والعدد');
     return;
   }
-  if(state.offlineMode&&['switch-staff','new-product','edit-product','count','new-user','edit-user','delete-user','revoke-user','delete-product','quote-open','quote-create'].includes(action)){
+  if(state.offlineMode&&['new-product','edit-product','count','new-user','edit-user','delete-user','revoke-user','delete-product','quote-open','quote-create'].includes(action)){
     if(action==='quote-create')await vault.saveDraft(state.draft);
     showToast('أوفلاين: التغييرات مسودة محلية فقط، ولا يمكن اعتمادها قبل الاتصال بالخادم',true);
     return;
@@ -813,7 +823,23 @@ async function handleAction(action, el) {
       document.querySelector('.shell')?.classList.toggle('sidebar-narrow',!state.sidebarOpen);
       document.querySelector('.mobile-scrim')?.classList.toggle('show',state.sidebarOpen);return;
     case 'recovery-toggle': state.showRecovery=!state.showRecovery;render();return;
-    case 'switch-staff': await switchPortal(api,'/');return;
+    case 'switch-staff':
+      if(state.offlineMode||!navigator.onLine){
+        if(!isAdmin()||!state.offlineEnabled||!state.offlineGeneration)
+          throw Error('يلزم تفعيل الأوفلاين من الإدارة قبل الانتقال بدون إنترنت');
+        await switchPortalOffline('/',async()=>{
+          // Keep the administration draft in its own encrypted vault.
+          await vault.saveDraft(state.draft);
+          const sibling=makeOfflineVault('staff');
+          await sibling.enable({
+            user:state.user,products:state.products,alerts:state.alerts,executionLists:[]
+          },[],state.offlineGeneration);
+          const saved=await sibling.unlock();
+          if(saved.user?.id!==state.user.id||saved.user?.role!=='admin')
+            throw Error('تعذر تجهيز بوابة الموظفين لهذا المدير');
+        });
+      }else await switchPortal(api,'/');
+      return;
     case 'logout':
       if(state.offlineMode){
         state.user=null;state.products=[];state.alerts=[];state.draft=[];state.offlineMode=false;
