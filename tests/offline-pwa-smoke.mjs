@@ -77,11 +77,11 @@ try{
  await page.locator('#staff-save-list').click();
  await page.waitForFunction(()=>document.getElementById('staff-toast')?.textContent?.includes('لم تُرسل للخادم'),null,{timeout:7000});
  assert.equal(savedRequests,0,'Offline draft must not send mutation requests');
- assert.equal(await page.locator('#staff-grid .tabulator-row').count(),1,'Offline draft was lost');
+ assert.equal(await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'Offline draft was lost');
  await context.setOffline(false);
  await page.locator('#staff-reconnect').click();
  await page.locator('.af-offline-banner').waitFor({state:'detached',timeout:15000});
- assert.equal(await page.locator('#staff-grid .tabulator-row').count(),1,'Draft lost on reconnect');
+ assert.equal(await page.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'Draft lost on reconnect');
  await page.locator('#staff-save-list').click();
  await page.locator('.staff-history-entry').first().waitFor({timeout:15000});
  assert.equal(errors.length,0,'Client errors: '+errors.join('; '));
