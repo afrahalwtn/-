@@ -6,6 +6,36 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
 
+
+// Preparation panels must flow vertically, while the spreadsheet scrolls inside
+// its own card. This guards against overlapping screens on mobile/tablet.
+async function assertPreparationPanels(page,label){
+  const layout=await page.evaluate(()=>{
+    const root=document.querySelector('.af-prep');
+    if(!root)return {missing:true};
+    const selector='.af-prep-heading,.af-prep-search-card,.af-prep-sheet,.af-offline-outbox,.staff-execution-history';
+    const boxes=Array.from(root.children).filter(node=>node.matches(selector)).map(node=>{
+      const r=node.getBoundingClientRect();
+      return {name:node.className,top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width};
+    });
+    const overlapping=[];
+    for(let i=1;i<boxes.length;i++){
+      if(boxes[i].top<boxes[i-1].bottom-1)
+        overlapping.push([boxes[i-1].name,boxes[i].name]);
+    }
+    const wrapper=document.querySelector('.af-prep .af-tabulator-wrap')?.getBoundingClientRect();
+    return {missing:false,boxes,overlapping,wrapperWidth:wrapper?.width||0,
+      windowWidth:innerWidth,scrollWidth:document.documentElement.scrollWidth};
+  });
+  assert(!layout.missing,label+': preparation view was not rendered');
+  assert(layout.boxes.length>=3,label+': missing preparation sections');
+  assert.equal(layout.overlapping.length,0,label+': preparation sections overlap '+JSON.stringify(layout.overlapping));
+  assert(layout.wrapperWidth<=layout.windowWidth+2,
+    label+': spreadsheet escapes its card '+JSON.stringify(layout));
+  assert(layout.scrollWidth<=layout.windowWidth+2,
+    label+': page horizontal overflow '+JSON.stringify(layout));
+}
+
 const executablePath=[
   process.env.CHROME_BIN,
   '/usr/bin/google-chrome',
@@ -117,6 +147,7 @@ try {
   assert(await page.evaluate(()=>typeof window.Tabulator==='function'),'Real MIT Tabulator library must initialize');
   assert.equal(await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'First material must be in spreadsheet');
   await page.screenshot({path:'screenshots/mobile-prepare-first.png',fullPage:true});
+   await assertPreparationPanels(page,'Admin mobile');
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('img.af-grid-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),null,{timeout:15000});
 
   await page.locator('#quote-search').fill('علب');
@@ -170,6 +201,7 @@ try {
   await desktop.locator('.nav-link[data-section="prepare"]').click();
   await desktop.locator('#prepare-grid').waitFor({timeout:8000});
   await desktop.screenshot({path:'screenshots/desktop-prepare.png',fullPage:true});
+   await assertPreparationPanels(desktop,'Admin desktop');
 
   const deskWidth=await desktop.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(deskWidth.scroll<=deskWidth.width+2,'Desktop layout overflows: '+JSON.stringify(deskWidth));
@@ -200,6 +232,7 @@ try {
   await ipad.locator('.nav-link[data-section="prepare"]').click();
   await ipad.locator('#prepare-grid').waitFor({timeout:8000});
   await ipad.screenshot({path:'screenshots/ipad-prepare.png',fullPage:true});
+   await assertPreparationPanels(ipad,'Admin iPad');
 
   const ipadWidth=await ipad.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(ipadWidth.scroll<=ipadWidth.width+2,'iPad layout overflows: '+JSON.stringify(ipadWidth));
@@ -231,6 +264,7 @@ try {
   await staff.locator('#staff-grid input[type="number"]').press('Enter');
   await staff.waitForFunction(()=>document.querySelector('.af-grid-editable')?.textContent?.includes('4'),null,{timeout:8000});
   await staff.screenshot({path:'screenshots/staff-prepare.png',fullPage:true});
+   await assertPreparationPanels(staff,'Employee mobile');
   assert.equal(await staff.locator('#staff-print-list:enabled').count(),1,'Prepared list should be printable by staff');
   const previousCount=await staff.locator('.staff-history-entry').count();
   let listSaveRequests=0;
