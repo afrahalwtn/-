@@ -3,13 +3,13 @@
 // Admin UI lives in /web/admin-app.js and is served by the separate /admin entry.
 import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261109-media-pool-3';
 import {quantityEditor} from './numeric-input.js?v=20261110-safari-1';
-import {makeOfflineVault} from './offline-vault.js?v=20261110-vault-1';
+import {makeOfflineVault} from './offline-vault.js?v=20261110-outbox-2';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:''};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],pendingLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:'',offlineReady:false};
 const vault=makeOfflineVault('staff');
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
@@ -235,7 +235,16 @@ function prepare(){
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
   '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
-  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ مسودة محلية':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
+  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ قائمة على الجهاز':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
+  (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
+   '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
+   '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
+     '<details class="staff-history-entry"><summary><span>قائمة محلية '+number(index+1)+'</span><small>'+safe(new Date(entry.created_at).toLocaleString('ar-IQ'))+
+     ' — '+number(entry.items.length)+' أيتم</small></summary><div class="staff-history-items">'+entry.items.map(row=>{
+       const product=state.products.find(p=>p.id===row.product_id);
+       return '<div class="staff-history-item"><div><strong>'+safe(product?.name||'أيتم رقم '+row.product_id)+'</strong></div><b>العدد: '+number(row.quantity)+'</b></div>';
+     }).join('')+'</div></details>').join('')+'</div>'+
+   (!state.offlineMode?'<button type="button" class="btn primary" id="staff-sync-pending">مزامنة القوائم المحفوظة</button>':'')+'</section>':'')+
   '<section class="card staff-execution-history"><div class="staff-history-heading"><h2>قوائم التنفيذ المحفوظة</h2><span>'+number(state.executionLists.length)+' قائمة</span></div>'+
   '<div class="staff-history-body">'+(state.executionLists.length?state.executionLists.map(record=>
    '<details class="staff-history-entry"><summary><span>قائمة رقم '+number(record.id)+'</span><small>'+
@@ -288,6 +297,33 @@ function renderPreparedGrid(){
   if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>message('تعذّر حفظ العدد محلياً'));
  });
 }
+let pendingSyncInFlight=false;
+async function syncPendingLists(){
+ if(pendingSyncInFlight||state.offlineMode||state.user?.role!=='staff'||!state.pendingLists.length)return;
+ pendingSyncInFlight=true;
+ let synced=0,failed=null,needsReview=0;
+ try{
+  for(const record of [...state.pendingLists]){
+   try{
+    const saved=await api('/execution-lists',{method:'POST',
+      data:{items:record.items,client_request_id:record.client_request_id}});
+    // Acknowledge locally only AFTER the server confirms persistence.
+    await vault.acknowledgeExecutionList(record.client_request_id);
+    state.pendingLists=await vault.listPending();
+    if(!state.executionLists.some(x=>x.id===saved.id))state.executionLists.unshift(saved);
+    synced++;
+   }catch(error){
+    if([400,409,422].includes(error?.status)){needsReview++;continue;}
+    failed=error;break;
+   }
+  }
+  if(!state.offlineEnabled&&state.pendingLists.length===0)await vault.clear();
+  if(state.section==='prepare')workspace();
+  if(synced)message('تمت مزامنة '+number(synced)+' قائمة محفوظة مع الشركة',false);
+  if(needsReview)message(number(needsReview)+' قائمة تحتاج مراجعة؛ بقيت مشفّرة على الجهاز بدون حذف');
+  if(failed)message('بقيت قوائم محلية لم تتأكد مزامنتها: '+(failed?.message||'تحقق من الاتصال'));
+ }finally{pendingSyncInFlight=false;}
+}
 let executionSaveInFlight=false;
 async function saveExecutionList(){
  if(!state.draft.length||executionSaveInFlight)return;
@@ -296,9 +332,11 @@ async function saveExecutionList(){
  if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
  try{
   if(state.offlineMode){
-    await vault.saveDraft(state.draft);
-    message('انحفظت مسودة القائمة على الجهاز فقط؛ لم تُرسل للخادم',false);
-    if(button){button.disabled=false;button.textContent='حفظ مسودة محلية';}
+    await vault.enqueueExecutionList(state.draft);
+    state.pendingLists=await vault.listPending();
+    state.draft=[];state.prepareQuery='';
+    workspace();
+    message('انحفظت قائمة مستقلة على الجهاز؛ تگدر تباشر بقائمة جديدة',false);
     return;
   }
   const items=state.draft.map(item=>({product_id:item.product_id,quantity:item.quantity}));
@@ -348,7 +386,10 @@ function workspace(){
  const root=document.getElementById('staff-workspace');
  if(!root)return;
  if(prepareGrid){prepareGrid.destroy();prepareGrid=null;}
- root.innerHTML=(state.offlineMode?'<aside class="af-offline-banner" role="status"><strong>وضع أوفلاين — البيانات ليست مباشرة</strong><span>آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ'))+'</span><button class="btn quiet" type="button" id="staff-reconnect">الاتصال بالخادم</button></aside>':'')+
+ root.innerHTML=(state.offlineMode?'<aside class="af-offline-banner" role="status"><strong>وضع أوفلاين — البيانات ليست مباشرة</strong><span>آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ'))+'</span><button class="btn quiet" type="button" id="staff-reconnect">الاتصال بالخادم</button></aside>':
+  state.offlineEnabled?'<aside class="af-offline-readiness" role="status">'+
+    (state.offlineReady?'جاهز للعمل بدون إنترنت على هذا الجهاز — آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ')):
+    'الأوفلاين غير جاهز على هذا الجهاز. افتح التطبيق بالإنترنت حتى يكتمل التحميل.')+'</aside>':'')+
    ({home,products,inventory,alerts,prepare,account}[state.section]||home)();
  if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>message('تعذر حفظ المسودة محلياً'));
  void paintPhotos(root);
@@ -366,16 +407,29 @@ async function refresh(){
  state.offlineEnabled=policy.enabled===true;state.offlineGeneration=policy.generation||'';
  if(state.offlineEnabled){
   try{
-   await vault.enable({user:state.user,products,alerts,executionLists},state.draft,state.offlineGeneration);
+   state.offlineReady=false;
+   state.offlineUpdatedAt=await vault.enable({user:state.user,products,alerts,executionLists},state.draft,state.offlineGeneration);
+   state.offlineReady=true;
    const snapshot=await vault.unlock();
    if(!state.draft.length&&snapshot.user.id===state.user.id)state.draft=snapshot.draft;
-  }catch(error){console.warn('Offline device copy unavailable',error?.message);}
+   state.pendingLists=snapshot.pendingLists||[];
+  }catch(error){state.offlineReady=false;console.warn('Offline device copy unavailable',error?.message);}
  }else{
-  await vault.clear().catch(()=>{});
+  state.offlineReady=false;
+  // Management may disable offline while lists have not been sent.
+  // Stop offline browsing immediately but never erase those work records.
+  try{
+   if(!vault.unlocked&&await vault.hasSnapshot())await vault.unlock({ignoreBlock:true,allowExpired:true});
+   state.pendingLists=await vault.listPending();
+   if(state.pendingLists.length)await vault.blockOffline();
+   else await vault.clear();
+  }catch(error){console.warn('Pending list preservation failed',error?.message);}
  }
+ if(state.pendingLists.length&&state.user?.role==='staff'&&!state.offlineMode)
+   setTimeout(()=>{void syncPendingLists();},0);
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineGeneration='';
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.pendingLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineReady=false;state.offlineGeneration='';
  vault.lock();
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
@@ -387,15 +441,23 @@ async function boot(){
   state.user=self.user;setCsrf(self.csrf);state.offlineMode=false;await refresh();
  } catch(error){
   setAccessToken(null);setCsrf(null);state.user=null;
-  if(error?.status===401||error?.status===403)await vault.clear().catch(()=>{});
+  if(error?.status===401||error?.status===403){
+   // Invalid/revoked sessions cannot read offline data, but unsent lists
+   // must be preserved for authorized recovery rather than silently deleted.
+   try{
+    const old=await vault.unlock({ignoreBlock:true});
+    if(old.pendingLists?.length)await vault.blockOffline();
+    else await vault.clear();
+   }catch{}
+  }
   else{
    try{
     const snapshot=await vault.unlock();
     if(['staff','admin'].includes(snapshot.user?.role)){
      state.user=snapshot.user;state.products=snapshot.products;
      state.alerts=snapshot.alerts||[];state.executionLists=snapshot.executionLists||[];
-     state.draft=snapshot.draft;state.offlineMode=true;state.offlineEnabled=true;
-     state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
+     state.draft=snapshot.draft;state.pendingLists=snapshot.pendingLists||[];state.offlineMode=true;state.offlineEnabled=true;
+     state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;state.offlineReady=true;
      state.section='home';
     }
    }catch{}
@@ -447,7 +509,15 @@ document.addEventListener('submit',async e=>{
   error.hidden=false;
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
+window.addEventListener('online',()=>{
+ if(state.offlineMode)document.getElementById('staff-reconnect')?.click();
+ else void syncPendingLists();
+});
 document.addEventListener('click',async e=>{
+ if(e.target.closest('#staff-sync-pending')){
+  await syncPendingLists();
+  return;
+ }
  if(e.target.closest('#staff-reconnect')){
   try{
    const self=await api('/me');
@@ -459,8 +529,18 @@ document.addEventListener('click',async e=>{
    await refresh();state.draft=draft;
    if(state.offlineEnabled)await vault.saveDraft(draft);
    workspace();
-   message('اتصلنا بالخادم. راجع المسودة ثم احفظها',false);
-  }catch(err){message(err.message||'تعذّر الاتصال؛ المسودة ما زالت محلية');}
+   void syncPendingLists();
+   message('اتصلنا بالخادم، وسنرسل القوائم المحلية مع التأكد من عدم تكرارها',false);
+  }catch(err){
+   if(err?.status===401||err?.status===403){
+    if(state.pendingLists.length)await vault.blockOffline().catch(()=>{});
+    else await vault.clear().catch(()=>{});
+    state.user=null;state.products=[];state.alerts=[];state.executionLists=[];
+    state.offlineMode=false;state.draft=[];vault.lock();
+    setCsrf(null);setAccessToken(null);render();
+    message('انتهت صلاحية الحساب أو أُلغيت؛ قوائم الجهاز غير المرسلة محفوظة لحين معالجة الدخول');
+   }else message(err.message||'تعذّر الاتصال؛ القوائم ما زالت محلية');
+  }
   return;
  }
  const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
@@ -499,6 +579,7 @@ document.addEventListener('click',async e=>{
   render();scrollTo(0,0);return;
  }
  if(el.dataset.logout){
+  if(state.pendingLists.length){message('توجد '+number(state.pendingLists.length)+' قوائم محلية غير مرسلة؛ لازم تتزامن قبل تسجيل الخروج');return;}
   if(state.offlineMode){await vault.clear().catch(()=>{});reset();return;}
   try{await api('/auth/logout',{method:'POST'});}catch(err){message(err?.message||'لم يتأكد تسجيل الخروج؛ تحقق من الاتصال وأعد المحاولة');return;}
   await vault.clear().catch(()=>{});reset();

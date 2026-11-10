@@ -845,3 +845,17 @@ body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
   .af-offline-banner button{align-self:flex-start}
   .af-offline-setup{margin-inline:0;padding:14px}
 }
+
+/* Offline preparation: locally saved lists waiting for reliable sync. */
+.af-offline-outbox{padding:16px;margin-top:16px;border:1px solid #cad8e7;border-radius:16px}
+.af-offline-outbox .staff-history-heading{gap:10px;flex-wrap:wrap}
+.af-offline-outbox-note{margin:12px 0;color:#5f7090;line-height:1.85;font-size:14px}
+.af-offline-outbox .staff-history-body{margin:12px 0 16px}
+.af-offline-outbox .btn{min-height:44px;font-weight:800}
+.af-offline-outbox .staff-history-entry{max-width:100%;overflow-wrap:anywhere}
+
+.af-offline-readiness{
+  margin-bottom:12px;padding:9px 14px;border:1px solid #afc8b4;
+  border-radius:10px;background:#f1f9f3;color:#274b31;
+  font-weight:700;font-size:13px;line-height:1.7;
+}

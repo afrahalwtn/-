@@ -91,6 +91,22 @@ function changedVersion(rows:unknown,kind:string,id:number):string {
     throw new Error('Supabase record conflict: '+kind+' #'+id+' changed on another server');
   return rows[0].updated_at;
 }
+// Fetch exactly one record to reconcile an idempotent offline submission.
+export async function readCloudRecord(kind:string,id:number):Promise<CloudRecord|null>{
+  if(!cloudEnabled)return null;
+  if(!/^[a-z][a-z0-9_]{0,63}$/.test(kind)||!Number.isSafeInteger(id)||id<1)
+    throw Error('Invalid cloud lookup');
+  const response=await request('/rest/v1/app_records?kind=eq.'+
+    encodeURIComponent(kind)+'&id=eq.'+id+
+    '&select=kind,id,payload,updated_at&limit=1');
+  const rows=await response.json();
+  if(!Array.isArray(rows)||rows.length>1)throw Error('Invalid cloud record lookup');
+  const row=rows[0];
+  if(!row)return null;
+  if(row.kind!==kind||Number(row.id)!==id||!row.payload||typeof row.payload!=='object')
+    throw Error('Invalid cloud record response');
+  return row as CloudRecord;
+}
 export async function saveCloudRecord(
   kind:string,id:number,payload:Record<string,unknown>,previous:string|null
 ):Promise<string>{

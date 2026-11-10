@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
-import { cloudEnabled, loadCloudRecords, loadCloudKind, claimCloudId, saveCloudRecord, deleteCloudRecord } from './cloud.js';
+import { cloudEnabled, loadCloudRecords, loadCloudKind, claimCloudId, saveCloudRecord, deleteCloudRecord, readCloudRecord } from './cloud.js';
 
 // Single central SQLite database on the company's computer.
 // Node >=22.13 includes this driver. No server subscription or native npm module.
@@ -381,6 +381,109 @@ export function listExecutionLists(userId:number|null):ExecutionList[] {
    .filter((row:any)=>userId===null||row.created_by_id===userId)
    .sort((a:any,b:any)=>b.id-a.id) as ExecutionList[];
  return (userId===null?allExecutions.all():ownExecutions.all(userId)).map(shapeExecution);
+}
+
+
+// Idempotent submissions: a lost response must not insert the same local list twice.
+// Claim a durable receipt first; on retry finish the same allocated list record.
+db.exec('CREATE TABLE IF NOT EXISTS execution_requests('+
+ 'actor_id INTEGER NOT NULL,request_id TEXT NOT NULL,digest TEXT NOT NULL,'+
+ 'execution_list_id INTEGER NOT NULL,PRIMARY KEY(actor_id,request_id)) STRICT;');
+const findExecutionRequest=db.prepare(
+ 'SELECT digest,execution_list_id FROM execution_requests WHERE actor_id=? AND request_id=?'
+);
+const insertExecutionRequest=db.prepare(
+ 'INSERT INTO execution_requests(actor_id,request_id,digest,execution_list_id) VALUES(?,?,?,?)'
+);
+const oneExecution=db.prepare(
+ 'SELECT id,created_by_id,created_at,payload FROM execution_lists WHERE id=?'
+);
+export async function createIdempotentExecutionList(
+ actorId:number,items:ExecutionLine[],clientRequestId:string,
+ requestedItems:Array<{product_id:number;quantity:number}>
+):Promise<ExecutionList>{
+ const requestId=String(clientRequestId).toLowerCase();
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(requestId))
+   throw Error('معرّف قائمة الأوفلاين غير صالح');
+ if(!Number.isSafeInteger(actorId)||actorId<1||items.length<1||items.length>500)
+   throw Error('بيانات القائمة غير صالحة');
+ const digest=crypto.createHash('sha256').update(
+   JSON.stringify(requestedItems.map(x=>[x.product_id,x.quantity]))).digest('hex');
+ const check=(receipt:any)=>{
+   if(receipt.actor_id!==actorId||receipt.client_request_id!==requestId||receipt.digest!==digest)
+     throw Error('تعارض في رقم القائمة؛ لم يتم إنشاء قائمة مكررة');
+   return Number(receipt.list_id);
+ };
+ if(cloudEnabled){
+   // Private metadata IDs 101–108 are reserved for app settings. Receipt
+   // IDs in the 1B–2B range cannot affect normal execution-list counters.
+   // A hash collision fails closed without overwriting any other receipt.
+   const hash=crypto.createHash('sha256').update(actorId+':'+requestId).digest();
+   const receiptId=1_000_000_000+(hash.readUInt32BE(0)%1_000_000_000);
+   let receipt=await readCloudRecord('metadata',receiptId);
+   let listId:number;
+   if(receipt)listId=check(receipt.payload);
+   else{
+     listId=await nextCloudId('execution_lists');
+     const payload={actor_id:actorId,client_request_id:requestId,digest,list_id:listId};
+     try{
+       await saveCloudRecord('metadata',receiptId,payload,null);
+     }catch(error){
+       const collision=error instanceof Error && (
+         /Supabase request failed: HTTP 409/.test(error.message)||
+         /Supabase record conflict:/.test(error.message));
+       if(!collision)throw error;
+       receipt=await readCloudRecord('metadata',receiptId);
+       if(!receipt)throw error;
+       listId=check(receipt.payload);
+     }
+   }
+   const existing=await readCloudRecord('execution_lists',listId);
+   if(existing){
+     const record=existing.payload as unknown as ExecutionList&{client_request_id?:string};
+     if(record.client_request_id!==requestId||record.created_by_id!==actorId)
+       throw Error('تعارض سجل التنفيذ؛ تم إيقاف المزامنة');
+     if(!cloudRows.has('execution_lists'))cloudRows.set('execution_lists',new Map());
+     cloudRows.get('execution_lists')!.set(listId,record);
+     return record;
+   }
+   const record={id:listId,created_by_id:actorId,created_at:new Date().toISOString(),
+     items,client_request_id:requestId};
+   try{
+     await saveCloudRecord('execution_lists',listId,record,null);
+   }catch(error){
+     // The insert might have committed before its response went missing.
+     const confirmed=await readCloudRecord('execution_lists',listId);
+     if(!confirmed || (confirmed.payload as any).client_request_id!==requestId ||
+         (confirmed.payload as any).created_by_id!==actorId)throw error;
+     const recovered=confirmed.payload as unknown as ExecutionList;
+     if(!cloudRows.has('execution_lists'))cloudRows.set('execution_lists',new Map());
+     cloudRows.get('execution_lists')!.set(listId,recovered);
+     return recovered;
+   }
+   if(!cloudRows.has('execution_lists'))cloudRows.set('execution_lists',new Map());
+   cloudRows.get('execution_lists')!.set(listId,record);
+   return record;
+ }
+ db.exec('BEGIN IMMEDIATE');
+ try{
+   const claim=findExecutionRequest.get(actorId,requestId) as
+     {digest:string;execution_list_id:number}|undefined;
+   if(claim){
+     if(claim.digest!==digest)throw Error('تغيّرت محتويات قائمة سبق إرسالها');
+     const stored=oneExecution.get(claim.execution_list_id);
+     if(!stored)throw Error('تعذر تأكيد قائمة محفوظة؛ راجع سجلات النظام');
+     const record=shapeExecution(stored);
+     db.exec('COMMIT');
+     return record;
+   }
+   const createdAt=new Date().toISOString();
+   const inserted=saveExecution.run(actorId,createdAt,JSON.stringify(items));
+   const id=Number(inserted.lastInsertRowid);
+   insertExecutionRequest.run(actorId,requestId,digest,id);
+   db.exec('COMMIT');
+   return {id,created_by_id:actorId,created_at:createdAt,items};
+ }catch(error){db.exec('ROLLBACK');throw error;}
 }
 
 // Reconcile a complete collection from the remote source of truth, including
