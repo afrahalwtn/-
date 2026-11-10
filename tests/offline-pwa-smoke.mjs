@@ -62,6 +62,9 @@ try{
  await page.locator('#staff-login input[name=password]').fill('staff123456');
  await page.locator('#staff-login button[type=submit]').click();
  await page.locator('.af-home').waitFor({timeout:15000});
+ await page.locator('.af-offline-readiness').waitFor({timeout:10000});
+ assert((await page.locator('.af-offline-readiness').textContent()).includes('جاهز للعمل بدون إنترنت'));
+
  assert.equal(await page.locator('[name=passphrase],#staff-offline-enable,#staff-offline-unlock').count(),0,
   'Staff must never see offline unlock or setup controls');
  // Even a signed-in staff user with a real CSRF token cannot change the switch.
