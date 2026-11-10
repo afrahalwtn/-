@@ -64,7 +64,7 @@ self.addEventListener('fetch',event=>{
   }
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE);
-    const existing=await cache.match(request);
+    const existing=await cache.match(request) || await cache.match(request,{ignoreSearch:true});
     if(existing)return existing;
     try{
       const response=await fetch(request);
