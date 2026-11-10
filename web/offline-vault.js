@@ -84,7 +84,13 @@ export function makeOfflineVault(portal){
       if(typeof serverGeneration!=='string'||!serverGeneration)
         throw Error('لم تفعّل الإدارة الأوفلاين');
       if(!navigator.serviceWorker)throw Error('المتصفح لا يدعم الأوفلاين');
-      const registration=await navigator.serviceWorker.getRegistration('/');
+      // Login can complete before the service worker finishes installing.
+      // Wait for activation, but never hang the normal online application.
+      const registration=await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_,reject)=>setTimeout(()=>reject(
+          Error('تعذّر تجهيز أوفلاين على هذا الجهاز؛ افتح التطبيق بالإنترنت مجدداً')),6500))
+      ]);
       if(!registration?.active)throw Error('أعد فتح التطبيق بالإنترنت حتى تكتمل ملفات الأوفلاين');
       if(!payload?.user?.id||!Array.isArray(payload.products))
         throw Error('يلزم تسجيل الدخول وتحميل الايتمات أولاً');
