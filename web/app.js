@@ -297,6 +297,29 @@ function renderPreparedGrid(){
   if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>message('تعذّر حفظ العدد محلياً'));
  });
 }
+let pendingSyncInFlight=false;
+async function syncPendingLists(){
+ if(pendingSyncInFlight||state.offlineMode||state.user?.role!=='staff'||!state.pendingLists.length)return;
+ pendingSyncInFlight=true;
+ let synced=0,failed=null;
+ try{
+  for(const record of [...state.pendingLists]){
+   try{
+    const saved=await api('/execution-lists',{method:'POST',
+      data:{items:record.items,client_request_id:record.client_request_id}});
+    // Acknowledge locally only AFTER the server confirms persistence.
+    await vault.acknowledgeExecutionList(record.client_request_id);
+    state.pendingLists=await vault.listPending();
+    if(!state.executionLists.some(x=>x.id===saved.id))state.executionLists.unshift(saved);
+    synced++;
+   }catch(error){failed=error;break;}
+  }
+  if(!state.offlineEnabled&&state.pendingLists.length===0)await vault.clear();
+  if(state.section==='prepare')workspace();
+  if(synced)message('تمت مزامنة '+number(synced)+' قائمة محفوظة مع الشركة',false);
+  if(failed)message('بقيت قوائم محلية لم تتأكد مزامنتها: '+(failed?.message||'تحقق من الاتصال'));
+ }finally{pendingSyncInFlight=false;}
+}
 let executionSaveInFlight=false;
 async function saveExecutionList(){
  if(!state.draft.length||executionSaveInFlight)return;
@@ -380,10 +403,20 @@ async function refresh(){
    await vault.enable({user:state.user,products,alerts,executionLists},state.draft,state.offlineGeneration);
    const snapshot=await vault.unlock();
    if(!state.draft.length&&snapshot.user.id===state.user.id)state.draft=snapshot.draft;
+   state.pendingLists=snapshot.pendingLists||[];
   }catch(error){console.warn('Offline device copy unavailable',error?.message);}
  }else{
-  await vault.clear().catch(()=>{});
+  // Management may disable offline while lists have not been sent.
+  // Stop offline browsing immediately but never erase those work records.
+  try{
+   if(!vault.unlocked&&await vault.hasSnapshot())await vault.unlock({ignoreBlock:true});
+   state.pendingLists=await vault.listPending();
+   if(state.pendingLists.length)await vault.blockOffline();
+   else await vault.clear();
+  }catch(error){console.warn('Pending list preservation failed',error?.message);}
  }
+ if(state.pendingLists.length&&state.user?.role==='staff'&&!state.offlineMode)
+   setTimeout(()=>{void syncPendingLists();},0);
 }
 function reset(){
  state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.pendingLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineGeneration='';
@@ -458,7 +491,15 @@ document.addEventListener('submit',async e=>{
   error.hidden=false;
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
+window.addEventListener('online',()=>{
+ if(state.offlineMode)document.getElementById('staff-reconnect')?.click();
+ else void syncPendingLists();
+});
 document.addEventListener('click',async e=>{
+ if(e.target.closest('#staff-sync-pending')){
+  await syncPendingLists();
+  return;
+ }
  if(e.target.closest('#staff-reconnect')){
   try{
    const self=await api('/me');
@@ -470,7 +511,8 @@ document.addEventListener('click',async e=>{
    await refresh();state.draft=draft;
    if(state.offlineEnabled)await vault.saveDraft(draft);
    workspace();
-   message('اتصلنا بالخادم. راجع المسودة ثم احفظها',false);
+   void syncPendingLists();
+   message('اتصلنا بالخادم، وسنرسل القوائم المحلية مع التأكد من عدم تكرارها',false);
   }catch(err){message(err.message||'تعذّر الاتصال؛ المسودة ما زالت محلية');}
   return;
  }
