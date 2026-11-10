@@ -234,13 +234,13 @@ function prepare(){
   '<p class="af-prep-scroll-tip">يمكن تمرير الجدول أفقياً على الموبايل.</p>'+
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
-  '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
-  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ قائمة على الجهاز':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
+  '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('eye',18)+' معاينة فقط</button>'+
+  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ طلب خصم للمزامنة':' حفظ وخصم من الجرد')+'</button>':'')+'</div></footer></section>'+
   (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
    '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
    '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
      '<details class="staff-history-entry"><summary><span>قائمة محلية '+number(index+1)+'</span><small>'+safe(new Date(entry.created_at).toLocaleString('ar-IQ'))+
-     ' — '+number(entry.items.length)+' أيتم</small></summary><div class="staff-history-items">'+entry.items.map(row=>{
+     ' — '+number(entry.items.length)+' أيتم — '+(entry.deduct_stock?'الخصم معلّق حتى المزامنة':'بدون خصم')+'</small></summary><div class="staff-history-items">'+entry.items.map(row=>{
        const product=state.products.find(p=>p.id===row.product_id);
        return '<div class="staff-history-item"><div><strong>'+safe(product?.name||'أيتم رقم '+row.product_id)+'</strong></div><b>العدد: '+number(row.quantity)+'</b></div>';
      }).join('')+'</div></details>').join('')+'</div>'+
@@ -248,7 +248,7 @@ function prepare(){
   '<section class="card staff-execution-history"><div class="staff-history-heading"><h2>قوائم التنفيذ المحفوظة</h2><span>'+number(state.executionLists.length)+' قائمة</span></div>'+
   '<div class="staff-history-body">'+(state.executionLists.length?state.executionLists.map(record=>
    '<details class="staff-history-entry"><summary><span>قائمة رقم '+number(record.id)+'</span><small>'+
-   safe(new Date(record.created_at).toLocaleDateString('ar-IQ'))+' — '+number(record.items.length)+' ايتم</small></summary>'+
+   safe(new Date(record.created_at).toLocaleDateString('ar-IQ'))+' — '+number(record.items.length)+' ايتم'+(record.stock_deducted?' — خُصم من الجرد':' — بدون خصم')+'</small></summary>'+
    '<div class="staff-history-items">'+record.items.map(item=>
     '<div class="staff-history-item">'+(item.image_url?'<img data-photo="'+safe(item.image_url)+'" alt="صورة الايتم">':icon('package',19))+
     '<div><strong>'+safe(item.name)+'</strong><small>'+safe(item.description||'')+
@@ -307,7 +307,7 @@ async function syncPendingLists(){
  try{
   for(const record of [...state.pendingLists]){
    try{
-    const saved=await api('/execution-lists',{method:'POST',
+    const saved=await api(record.deduct_stock===true?'/execution-lists/dispatch':'/execution-lists',{method:'POST',
       data:{items:record.items,client_request_id:record.client_request_id}});
     // Acknowledge locally only AFTER the server confirms persistence.
     await vault.acknowledgeExecutionList(record.client_request_id);
@@ -321,7 +321,7 @@ async function syncPendingLists(){
   }
   if(!state.offlineEnabled&&state.pendingLists.length===0)await vault.clear();
   if(state.section==='prepare')workspace();
-  if(synced)message('تمت مزامنة '+number(synced)+' قائمة محفوظة مع الشركة',false);
+  if(synced){await refresh();message('تمت مزامنة '+number(synced)+' قائمة وتم خصم الكميات المؤكدة',false);}
   if(needsReview)message(number(needsReview)+' قائمة تحتاج مراجعة؛ بقيت مشفّرة على الجهاز بدون حذف');
   if(failed)message('بقيت قوائم محلية لم تتأكد مزامنتها: '+(failed?.message||'تحقق من الاتصال'));
  }finally{pendingSyncInFlight=false;}
