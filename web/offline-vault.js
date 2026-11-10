@@ -107,7 +107,7 @@ export function makeOfflineVault(portal){
             lock();
           }
         }catch(error){
-          if(error?.message?.includes('قوائم مستخدم آخر'))throw error;
+          if(error?.message?.includes('لا يمكن استبدالها'))throw error;
           lock();
         }
       }
