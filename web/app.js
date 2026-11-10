@@ -14,6 +14,7 @@ const vault=makeOfflineVault('staff');
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
 function asset(p){
+  if(state.offlineMode)return '<span class="product-no-image">'+icon('package',22)+'</span>';
   if(!p.image_url)return '<span class="product-no-image">'+icon('package',22)+'</span>';
   return '<img class="product-thumb" data-photo="'+safe(p.image_url)+'" alt="صورة '+safe(p.name)+'" loading="lazy">';
 }
