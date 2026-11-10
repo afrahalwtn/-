@@ -1009,3 +1009,102 @@ body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
     min-width:0;
   }
 }
+
+/* Excel-width preparation table fix — Arabic headers may never stack as letters.
+   The card stays within the screen; only its spreadsheet surface scrolls.
+   Deliberately scoped to the preparation screen (not stock tables or print layouts). */
+.shell.shell-v6.page .workspace .af-prep .af-tabulator-wrap{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  direction:rtl;
+  scrollbar-width:thin;
+  scrollbar-color:#9bacce #edf2fa;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+}
+.shell.shell-v6.page .workspace .af-prep .af-tabulator-wrap::-webkit-scrollbar{
+  height:9px;
+}
+.shell.shell-v6.page .workspace .af-prep .af-tabulator-wrap::-webkit-scrollbar-track{
+  background:#edf2fa;
+  border-radius:999px;
+}
+.shell.shell-v6.page .workspace .af-prep .af-tabulator-wrap::-webkit-scrollbar-thumb{
+  background:#9bacce;
+  border-radius:999px;
+  border:2px solid #edf2fa;
+}
+.shell.shell-v6.page .workspace .af-prep .af-tabulator-wrap > :is(#prepare-grid,#staff-grid).tabulator{
+  width:max(100%,var(--af-grid-min-width,1200px))!important;
+  min-width:var(--af-grid-min-width,1200px)!important;
+  max-width:none!important;
+  box-sizing:border-box;
+  font-size:14px;
+  direction:rtl;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-header{
+  min-height:56px;
+  border-bottom:1px solid #cddbf0;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-col{
+  min-height:56px;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-col .tabulator-col-content{
+  padding:12px 10px!important;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-col-title,
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-col-title-holder{
+  direction:rtl;
+  writing-mode:horizontal-tb!important;
+  text-orientation:mixed!important;
+  white-space:nowrap!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+  hyphens:none!important;
+  line-height:1.55!important;
+  min-width:0;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-col-title{
+  font-size:14px!important;
+  font-weight:800!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-cell{
+  font-size:14px;
+  line-height:1.55;
+  writing-mode:horizontal-tb!important;
+  text-orientation:mixed!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+  hyphens:none!important;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) :is(.af-grid-name,.af-grid-description){
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+  word-break:normal!important;
+  hyphens:none!important;
+  line-height:1.6!important;
+  text-align:right;
+}
+.shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) :is(.af-grid-currency,.af-grid-total){
+  white-space:nowrap!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+  direction:ltr;
+  unicode-bidi:isolate;
+}
+@media(max-width:700px){
+  .shell.shell-v6.page .workspace .af-prep .af-tabulator-wrap{
+    padding-inline:8px;
+    padding-bottom:14px;
+  }
+  .shell.shell-v6.page .workspace .af-prep :is(#prepare-grid,#staff-grid) .tabulator-col-title{
+    font-size:13px!important;
+  }
+}
