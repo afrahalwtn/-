@@ -9,7 +9,7 @@ import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],pendingLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:''};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],pendingLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:'',offlineReady:false};
 const vault=makeOfflineVault('staff');
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
@@ -386,7 +386,10 @@ function workspace(){
  const root=document.getElementById('staff-workspace');
  if(!root)return;
  if(prepareGrid){prepareGrid.destroy();prepareGrid=null;}
- root.innerHTML=(state.offlineMode?'<aside class="af-offline-banner" role="status"><strong>وضع أوفلاين — البيانات ليست مباشرة</strong><span>آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ'))+'</span><button class="btn quiet" type="button" id="staff-reconnect">الاتصال بالخادم</button></aside>':'')+
+ root.innerHTML=(state.offlineMode?'<aside class="af-offline-banner" role="status"><strong>وضع أوفلاين — البيانات ليست مباشرة</strong><span>آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ'))+'</span><button class="btn quiet" type="button" id="staff-reconnect">الاتصال بالخادم</button></aside>':
+  state.offlineEnabled?'<aside class="af-offline-readiness" role="status">'+
+    (state.offlineReady?'جاهز للعمل بدون إنترنت على هذا الجهاز — آخر تحديث: '+safe(new Date(state.offlineUpdatedAt).toLocaleString('ar-IQ')):
+    'الأوفلاين غير جاهز على هذا الجهاز. افتح التطبيق بالإنترنت حتى يكتمل التحميل.')+'</aside>':'')+
    ({home,products,inventory,alerts,prepare,account}[state.section]||home)();
  if(vault.unlocked)void vault.saveDraft(state.draft).catch(()=>message('تعذر حفظ المسودة محلياً'));
  void paintPhotos(root);
@@ -404,12 +407,15 @@ async function refresh(){
  state.offlineEnabled=policy.enabled===true;state.offlineGeneration=policy.generation||'';
  if(state.offlineEnabled){
   try{
-   await vault.enable({user:state.user,products,alerts,executionLists},state.draft,state.offlineGeneration);
+   state.offlineReady=false;
+   state.offlineUpdatedAt=await vault.enable({user:state.user,products,alerts,executionLists},state.draft,state.offlineGeneration);
+   state.offlineReady=true;
    const snapshot=await vault.unlock();
    if(!state.draft.length&&snapshot.user.id===state.user.id)state.draft=snapshot.draft;
    state.pendingLists=snapshot.pendingLists||[];
-  }catch(error){console.warn('Offline device copy unavailable',error?.message);}
+  }catch(error){state.offlineReady=false;console.warn('Offline device copy unavailable',error?.message);}
  }else{
+  state.offlineReady=false;
   // Management may disable offline while lists have not been sent.
   // Stop offline browsing immediately but never erase those work records.
   try{
@@ -423,7 +429,7 @@ async function refresh(){
    setTimeout(()=>{void syncPendingLists();},0);
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.pendingLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineGeneration='';
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.pendingLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineReady=false;state.offlineGeneration='';
  vault.lock();
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
@@ -451,7 +457,7 @@ async function boot(){
      state.user=snapshot.user;state.products=snapshot.products;
      state.alerts=snapshot.alerts||[];state.executionLists=snapshot.executionLists||[];
      state.draft=snapshot.draft;state.pendingLists=snapshot.pendingLists||[];state.offlineMode=true;state.offlineEnabled=true;
-     state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
+     state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;state.offlineReady=true;
      state.section='home';
     }
    }catch{}
