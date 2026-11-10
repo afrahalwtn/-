@@ -192,7 +192,7 @@ export async function claimCloudId(kind:string,counterId:number):Promise<number>
  * or deletes records while a large catalogue is being scanned.
  */
 export async function loadCloudKind(kind:string):Promise<CloudRecord[]>{
-  if(!/^(users|products|quotes|execution_lists|account_audit)$/.test(kind))
+  if(!/^(users|products|quotes|execution_lists|account_audit|metadata)$/.test(kind))
     throw Error('Invalid cloud collection');
   const results:CloudRecord[]=[];
   const batchSize=1000; // Supabase default per-request maximum.
