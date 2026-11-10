@@ -356,6 +356,9 @@ async function saveExecutionList(){
   await refresh();workspace();
   message('تم حفظ القائمة وخصم الأعداد من الجرد بنجاح',false);
  }catch(error){
+  // A confirmed shortage/validation rejection did not deduct anything.
+  // Allow the user to correct counts; retain the same UUID for uncertain network failures.
+  if([409,422].includes(error?.status))pendingDispatch=null;
   message(error?.message||'تعذّر تأكيد خصم الجرد؛ القائمة باقية للمراجعة');
   if(button&&button.isConnected){button.disabled=false;button.innerHTML=previous||'حفظ وخصم من الجرد';}
  }finally{executionSaveInFlight=false;}
