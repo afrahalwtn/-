@@ -101,8 +101,11 @@ export function makeOfflineVault(portal){
       // Note: never rotate another account's device key without checking for pending work.
       if(!key||owner!==payload.user.id||generation!==serverGeneration){
         try{
-          const existing=await this.unlock();
-          if(existing.user.id!==payload.user.id||existing.generation!==serverGeneration)lock();
+          const existing=await this.unlock({ignoreBlock:true});
+          if(existing.user.id!==payload.user.id){
+            if(existing.pendingLists.length)throw Error('قوائم مستخدم آخر غير مرسلة؛ لا يمكن استبدالها');
+            lock();
+          }
         }catch{lock();}
       }
       if(!key){
@@ -122,9 +125,9 @@ export function makeOfflineVault(portal){
       lastDraft=previous&&lastDraft!==null?lastDraft:JSON.stringify(normalized);
       return updatedAt;
     },
-    async unlock(){
+    async unlock({ignoreBlock=false}={}){
       ensure();
-      if(await read(prefix+'blocked'))throw Error('أوقفت الإدارة الأوفلاين على هذا الجهاز؛ يلزم الاتصال بالخادم');
+      if(!ignoreBlock&&await read(prefix+'blocked'))throw Error('أوقفت الإدارة الأوفلاين على هذا الجهاز؛ يلزم الاتصال بالخادم');
       const snapshot=await read(prefix+'snapshot');
       if(!snapshot)throw Error('ماكو نسخة أوفلاين محفوظة على هذا الجهاز');
       const data=await decrypt(snapshot.key,snapshot);
