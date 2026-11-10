@@ -628,6 +628,31 @@ async function handleForm(form) {
     if (submit) { submit.dataset.originalLabel=submit.innerHTML; submit.textContent='جارٍ التحقق من الدخول...'; submit.setAttribute('aria-busy','true'); }
   }
   try {
+    if(type==='offline-enable'){
+      if(!state.user||state.offlineMode||!isAdmin())throw Error('سجّل دخولاً مباشراً بالإدارة أولاً');
+      const phrase=String(fields.get('passphrase')||'');
+      await vault.enable(phrase,{user:state.user,products:state.products,alerts:state.alerts},state.draft);
+      showToast('جهزنا نسخة مشفّرة على هذا الجهاز. يمكن فتحها عند انقطاع الإنترنت');
+      return;
+    }
+    if(type==='offline-unlock'||type==='offline-restore'){
+      const snapshot=await vault.unlock(String(fields.get('passphrase')||''));
+      if(snapshot.user?.role!=='admin')throw Error('هذه النسخة ليست للإدارة');
+      if(type==='offline-restore'){
+        if(!state.user||state.offlineMode||state.user.id!==snapshot.user.id)
+          throw Error('سجّل الدخول بالإدارة نفسها لاستعادة المسودة');
+        state.draft=snapshot.draft;state.section='prepare';renderWorkspace();
+        showToast('استُعيدت المسودة؛ راجع بياناتها قبل اعتمادها بالخادم');
+      }else{
+        setCsrf(null);setAccessToken(null);
+        state.user=snapshot.user;state.products=snapshot.products;state.alerts=snapshot.alerts||[];
+        state.users=[];state.quotes=[];state.accountAudit=[];state.draft=snapshot.draft;
+        state.offlineMode=true;state.offlineUpdatedAt=snapshot.updatedAt;
+        state.section='home';state.sidebarOpen=window.innerWidth>=950;render();
+      }
+      return;
+    }
+    if(state.offlineMode)throw Error('هذا الإجراء يتطلب اتصالاً بالخادم. مسودتك محفوظة محلياً');
     if (type==='login') {
       if (!(await backendAvailable())) {
         throw new Error('الخادم غير متصل. إذا فتحت الواجهة من Google AI Studio، تأكد من تشغيل Backend ومزامنة ملفات GitHub. المشكلة ليست بالضرورة في كلمة المرور.');
@@ -639,7 +664,7 @@ async function handleForm(form) {
         throw new Error('هذه لوحة الإدارة فقط. افتح واجهة الموظفين من الصفحة الرئيسية.');
       }
       setAccessToken(result.access_token);
-      state.user=result.user;setCsrf(result.csrf);state.section='home';state.sidebarOpen=window.innerWidth >= 950;
+      state.user=result.user;setCsrf(result.csrf);state.offlineMode=false;state.section='home';state.sidebarOpen=window.innerWidth >= 950;
       try {await refresh();}
       catch (loadError) {
         if (loadError?.status===401) throw new Error('تم قبول بيانات الدخول لكن تعذّر تثبيت الجلسة في المعاينة. تأكد من تحديث الخادم مع ملفات الواجهة.');
@@ -751,6 +776,27 @@ async function printQuote(q) {
 window.addEventListener('afterprint',()=>document.body.classList.remove('printing'));
 
 async function handleAction(action, el) {
+  if(action==='offline-clear'){
+    if(!confirm('مسح بيانات الايتمات والمسودات المشفّرة من هذا الجهاز؟'))return;
+    await vault.clear();showToast('تم مسح نسخة الأوفلاين من هذا الجهاز');return;
+  }
+  if(action==='offline-reconnect'){
+    const self=await api('/admin/me');
+    if(!self?.user||self.user.role!=='admin'||self.user.id!==state.user?.id)
+      throw Error('سجّل دخولاً مباشراً بالإدارة نفسها لاستكمال العمل');
+    const draft=state.draft;
+    state.user=self.user;setCsrf(self.csrf);
+    await refresh();
+    state.offlineMode=false;state.draft=draft;state.section='prepare';
+    await vault.refreshSnapshot({user:state.user,products:state.products,alerts:state.alerts});
+    renderWorkspace();showToast('اتصلنا بالخادم. راجع المسودة قبل اعتماد الأسعار والعدد');
+    return;
+  }
+  if(state.offlineMode&&['switch-staff','new-product','edit-product','count','new-user','edit-user','delete-user','revoke-user','delete-product','quote-open','quote-create'].includes(action)){
+    if(action==='quote-create')await vault.saveDraft(state.draft);
+    showToast('أوفلاين: التغييرات مسودة محلية فقط، ولا يمكن اعتمادها قبل الاتصال بالخادم',true);
+    return;
+  }
   switch(action) {
     case 'nav': {
       const section=el.dataset.section;
@@ -770,7 +816,12 @@ async function handleAction(action, el) {
     case 'recovery-toggle': state.showRecovery=!state.showRecovery;render();return;
     case 'switch-staff': await switchPortal(api,'/');return;
     case 'logout':
+      if(state.offlineMode){
+        state.user=null;state.products=[];state.alerts=[];state.draft=[];state.offlineMode=false;
+        setCsrf(null);setAccessToken(null);forgetPrivateImages();vault.lock();render();return;
+      }
       try {await api('/auth/logout',{method:'POST'});} catch(err) {errorToast(err);return;}
+      await vault.clear().catch(()=>{});
       state.user=null;setCsrf(null);setAccessToken(null);forgetPrivateImages();state.draft=[];render();return;
     case 'add-extra-field': {
       const holder=document.getElementById('af-extra-fields');
