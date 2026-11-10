@@ -760,3 +760,51 @@ body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
 @media(max-width:700px){
  .af-catalog-more{gap:8px;padding:12px 10px;font-size:13px}
 }
+
+
+/* iOS Safari: account dropdown must sit above cards, sidebar and sticky header.
+   Keep its panel inside the viewport and close it on outside click (JS). */
+.af-dual-header:has(.af-account-menu[open]){
+  z-index:110!important;
+  overflow:visible!important;
+}
+.af-dual-header .af-account-menu[open],
+.af-dual-header .topbar-actions:has(.af-account-menu[open]){
+  z-index:115!important;
+  overflow:visible!important;
+}
+.af-dual-header .af-account-popover{
+  box-sizing:border-box;
+  width:min(250px,calc(100vw - 24px));
+  max-width:calc(100vw - 24px)!important;
+  overflow-wrap:anywhere;
+}
+@media (hover:none) and (pointer:coarse){
+  /* iOS automatically zooms text inputs smaller than 16px, disrupting dialogs. */
+  .af-dialog input:not([type="checkbox"]):not([type="file"]),
+  .af-dialog select,.af-dialog textarea,
+  .tabulator .tabulator-editing input,
+  .af-qty-input{font-size:16px!important}
+  .af-modal-backdrop{
+    align-items:flex-start!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch;
+    padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))!important;
+  }
+  .af-dialog{
+    margin:auto;
+    max-height:calc(100dvh - 20px)!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+/* Text + numeric inputmode is intentional for Arabic and Persian keyboards. */
+.af-item-form input[inputmode="numeric"],
+.af-item-form input[inputmode="decimal"],
+.af-dialog input[inputmode="numeric"]{
+  direction:ltr;
+  text-align:start;
+  unicode-bidi:plaintext;
+  -webkit-appearance:none;
+  appearance:none;
+}

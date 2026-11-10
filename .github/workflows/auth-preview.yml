@@ -28,6 +28,8 @@ on:
       - "web/index.html"
       - "web/portal-handoff.js"
       - "tests/arabic-search.mjs"
+      - "tests/safari-numeric.mjs"
+      - "web/numeric-input.js"
       - "storage.ts"
       - "passwords.ts"
       - "tests/sqlite-persistence.mjs"
@@ -60,6 +62,8 @@ jobs:
           package-manager-cache: false
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Test Safari/Arabic numeric input parsing
+        run: node tests/safari-numeric.mjs
       - name: Test Arabic letter variations on 10000 simulated products
         run: node tests/arabic-search.mjs
       - name: Validate uploaded image dimensions against memory bombs
@@ -78,6 +82,7 @@ jobs:
         run: npm run build
       - name: Check frontend syntax
         run: |
+          node --check web/numeric-input.js
           node --check web/app.js
           node --check web/admin-app.js
           node --check web/portal-handoff.js
@@ -89,7 +94,11 @@ jobs:
       - name: Security regression checks
         run: node tests/security-hardening.mjs
       - name: Verify homepage and multi-item receipt in Chrome
-        run: node tests/ui-browser-smoke.mjs
+        run: |
+          # Existing Chrome smoke test still targets the former number editor.
+          # Keep the same interactions while using the new Safari-safe selector.
+          sed -i 's/type="number"/inputmode="numeric"/g' tests/ui-browser-smoke.mjs
+          node tests/ui-browser-smoke.mjs
       - name: Attach mobile, iPad and desktop previews
         if: always()
         uses: actions/upload-artifact@v7.0.2
