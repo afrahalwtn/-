@@ -388,8 +388,40 @@ async function boot(){
  render();
 }
 document.addEventListener('submit',async e=>{
+ const offlineForm=e.target.closest('#staff-offline-enable,#staff-offline-unlock,#staff-offline-restore');
+ if(offlineForm){
+  e.preventDefault();
+  const button=offlineForm.querySelector('button[type="submit"]');
+  if(button)button.disabled=true;
+  try{
+   const phrase=String(new FormData(offlineForm).get('passphrase')||'');
+   if(offlineForm.id==='staff-offline-enable'){
+    if(state.offlineMode||!state.user)throw Error('سجّل دخولاً مباشراً أولاً');
+    await vault.enable(phrase,{user:state.user,products:state.products,alerts:state.alerts,executionLists:state.executionLists},state.draft);
+    message('جهزنا نسخة مشفّرة لهذا الجهاز. يمكن الآن فتحها عند انقطاع الإنترنت',false);
+   }else{
+    const snapshot=await vault.unlock(phrase);
+    if(!['staff','admin'].includes(snapshot.user?.role))throw Error('الصلاحيات المحلية غير صالحة');
+    if(offlineForm.id==='staff-offline-restore'){
+     if(!state.user||state.offlineMode||snapshot.user.id!==state.user.id)
+      throw Error('لا يمكن استعادة مسودة حساب آخر؛ سجّل دخولاً بالحساب نفسه');
+     state.draft=snapshot.draft;state.section='prepare';workspace();
+     message('استُعيدت المسودة المحلية. راجعها قبل حفظها على الخادم',false);
+    }else{
+     setAccessToken(null);setCsrf(null);
+     state.user=snapshot.user;state.products=snapshot.products;state.alerts=snapshot.alerts||[];
+     state.executionLists=snapshot.executionLists||[];state.draft=snapshot.draft;
+     state.offlineMode=true;state.offlineUpdatedAt=snapshot.updatedAt;
+     state.sidebarOpen=innerWidth>=950;state.section='home';render();
+    }
+   }
+  }catch(err){message(err.message||'تعذّر فتح النسخة المحلية');}
+  finally{if(button?.isConnected)button.disabled=false;}
+  return;
+ }
  if(e.target.id==='staff-account-form'){
   e.preventDefault();
+  if(state.offlineMode){message('تغيير بيانات الدخول يحتاج اتصال بالخادم');return;}
   const form=e.target;
   const data=new FormData(form);
   const feedback=document.getElementById('staff-account-feedback');
@@ -431,8 +463,28 @@ document.addEventListener('submit',async e=>{
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
 document.addEventListener('click',async e=>{
+ if(e.target.closest('#staff-offline-clear')){
+  if(confirm('مسح كل بيانات الأوفلاين والمسودات المشفّرة على هذا الجهاز؟')){
+   try{await vault.clear();message('تم مسح البيانات المحلية',false);}catch(err){message(err.message);}
+  }
+  return;
+ }
+ if(e.target.closest('#staff-reconnect')){
+  try{
+   const self=await api('/me');
+   if(!self?.user||self.user.id!==state.user?.id||self.user.role!==state.user?.role)
+    throw Error('سجّل دخولاً مباشراً بالحساب نفسه لإكمال العمل');
+   const oldUser=state.user,oldProducts=state.products,oldAlerts=state.alerts,oldLists=state.executionLists;
+   const draft=state.draft;
+   state.user=self.user;setCsrf(self.csrf);
+   await refresh();state.offlineMode=false;state.draft=draft;workspace();
+   message('اتصلنا بالخادم. راجع المسودة ثم احفظها',false);
+  }catch(err){message(err.message||'تعذّر الاتصال؛ المسودة ما زالت محلية');}
+  return;
+ }
  const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
  if(el?.dataset.switch==='admin'&&state.user?.role==='admin'){
+  if(state.offlineMode){message('تبديل البوابات يتطلب اتصالاً بالخادم');return;}
    try{await switchPortal(api,'/admin');}catch(err){message(err?.message||'تعذر الانتقال للإدارة');}
    return;
  }
@@ -466,8 +518,9 @@ document.addEventListener('click',async e=>{
   render();scrollTo(0,0);return;
  }
  if(el.dataset.logout){
+  if(state.offlineMode){reset();return;}
   try{await api('/auth/logout',{method:'POST'});}catch(err){message(err?.message||'لم يتأكد تسجيل الخروج؛ تحقق من الاتصال وأعد المحاولة');return;}
-  reset();
+  await vault.clear().catch(()=>{});reset();
  }
 });
 // Keep catalogue typing smooth without changing the staff UI or search results.
