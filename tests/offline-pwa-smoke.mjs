@@ -171,7 +171,8 @@ try{
  assert.equal(replay.first,201);
  assert.equal(replay.second,201);
  assert.equal(replay.ids[0],replay.ids[1],'Offline upload replay duplicated a list');
- // Turning OFF is central; devices clear encrypted snapshots when online again.
+ // Turning OFF is central; navigate back to account settings after the offline roundtrip.
+ await admin.locator('.nav-link[data-section=account]').click();
  await toggle.click();
  await admin.waitForFunction(()=>document.querySelector('[data-action=offline-toggle]')?.textContent?.includes('تشغيل الأوفلاين'),null,{timeout:15000});
  await page.reload({waitUntil:'load'});
