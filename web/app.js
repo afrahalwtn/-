@@ -3,7 +3,7 @@
 // Admin UI lives in /web/admin-app.js and is served by the separate /admin entry.
 import {api,apiMedia,setCsrf,setAccessToken,money,number,safe} from './api.js?v=20261109-media-pool-3';
 import {quantityEditor} from './numeric-input.js?v=20261110-safari-1';
-import {makeOfflineVault} from './offline-vault.js?v=20261110-outbox-3';
+import {makeOfflineVault} from './offline-vault.js?v=20261111-stock-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal,switchPortalOffline,consumeOfflinePortal} from './portal-handoff.js?v=20261110-offline-portals-1';
@@ -234,13 +234,13 @@ function prepare(){
   '<p class="af-prep-scroll-tip">يمكن تمرير الجدول أفقياً على الموبايل.</p>'+
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
-  '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
-  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ قائمة على الجهاز':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
+  '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('eye',18)+' معاينة فقط</button>'+
+  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ طلب خصم للمزامنة':' حفظ وخصم من الجرد')+'</button>':'')+'</div></footer></section>'+
   (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
    '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
    '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
      '<details class="staff-history-entry"><summary><span>قائمة محلية '+number(index+1)+'</span><small>'+safe(new Date(entry.created_at).toLocaleString('ar-IQ'))+
-     ' — '+number(entry.items.length)+' أيتم</small></summary><div class="staff-history-items">'+entry.items.map(row=>{
+     ' — '+number(entry.items.length)+' أيتم — '+(entry.deduct_stock?'الخصم معلّق حتى المزامنة':'بدون خصم')+'</small></summary><div class="staff-history-items">'+entry.items.map(row=>{
        const product=state.products.find(p=>p.id===row.product_id);
        return '<div class="staff-history-item"><div><strong>'+safe(product?.name||'أيتم رقم '+row.product_id)+'</strong></div><b>العدد: '+number(row.quantity)+'</b></div>';
      }).join('')+'</div></details>').join('')+'</div>'+
@@ -248,7 +248,7 @@ function prepare(){
   '<section class="card staff-execution-history"><div class="staff-history-heading"><h2>قوائم التنفيذ المحفوظة</h2><span>'+number(state.executionLists.length)+' قائمة</span></div>'+
   '<div class="staff-history-body">'+(state.executionLists.length?state.executionLists.map(record=>
    '<details class="staff-history-entry"><summary><span>قائمة رقم '+number(record.id)+'</span><small>'+
-   safe(new Date(record.created_at).toLocaleDateString('ar-IQ'))+' — '+number(record.items.length)+' ايتم</small></summary>'+
+   safe(new Date(record.created_at).toLocaleDateString('ar-IQ'))+' — '+number(record.items.length)+' ايتم'+(record.stock_deducted?' — خُصم من الجرد':' — بدون خصم')+'</small></summary>'+
    '<div class="staff-history-items">'+record.items.map(item=>
     '<div class="staff-history-item">'+(item.image_url?'<img data-photo="'+safe(item.image_url)+'" alt="صورة الايتم">':icon('package',19))+
     '<div><strong>'+safe(item.name)+'</strong><small>'+safe(item.description||'')+
@@ -307,7 +307,7 @@ async function syncPendingLists(){
  try{
   for(const record of [...state.pendingLists]){
    try{
-    const saved=await api('/execution-lists',{method:'POST',
+    const saved=await api(record.deduct_stock===true?'/execution-lists/dispatch':'/execution-lists',{method:'POST',
       data:{items:record.items,client_request_id:record.client_request_id}});
     // Acknowledge locally only AFTER the server confirms persistence.
     await vault.acknowledgeExecutionList(record.client_request_id);
@@ -321,38 +321,73 @@ async function syncPendingLists(){
   }
   if(!state.offlineEnabled&&state.pendingLists.length===0)await vault.clear();
   if(state.section==='prepare')workspace();
-  if(synced)message('تمت مزامنة '+number(synced)+' قائمة محفوظة مع الشركة',false);
+  if(synced){await refresh();message('تمت مزامنة '+number(synced)+' قائمة وتم خصم الكميات المؤكدة',false);}
   if(needsReview)message(number(needsReview)+' قائمة تحتاج مراجعة؛ بقيت مشفّرة على الجهاز بدون حذف');
   if(failed)message('بقيت قوائم محلية لم تتأكد مزامنتها: '+(failed?.message||'تحقق من الاتصال'));
  }finally{pendingSyncInFlight=false;}
 }
 let executionSaveInFlight=false;
+let pendingDispatch=null;
 async function saveExecutionList(){
- if(!state.draft.length||executionSaveInFlight)return;
+ if(!state.draft.length||executionSaveInFlight||state.user?.role!=='staff')return;
  executionSaveInFlight=true;
  const button=document.getElementById('staff-save-list');
- if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
+ const previous=button?.innerHTML;
+ if(button){button.disabled=true;button.textContent='جارٍ اعتماد القائمة...';}
  try{
   if(state.offlineMode){
-    await vault.enqueueExecutionList(state.draft);
+    await vault.enqueueExecutionList(state.draft,{deductStock:true});
     state.pendingLists=await vault.listPending();
-    state.draft=[];state.prepareQuery='';
+    state.draft=[];state.prepareQuery='';pendingDispatch=null;
     workspace();
-    message('انحفظت قائمة مستقلة على الجهاز؛ تگدر تباشر بقائمة جديدة',false);
+    message('انحفظ طلب الخصم محلياً؛ الجرد ينخصم بعد تأكيد المزامنة',false);
     return;
   }
   const items=state.draft.map(item=>({product_id:item.product_id,quantity:item.quantity}));
-  const saved=await api('/execution-lists',{method:'POST',data:{items}});
-  state.executionLists.unshift(saved);
+  const signature=JSON.stringify(items);
+  if(pendingDispatch&&pendingDispatch.signature!==signature)
+    throw Error('القائمة تغيّرت بعد محاولة حفظ سابقة؛ راجع سجل القوائم قبل إرسال خصم جديد');
+  if(!pendingDispatch)pendingDispatch={signature,requestId:crypto.randomUUID()};
+  const saved=await api('/execution-lists/dispatch',{method:'POST',
+    data:{items,client_request_id:pendingDispatch.requestId}});
+  pendingDispatch=null;
+  if(!state.executionLists.some(row=>row.id===saved.id))state.executionLists.unshift(saved);
   state.draft=[];state.prepareQuery='';
-  workspace();
-  message('تم حفظ قائمة التنفيذ بنجاح',false);
+  await refresh();workspace();
+  message('تم حفظ القائمة وخصم الأعداد من الجرد بنجاح',false);
  }catch(error){
-  message(error?.message||'تعذّر حفظ القائمة');
-  if(button){button.disabled=false;button.innerHTML='حفظ قائمة التنفيذ';}
- }finally{
-  executionSaveInFlight=false;
- }
+  // A confirmed shortage/validation rejection did not deduct anything.
+  // Allow the user to correct counts; retain the same UUID for uncertain network failures.
+  if([409,422].includes(error?.status))pendingDispatch=null;
+  message(error?.message||'تعذّر تأكيد خصم الجرد؛ القائمة باقية للمراجعة');
+  if(button&&button.isConnected){button.disabled=false;button.innerHTML=previous||'حفظ وخصم من الجرد';}
+ }finally{executionSaveInFlight=false;}
+}
+function showStaffPreview(){
+ const rows=selectedRows();
+ if(!rows.length)return;
+ document.getElementById('staff-preview-layer')?.remove();
+ const purchase=Boolean(state.user?.can_view_purchase),sale=Boolean(state.user?.can_view_sale);
+ const headers=['ت','اسم الأيتم','الوصف','الصنع','العدد',
+   ...(purchase?['سعر الشراء']:[]),...(sale?['سعر البيع','إجمالي البيع']:[])];
+ const lines=rows.map((p,index)=>'<tr><td>'+number(index+1)+'</td><td>'+safe(p.name)+'</td>'+
+   '<td>'+safe(p.description||'—')+'</td><td>'+safe(p.manufacture||'—')+'</td>'+
+   '<td>'+number(p.quantity)+'</td>'+
+   (purchase?'<td>'+money(p.purchase_price)+'</td>':'')+
+   (sale?'<td>'+money(p.sale_price)+'</td><td>'+money(p.sale_total)+'</td>':'')+'</tr>').join('');
+ const layer=document.createElement('div');
+ layer.className='af-preview-backdrop';
+ layer.id='staff-preview-layer';
+ layer.innerHTML='<section class="af-preview-dialog" role="dialog" aria-modal="true" aria-label="معاينة قائمة التجهيز">'+
+   '<header class="af-preview-header"><div><small>أفراح الوطن للتجارة العامة</small><h2>معاينة قائمة التجهيز</h2>'+
+   '<p>هذه معاينة فقط، لا يتم حفظها أو خصم أي كمية.</p></div>'+
+   '<button type="button" class="btn quiet" id="staff-preview-close" aria-label="إغلاق المعاينة">إغلاق</button></header>'+
+   '<div class="af-preview-scroll"><table class="af-preview-table"><thead><tr>'+
+   headers.map(title=>'<th>'+title+'</th>').join('')+'</tr></thead><tbody>'+lines+'</tbody></table></div>'+
+   '<footer class="af-preview-footer"><div>'+preparedTotals()+'</div>'+
+   '<button type="button" class="btn primary" id="staff-preview-print">'+icon('printer',18)+' طباعة المعاينة</button></footer></section>';
+ document.body.append(layer);
+ layer.querySelector('#staff-preview-close')?.focus();
 }
 async function printPreparedList(){
  const rows=selectedRows(),purchase=Boolean(state.user.can_view_purchase),sale=Boolean(state.user.can_view_sale);
@@ -555,7 +590,7 @@ document.addEventListener('click',async e=>{
   }
   return;
  }
- const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
+ const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list,#staff-preview-close,#staff-preview-print,#staff-preview-layer');
  if(el?.dataset.switch==='admin'&&state.user?.role==='admin'){
   try{
      if(state.offlineMode||!navigator.onLine){
@@ -584,7 +619,10 @@ document.addEventListener('click',async e=>{
   state.draft=state.draft.filter(x=>x.product_id!==Number(el.dataset.remove));
   workspace();return;
  }
- if(el?.id==='staff-print-list' && state.user){await printPreparedList();return;}
+ if(el?.id==='staff-print-list' && state.user){showStaffPreview();return;}
+  if(el?.id==='staff-preview-close'){document.getElementById('staff-preview-layer')?.remove();return;}
+  if(el?.id==='staff-preview-print'){document.getElementById('staff-preview-layer')?.remove();await printPreparedList();return;}
+  if(el?.id==='staff-preview-layer'&&e.target===el){el.remove();return;}
  if(el?.id==='staff-save-list' && state.user){await saveExecutionList();return;}
  if(!el||!state.user)return;
  if(el.dataset.toggle){state.sidebarOpen=!state.sidebarOpen;render();return;}
@@ -645,3 +683,8 @@ document.addEventListener('click',e=>{
     document.querySelectorAll('.af-account-menu[open]').forEach(menu=>menu.open=false);
 },true);
 boot();
+
+// A preview never changes inventory. Closing it cannot dispatch stock.
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape')document.getElementById('staff-preview-layer')?.remove();
+});

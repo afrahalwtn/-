@@ -102,6 +102,8 @@ jobs:
         run: node tests/auth-preview-smoke.mjs
       - name: Security regression checks
         run: node tests/security-hardening.mjs
+      - name: Verify stock deduction is atomic and idempotent
+        run: node tests/stock-dispatch.mjs
       - name: Verify homepage and multi-item receipt in Chrome
         run: |
           # Existing Chrome smoke test still targets the former number editor.
