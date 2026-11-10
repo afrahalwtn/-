@@ -235,7 +235,7 @@ function prepare(){
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
   '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('printer',18)+' طباعة القائمة</button>'+
-  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ مسودة محلية':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
+  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ قائمة على الجهاز':' حفظ قائمة التنفيذ')+'</button>':'')+'</div></footer></section>'+
   (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
    '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
    '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
@@ -431,7 +431,15 @@ async function boot(){
   state.user=self.user;setCsrf(self.csrf);state.offlineMode=false;await refresh();
  } catch(error){
   setAccessToken(null);setCsrf(null);state.user=null;
-  if(error?.status===401||error?.status===403)await vault.clear().catch(()=>{});
+  if(error?.status===401||error?.status===403){
+   // Invalid/revoked sessions cannot read offline data, but unsent lists
+   // must be preserved for authorized recovery rather than silently deleted.
+   try{
+    const old=await vault.unlock({ignoreBlock:true});
+    if(old.pendingLists?.length)await vault.blockOffline();
+    else await vault.clear();
+   }catch{}
+  }
   else{
    try{
     const snapshot=await vault.unlock();
@@ -552,6 +560,7 @@ document.addEventListener('click',async e=>{
   render();scrollTo(0,0);return;
  }
  if(el.dataset.logout){
+  if(state.pendingLists.length){message('توجد '+number(state.pendingLists.length)+' قوائم محلية غير مرسلة؛ لازم تتزامن قبل تسجيل الخروج');return;}
   if(state.offlineMode){await vault.clear().catch(()=>{});reset();return;}
   try{await api('/auth/logout',{method:'POST'});}catch(err){message(err?.message||'لم يتأكد تسجيل الخروج؛ تحقق من الاتصال وأعد المحاولة');return;}
   await vault.clear().catch(()=>{});reset();
