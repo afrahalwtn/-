@@ -463,20 +463,23 @@ function drawPreparedGrid() {
     showToast('مكتبة الجداول غير متاحة. تأكد من تشغيل الخادم وملفات النظام.',true);
     return;
   }
+  // Keep a natural spreadsheet width; the surrounding sheet owns horizontal scrolling.
+  host.style.setProperty('--af-grid-min-width','1280px');
   prepareTable=new window.Tabulator(host,{
-    data:entries,index:'id',layout:'fitDataStretch',textDirection:'rtl',editTriggerEvent:'click',
+    data:entries,index:'id',layout:'fitDataStretch',responsiveLayout:false,
+     columnDefaults:{headerWordWrap:false},textDirection:'rtl',editTriggerEvent:'click',
     placeholder:'ماكو ايتمات بالقائمة. ابحث عن ايتم وأضفها للجدول.',
     rowFormatter:()=>{queueMicrotask(()=>{void hydrateImages(host);});},
     columns:[
-      {title:'ت',formatter:'rownum',width:51,hozAlign:'center',headerSort:false,resizable:false},
-      {title:'الصورة',field:'image_url',width:84,headerSort:false,formatter(cell){return image(cell.getRow().getData(),'af-grid-photo')}},
-      {title:'اسم الايتم',field:'name',width:188,minWidth:170,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>'}},
-      {title:'الوصف',field:'description',width:200,minWidth:170,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>'},variableHeight:true},
-      {title:'الصنع',field:'manufacture',width:135,minWidth:110,formatter(cell){return safe(cell.getValue()||'—')}},
-      {title:'العدد',field:'quantity',width:99,hozAlign:'center',editor:quantityEditor,validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>'}},
-      {title:'سعر الوحدة',field:'unit_price',width:142,hozAlign:'left',formatter(cell){return '<span class="af-grid-currency">'+money(cell.getValue())+'</span>'}},
-      {title:'الإجمالي',field:'total',width:152,hozAlign:'left',formatter(cell){return '<b class="af-grid-currency">'+money(cell.getValue())+'</b>'},bottomCalc:'sum',bottomCalcFormatter(cell){return '<strong class="af-grid-total">'+money(cell.getValue()||0)+'</strong>'}},
-      {title:'حذف',width:71,hozAlign:'center',headerSort:false,formatter(cell){return '<button class="af-grid-remove" type="button" data-action="quote-remove" data-idx="'+cell.getRow().getData().idx+'" aria-label="حذف الايتم">'+icon('x',17)+'</button>'}}
+      {title:'ت',formatter:'rownum',width:56,minWidth:56,hozAlign:'center',headerSort:false,resizable:false},
+      {title:'الصورة',field:'image_url',width:90,minWidth:90,headerSort:false,formatter(cell){return image(cell.getRow().getData(),'af-grid-photo')}},
+      {title:'اسم الايتم',field:'name',width:230,minWidth:230,variableHeight:true,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>'}},
+      {title:'الوصف',field:'description',width:235,minWidth:235,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>'},variableHeight:true},
+      {title:'الصنع',field:'manufacture',width:145,minWidth:145,formatter(cell){return safe(cell.getValue()||'—')}},
+      {title:'العدد',field:'quantity',width:120,minWidth:120,hozAlign:'center',editor:quantityEditor,validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>'}},
+      {title:'سعر الوحدة',field:'unit_price',width:154,minWidth:154,hozAlign:'left',formatter(cell){return '<span class="af-grid-currency">'+money(cell.getValue())+'</span>'}},
+      {title:'الإجمالي',field:'total',width:170,minWidth:170,hozAlign:'left',formatter(cell){return '<b class="af-grid-currency">'+money(cell.getValue())+'</b>'},bottomCalc:'sum',bottomCalcFormatter(cell){return '<strong class="af-grid-total">'+money(cell.getValue()||0)+'</strong>'}},
+      {title:'حذف',width:80,minWidth:80,hozAlign:'center',headerSort:false,formatter(cell){return '<button class="af-grid-remove" type="button" data-action="quote-remove" data-idx="'+cell.getRow().getData().idx+'" aria-label="حذف الايتم">'+icon('x',17)+'</button>'}}
     ]
   });
   prepareTable.on('renderComplete',()=>{void hydrateImages(host)});
