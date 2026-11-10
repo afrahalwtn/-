@@ -327,32 +327,64 @@ async function syncPendingLists(){
  }finally{pendingSyncInFlight=false;}
 }
 let executionSaveInFlight=false;
+let pendingDispatch=null;
 async function saveExecutionList(){
- if(!state.draft.length||executionSaveInFlight)return;
+ if(!state.draft.length||executionSaveInFlight||state.user?.role!=='staff')return;
  executionSaveInFlight=true;
  const button=document.getElementById('staff-save-list');
- if(button){button.disabled=true;button.textContent='جارٍ حفظ القائمة...';}
+ const previous=button?.innerHTML;
+ if(button){button.disabled=true;button.textContent='جارٍ اعتماد القائمة...';}
  try{
   if(state.offlineMode){
-    await vault.enqueueExecutionList(state.draft);
+    await vault.enqueueExecutionList(state.draft,{deductStock:true});
     state.pendingLists=await vault.listPending();
-    state.draft=[];state.prepareQuery='';
+    state.draft=[];state.prepareQuery='';pendingDispatch=null;
     workspace();
-    message('انحفظت قائمة مستقلة على الجهاز؛ تگدر تباشر بقائمة جديدة',false);
+    message('انحفظ طلب الخصم محلياً؛ الجرد ينخصم بعد تأكيد المزامنة',false);
     return;
   }
   const items=state.draft.map(item=>({product_id:item.product_id,quantity:item.quantity}));
-  const saved=await api('/execution-lists',{method:'POST',data:{items}});
-  state.executionLists.unshift(saved);
+  const signature=JSON.stringify(items);
+  if(pendingDispatch&&pendingDispatch.signature!==signature)
+    throw Error('القائمة تغيّرت بعد محاولة حفظ سابقة؛ راجع سجل القوائم قبل إرسال خصم جديد');
+  if(!pendingDispatch)pendingDispatch={signature,requestId:crypto.randomUUID()};
+  const saved=await api('/execution-lists/dispatch',{method:'POST',
+    data:{items,client_request_id:pendingDispatch.requestId}});
+  pendingDispatch=null;
+  if(!state.executionLists.some(row=>row.id===saved.id))state.executionLists.unshift(saved);
   state.draft=[];state.prepareQuery='';
-  workspace();
-  message('تم حفظ قائمة التنفيذ بنجاح',false);
+  await refresh();workspace();
+  message('تم حفظ القائمة وخصم الأعداد من الجرد بنجاح',false);
  }catch(error){
-  message(error?.message||'تعذّر حفظ القائمة');
-  if(button){button.disabled=false;button.innerHTML='حفظ قائمة التنفيذ';}
- }finally{
-  executionSaveInFlight=false;
- }
+  message(error?.message||'تعذّر تأكيد خصم الجرد؛ القائمة باقية للمراجعة');
+  if(button&&button.isConnected){button.disabled=false;button.innerHTML=previous||'حفظ وخصم من الجرد';}
+ }finally{executionSaveInFlight=false;}
+}
+function showStaffPreview(){
+ const rows=selectedRows();
+ if(!rows.length)return;
+ document.getElementById('staff-preview-layer')?.remove();
+ const purchase=Boolean(state.user?.can_view_purchase),sale=Boolean(state.user?.can_view_sale);
+ const headers=['ت','اسم الأيتم','الوصف','الصنع','العدد',
+   ...(purchase?['سعر الشراء']:[]),...(sale?['سعر البيع','إجمالي البيع']:[])];
+ const lines=rows.map((p,index)=>'<tr><td>'+number(index+1)+'</td><td>'+safe(p.name)+'</td>'+
+   '<td>'+safe(p.description||'—')+'</td><td>'+safe(p.manufacture||'—')+'</td>'+
+   '<td>'+number(p.quantity)+'</td>'+
+   (purchase?'<td>'+money(p.purchase_price)+'</td>':'')+
+   (sale?'<td>'+money(p.sale_price)+'</td><td>'+money(p.sale_total)+'</td>':'')+'</tr>').join('');
+ const layer=document.createElement('div');
+ layer.className='af-preview-backdrop';
+ layer.id='staff-preview-layer';
+ layer.innerHTML='<section class="af-preview-dialog" role="dialog" aria-modal="true" aria-label="معاينة قائمة التجهيز">'+
+   '<header class="af-preview-header"><div><small>أفراح الوطن للتجارة العامة</small><h2>معاينة قائمة التجهيز</h2>'+
+   '<p>هذه معاينة فقط، لا يتم حفظها أو خصم أي كمية.</p></div>'+
+   '<button type="button" class="btn quiet" id="staff-preview-close" aria-label="إغلاق المعاينة">إغلاق</button></header>'+
+   '<div class="af-preview-scroll"><table class="af-preview-table"><thead><tr>'+
+   headers.map(title=>'<th>'+title+'</th>').join('')+'</tr></thead><tbody>'+lines+'</tbody></table></div>'+
+   '<footer class="af-preview-footer"><div>'+preparedTotals()+'</div>'+
+   '<button type="button" class="btn primary" id="staff-preview-print">'+icon('printer',18)+' طباعة المعاينة</button></footer></section>';
+ document.body.append(layer);
+ layer.querySelector('#staff-preview-close')?.focus();
 }
 async function printPreparedList(){
  const rows=selectedRows(),purchase=Boolean(state.user.can_view_purchase),sale=Boolean(state.user.can_view_sale);
