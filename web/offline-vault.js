@@ -3,7 +3,9 @@
 // encrypted copy. Never cache /api, cookies, CSRF or bearer tokens.
 const DB='afrah-private-offline-v2';
 const STORE='records';
-const TTL_MS=72*60*60*1000;
+// A preparation facility may have no internet for weeks. This is an access
+// ceiling, not a promise of current inventory. Every offline screen labels age.
+const TTL_MS=180*24*60*60*1000;
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 function ensure(){
   if(!window.isSecureContext||!crypto?.subtle||!indexedDB)
@@ -96,6 +98,7 @@ export function makeOfflineVault(portal){
         throw Error('يلزم تسجيل الدخول وتحميل الايتمات أولاً');
       // Reuse the browser-bound key for the same account; do not overwrite
       // an existing pending draft on subsequent online refreshes.
+      // Note: never rotate another account's device key without checking for pending work.
       if(!key||owner!==payload.user.id||generation!==serverGeneration){
         try{
           const existing=await this.unlock();
@@ -131,7 +134,12 @@ export function makeOfflineVault(portal){
       const draft=validateDraft(draftValue.draft);
       key=snapshot.key;owner=data.user.id;generation=data.generation;
       lastDraft=JSON.stringify(draft);
-      return {...data,draft};
+      const outboxRecord=await read(prefix+'outbox');
+      const outbox=outboxRecord?await decrypt(snapshot.key,outboxRecord):{lists:[]};
+      const pendingLists=Array.isArray(outbox?.lists)?outbox.lists.filter(x=>
+        /^[0-9a-f-]{36}$/i.test(x?.client_request_id)&&Array.isArray(x.items)&&
+        x.items.length>0&&x.items.length<=500).slice(0,500):[];
+      return {...data,draft,pendingLists};
     },
     async saveDraft(draft){
       if(!key)return;
@@ -145,6 +153,51 @@ export function makeOfflineVault(portal){
         lastDraft=signature;
       });
       return pending;
+    },
+
+    async listPending(){
+      if(!key)return [];
+      await pending.catch(()=>{});
+      const record=await read(prefix+'outbox');
+      const data=record?await decrypt(key,record):{lists:[]};
+      return Array.isArray(data?.lists)?data.lists:[];
+    },
+    async enqueueExecutionList(draft){
+      if(!key||!owner)throw Error('يلزم فتح نسخة الأوفلاين على هذا الجهاز');
+      const items=validateDraft(draft);
+      if(items.length<1||items.length>500||items.length!==draft.length)
+        throw Error('القائمة تحتاج من 1 إلى 500 أيتم بأعداد صحيحة');
+      const item={client_request_id:crypto.randomUUID(),items,created_at:new Date().toISOString()};
+      const ownedKey=key;
+      pending=pending.catch(()=>{}).then(async()=>{
+        if(!key||key!==ownedKey)throw Error('تم قفل النسخة المحلية قبل الحفظ');
+        const old=await read(prefix+'outbox');
+        const lists=old?(await decrypt(ownedKey,old))?.lists||[]:[];
+        if(!Array.isArray(lists)||lists.length>=250)
+          throw Error('وصل الجهاز إلى حد القوائم غير المزامنة. وصّله بالإنترنت أولاً');
+        const now=Date.now();
+        const outbox=await encrypt(ownedKey,{lists:[...lists,item]});
+        const draftRecord=await encrypt(ownedKey,{draft:[],updatedAt:now});
+        await write({[prefix+'outbox']:outbox,[prefix+'draft']:draftRecord});
+        lastDraft='[]';
+      });
+      await pending;
+      return item;
+    },
+    async acknowledgeExecutionList(clientRequestId){
+      if(!key||!owner)throw Error('لا توجد جلسة أوفلاين لحفظ تأكيد المزامنة');
+      const ownedKey=key;
+      pending=pending.catch(()=>{}).then(async()=>{
+        if(!key||key!==ownedKey)throw Error('تغيّر حساب الجهاز أثناء المزامنة');
+        const old=await read(prefix+'outbox');
+        if(!old)return;
+        const lists=(await decrypt(ownedKey,old))?.lists;
+        if(!Array.isArray(lists))throw Error('قوائم الجهاز المحلية غير صالحة');
+        const next=lists.filter(x=>x.client_request_id!==clientRequestId);
+        if(next.length===lists.length)return;
+        await write({[prefix+'outbox']:await encrypt(ownedKey,{lists:next})});
+      });
+      await pending;
     },
     async refreshSnapshot(payload,serverGeneration){
       if(!key||owner!==payload?.user?.id||generation!==serverGeneration)return;
@@ -161,7 +214,7 @@ export function makeOfflineVault(portal){
     async clear(){
       lock();
       await pending.catch(()=>{});
-      await write({[prefix+'snapshot']:null,[prefix+'draft']:null});
+      await write({[prefix+'snapshot']:null,[prefix+'draft']:null,[prefix+'outbox']:null});
     }
   };
 }
