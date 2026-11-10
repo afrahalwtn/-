@@ -587,7 +587,7 @@ document.addEventListener('click',async e=>{
   }
   return;
  }
- const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
+ const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list,#staff-preview-close,#staff-preview-print,#staff-preview-layer');
  if(el?.dataset.switch==='admin'&&state.user?.role==='admin'){
   try{
      if(state.offlineMode||!navigator.onLine){
@@ -616,7 +616,10 @@ document.addEventListener('click',async e=>{
   state.draft=state.draft.filter(x=>x.product_id!==Number(el.dataset.remove));
   workspace();return;
  }
- if(el?.id==='staff-print-list' && state.user){await printPreparedList();return;}
+ if(el?.id==='staff-print-list' && state.user){showStaffPreview();return;}
+  if(el?.id==='staff-preview-close'){document.getElementById('staff-preview-layer')?.remove();return;}
+  if(el?.id==='staff-preview-print'){document.getElementById('staff-preview-layer')?.remove();await printPreparedList();return;}
+  if(el?.id==='staff-preview-layer'&&e.target===el){el.remove();return;}
  if(el?.id==='staff-save-list' && state.user){await saveExecutionList();return;}
  if(!el||!state.user)return;
  if(el.dataset.toggle){state.sidebarOpen=!state.sidebarOpen;render();return;}
@@ -677,3 +680,8 @@ document.addEventListener('click',e=>{
     document.querySelectorAll('.af-account-menu[open]').forEach(menu=>menu.open=false);
 },true);
 boot();
+
+// A preview never changes inventory. Closing it cannot dispatch stock.
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape')document.getElementById('staff-preview-layer')?.remove();
+});
