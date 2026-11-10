@@ -394,7 +394,7 @@ function prepareView(){
       <div class="af-tabulator-wrap"><div id="prepare-grid" aria-label="جدول تجهيز القائمة"></div></div>
       <footer class="af-prep-footer">
         <div class="af-prep-sum"><span>إجمالي عرض الأسعار</span><strong id="prepare-total">${money(sum)}</strong></div>
-        <button type="button" class="btn primary af-prep-save" data-action="quote-create" ${rows.length?'':'disabled'}>${icon('save',18)} حفظ عرض الأسعار</button>
+        <button type="button" class="btn primary af-prep-save" data-action="quote-create" ${rows.length?'':'disabled'}>${icon('save',18)} ${state.offlineMode?'حفظ مسودة محلية':'حفظ عرض الأسعار'}</button>
       </footer>
     </section>
   </div>`;
