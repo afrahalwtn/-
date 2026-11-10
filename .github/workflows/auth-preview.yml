@@ -97,7 +97,7 @@ jobs:
         run: |
           # Existing Chrome smoke test still targets the former number editor.
           # Keep the same interactions while using the new Safari-safe selector.
-          sed -i 's/input\\[type="number"\\]/input[inputmode="numeric"]/g' tests/ui-browser-smoke.mjs
+          sed -i 's/type="number"/inputmode="numeric"/g' tests/ui-browser-smoke.mjs
           node tests/ui-browser-smoke.mjs
       - name: Attach mobile, iPad and desktop previews
         if: always()
