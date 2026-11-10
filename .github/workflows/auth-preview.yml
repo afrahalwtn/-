@@ -23,6 +23,11 @@ on:
       - "tests/portal-credentials.mjs"
       - "web/account-portal.css"
       - "web/afrah-stability.css"
+      - "web/offline-vault.js"
+      - "web/offline-register.js"
+      - "web/service-worker.js"
+      - "web/manifest.webmanifest"
+      - "tests/offline-pwa-smoke.mjs"
       - "web/afrah-brand-2026.css"
       - "web/admin.html"
       - "web/index.html"
@@ -82,6 +87,9 @@ jobs:
         run: npm run build
       - name: Check frontend syntax
         run: |
+          node --check web/offline-vault.js
+          node --check web/offline-register.js
+          node --check web/service-worker.js
           node --check web/numeric-input.js
           node --check web/app.js
           node --check web/admin-app.js
@@ -99,6 +107,8 @@ jobs:
           # Keep the same interactions while using the new Safari-safe selector.
           sed -i 's/type="number"/inputmode="numeric"/g' tests/ui-browser-smoke.mjs
           node tests/ui-browser-smoke.mjs
+      - name: Test opt-in encrypted PWA and offline drafts with reconnection
+        run: node tests/offline-pwa-smoke.mjs
       - name: Attach mobile, iPad and desktop previews
         if: always()
         uses: actions/upload-artifact@v7.0.2
