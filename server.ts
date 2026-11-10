@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {matchesArabicSearch} from './web/arabic-search.js';
 import {validProductImageDimensions, type ImageMime} from './image-guard.js';
-import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, type ExecutionLine } from './storage.js';
+import { PersistentMap, storageDirectory, allocateRecordId, hasStoredKind, createExecutionList, listExecutionLists, recordAccountAudit, listAccountAudit, flushCloudWrites, refreshCloudKind, markCloudUnhealthy, cloudStorageHealthy, cloudEnabled, PersistentSessionMap, getAdminResetMarker, storeAdminResetMarker, getOfflinePolicy, setOfflinePolicy, type ExecutionLine } from './storage.js';
 import { uploadCloudImage, loadCloudImage, readCloudSession, readCloudUser, listCloudUsers, removeCloudSession } from './cloud.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 
@@ -431,6 +431,7 @@ function productDict(p: Product, u: User) {
     custom_fields: p.custom_fields || [],
     image_url: p.image_name ? `/api/images/${p.image_name}` : null,
     low_stock: p.quantity <= p.min_quantity,
+    updated_at: p.updated_at,
   };
   // Extra prices follow the exact same server-side authorizations as legacy pricing.
   if (u.role === 'admin' || u.can_view_purchase) {
@@ -958,6 +959,27 @@ app.post('/api/admin/recover', (req,res)=>{
   const {rawToken,csrf}=createAuthSession(admin);
   sendAuthSession(res,admin,rawToken,csrf);
 });
+
+// Offline availability is centrally controlled by the administrator.
+// The flag is not a secret. Browser caches contain only public application assets.
+async function loadOfflinePolicy(){
+  if(cloudEnabled)await refreshCloudKind('metadata');
+  return getOfflinePolicy();
+}
+app.get('/api/offline-mode',requireAuth,asyncRoute(async (_req,res)=>{
+  const policy=await loadOfflinePolicy();
+  res.setHeader('Cache-Control','no-store');
+  res.json(policy);
+}));
+app.post('/api/offline-mode',requireAuth,requireCsrf,requireAdmin,asyncRoute(async (req,res)=>{
+  if(typeof req.body?.enabled!=='boolean'){
+    res.status(422).json({detail:'أرسل اختيار تشغيل أو إيقاف الأوفلاين فقط'});return;
+  }
+  if(cloudEnabled)await refreshCloudKind('metadata');
+  const next=setOfflinePolicy(req.body.enabled);
+  // The generic cloud write middleware waits for durable Supabase confirmation.
+  res.json(next);
+}));
 
 // Admin-only session verification. Does not return any data to a staff session.
 app.get('/api/admin/me', requireAuth, requireAdmin, (req, res) => {

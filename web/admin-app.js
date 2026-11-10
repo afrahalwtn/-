@@ -7,7 +7,7 @@ import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2
 
 const state = {
   user:null, showRecovery:false, section:'home', products:[], alerts:[], users:[], quotes:[], accountAudit:[],
-  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false, catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,
+  search:'', homeSearch:'', quoteSearch:'', sidebarOpen:true, modal:null, draft:[], selectedQuote:null, loading:false, catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:'',
 };
 const app = document.getElementById('app');
 const printRoot = document.getElementById('print-root');
@@ -105,14 +105,20 @@ function showLoginError(message) {
   else showToast(message,true);
 }
 async function refresh() {
-  const [products, alerts] = await Promise.all([api('/products'), api('/alerts')]);
-  state.products = products;
-  state.alerts = alerts;
+  const [products,alerts,policy]=await Promise.all([api('/products'),api('/alerts'),api('/offline-mode')]);
+  state.products=products;state.alerts=alerts;
+  state.offlineEnabled=policy.enabled===true;state.offlineGeneration=policy.generation||'';
   if (isAdmin()) {
-    const [users, quotes, audit] = await Promise.all([api('/users'), api('/quotes'), api('/users/audit')]);
-    state.users=users; state.quotes=quotes; state.accountAudit=audit;
-  } else { state.users=[]; state.quotes=[]; state.accountAudit=[]; }
-  if(vault.unlocked&&!state.offlineMode)void vault.refreshSnapshot({user:state.user,products:state.products,alerts:state.alerts}).catch(()=>{});
+    const [users,quotes,audit]=await Promise.all([api('/users'),api('/quotes'),api('/users/audit')]);
+    state.users=users;state.quotes=quotes;state.accountAudit=audit;
+  }else {state.users=[];state.quotes=[];state.accountAudit=[];}
+  if(state.offlineEnabled){
+    try{
+      await vault.enable({user:state.user,products,alerts},state.draft,state.offlineGeneration);
+      const saved=await vault.unlock();
+      if(!state.draft.length&&saved.user.id===state.user.id)state.draft=saved.draft;
+    }catch(error){console.warn('Offline admin device copy unavailable',error?.message);}
+  }else await vault.clear().catch(()=>{});
 }
 async function boot() {
   try {
@@ -123,7 +129,22 @@ async function boot() {
     state.sidebarOpen = window.innerWidth >= 950;
     setCsrf(res.csrf);
     await refresh();
-  } catch { state.user=null; setCsrf(null); setAccessToken(null); }
+  } catch(error){
+    state.user=null;setCsrf(null);setAccessToken(null);
+    if(error?.status===401||error?.status===403)await vault.clear().catch(()=>{});
+    else{
+      try{
+        const snapshot=await vault.unlock();
+        if(snapshot.user?.role==='admin'){
+          state.user=snapshot.user;state.products=snapshot.products;
+          state.alerts=snapshot.alerts||[];state.users=[];state.quotes=[];state.accountAudit=[];
+          state.draft=snapshot.draft;state.offlineEnabled=true;state.offlineMode=true;
+          state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
+          state.section='home';state.sidebarOpen=window.innerWidth>=950;
+        }
+      }catch{}
+    }
+  }
   render();
 }
 function loginView() {
@@ -158,12 +179,7 @@ function loginView() {
           <p id="login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>
         </form>`}
         <button class="auth-recovery-toggle" type="button" data-action="recovery-toggle">${state.showRecovery?'الرجوع لتسجيل الدخول':'رمز الإدارة ما يشتغل؟ استعادة الحساب'}</button>
-        <form class="af-offline-login" data-form="offline-unlock">
-          <strong>فتح نسخة الأوفلاين المشفّرة</strong>
-          <label>عبارة حماية الجهاز<input type="password" name="passphrase" minlength="10" autocomplete="off" required></label>
-          <button type="submit" class="btn quiet">فتح دون إنترنت</button>
-          <p>يلزم تجهيز النسخة مسبقاً أثناء الاتصال. البيانات قديمة ولا يمكن اعتماد الجرد أو الأسعار دون الاتصال.</p>
-        </form>
+
       </div>
     </section>
   </div><div id="toast" class="toast" role="status"></div>`;
@@ -325,17 +341,11 @@ function accountView() {
     </form>
   </section>
   <section class="panel card af-offline-setup">
-    <div class="panel-head"><h2>النسخة المشفّرة دون إنترنت</h2></div>
-    <p>هذه نسخة على جهازك تتضمن الأسعار المصرّح بها؛ لا تحفظها على جهاز مشترك. الكميات والأسعار للعرض فقط حين تنقطع الشبكة.</p>
-    ${state.offlineMode?'':`<form class="af-offline-form" data-form="offline-enable">
-      <label>عبارة حماية محلية (10 رموز على الأقل)<input type="password" name="passphrase" minlength="10" maxlength="256" autocomplete="new-password" required></label>
-      <button type="submit" class="btn primary">تجهيز نسخة أوفلاين</button>
-    </form>`}
-    <form class="af-offline-form" data-form="offline-restore">
-      <label>استعادة مسودة عرض أسعار مشفّرة<input type="password" name="passphrase" minlength="10" autocomplete="off" required></label>
-      <button type="submit" class="btn quiet">استعادة المسودة</button>
-    </form>
-    <button type="button" class="btn quiet" data-action="offline-clear">مسح نسخة الجهاز</button>
+    <div class="panel-head"><h2>تشغيل التطبيق بدون إنترنت</h2></div>
+    <p>زر واحد يتحكّم بالأوفلاين للشركة كلها. عند التشغيل تُحفظ نسخة على كل جهاز بعد دخوله بالإنترنت. الكميات والأسعار المحفوظة قديمة وتبقى محمية بقفل الجهاز، ولا تتزامن تغييرات المخزون تلقائياً.</p>
+    <button type="button" class="btn ${state.offlineEnabled?'quiet':'primary'}" data-action="offline-toggle" ${state.offlineMode?'disabled':''}>
+      ${state.offlineEnabled?'إيقاف الأوفلاين':'تشغيل الأوفلاين'}
+    </button>
   </section>`;
 }
 function usersView() {
@@ -629,30 +639,6 @@ async function handleForm(form) {
     if (submit) { submit.dataset.originalLabel=submit.innerHTML; submit.textContent='جارٍ التحقق من الدخول...'; submit.setAttribute('aria-busy','true'); }
   }
   try {
-    if(type==='offline-enable'){
-      if(!state.user||state.offlineMode||!isAdmin())throw Error('سجّل دخولاً مباشراً بالإدارة أولاً');
-      const phrase=String(fields.get('passphrase')||'');
-      await vault.enable(phrase,{user:state.user,products:state.products,alerts:state.alerts},state.draft);
-      showToast('جهزنا نسخة مشفّرة على هذا الجهاز. يمكن فتحها عند انقطاع الإنترنت');
-      return;
-    }
-    if(type==='offline-unlock'||type==='offline-restore'){
-      const snapshot=await vault.unlock(String(fields.get('passphrase')||''));
-      if(snapshot.user?.role!=='admin')throw Error('هذه النسخة ليست للإدارة');
-      if(type==='offline-restore'){
-        if(!state.user||state.offlineMode||state.user.id!==snapshot.user.id)
-          throw Error('سجّل الدخول بالإدارة نفسها لاستعادة المسودة');
-        state.draft=snapshot.draft;state.section='prepare';renderWorkspace();
-        showToast('استُعيدت المسودة؛ راجع بياناتها قبل اعتمادها بالخادم');
-      }else{
-        setCsrf(null);setAccessToken(null);
-        state.user=snapshot.user;state.products=snapshot.products;state.alerts=snapshot.alerts||[];
-        state.users=[];state.quotes=[];state.accountAudit=[];state.draft=snapshot.draft;
-        state.offlineMode=true;state.offlineUpdatedAt=snapshot.updatedAt;
-        state.section='home';state.sidebarOpen=window.innerWidth>=950;render();
-      }
-      return;
-    }
     if(state.offlineMode)throw Error('هذا الإجراء يتطلب اتصالاً بالخادم. مسودتك محفوظة محلياً');
     if (type==='login') {
       if (!(await backendAvailable())) {
@@ -777,9 +763,21 @@ async function printQuote(q) {
 window.addEventListener('afterprint',()=>document.body.classList.remove('printing'));
 
 async function handleAction(action, el) {
-  if(action==='offline-clear'){
-    if(!confirm('مسح بيانات الايتمات والمسودات المشفّرة من هذا الجهاز؟'))return;
-    await vault.clear();showToast('تم مسح نسخة الأوفلاين من هذا الجهاز');return;
+  if(action==='offline-toggle'){
+    if(!isAdmin()||state.offlineMode)throw Error('تغيير وضع الأوفلاين يحتاج دخول الإدارة بالإنترنت');
+    const button=el;
+    button.disabled=true;
+    try{
+      const policy=await api('/offline-mode',{method:'POST',data:{enabled:!state.offlineEnabled}});
+      state.offlineEnabled=policy.enabled;state.offlineGeneration=policy.generation;
+      if(!policy.enabled)await vault.clear();
+      else{
+        await vault.enable({user:state.user,products:state.products,alerts:state.alerts},state.draft,policy.generation);
+      }
+      renderWorkspace();
+      showToast(policy.enabled?'اشتغل الأوفلاين لجميع الأجهزة بعد دخولها بالإنترنت':'انطفأ الأوفلاين، وتُمسح النسخ المحلية عند رجوع الأجهزة للإنترنت');
+    }finally{if(button.isConnected)button.disabled=false;}
+    return;
   }
   if(action==='offline-reconnect'){
     const self=await api('/admin/me');
@@ -787,9 +785,9 @@ async function handleAction(action, el) {
       throw Error('سجّل دخولاً مباشراً بالإدارة نفسها لاستكمال العمل');
     const draft=state.draft;
     state.user=self.user;setCsrf(self.csrf);
-    await refresh();
-    state.offlineMode=false;state.draft=draft;state.section='prepare';
-    await vault.refreshSnapshot({user:state.user,products:state.products,alerts:state.alerts});
+    state.offlineMode=false;
+    await refresh();state.draft=draft;state.section='prepare';
+    if(state.offlineEnabled)await vault.saveDraft(draft);
     renderWorkspace();showToast('اتصلنا بالخادم. راجع المسودة قبل اعتماد الأسعار والعدد');
     return;
   }

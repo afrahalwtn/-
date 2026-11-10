@@ -1,152 +1,167 @@
-// Private offline data is NEVER stored in Cache Storage or in plaintext.
-// Opt-in encrypted IndexedDB vault, scoped to a single portal/browser profile.
-// Access expires after 72h without online reauthentication; revocations cannot
-// be checked during a network outage. No background stock/price mutation queue.
-const DB='afrah-private-offline-v1';
+// Device-local encrypted offline data. No passphrase or activation code.
+// Important: a user with access to the unlocked device/browser can open the
+// encrypted copy. Never cache /api, cookies, CSRF or bearer tokens.
+const DB='afrah-private-offline-v2';
 const STORE='records';
 const TTL_MS=72*60*60*1000;
-const encoder=new TextEncoder();
-const decoder=new TextDecoder();
-function supported(){
-  return Boolean(window.isSecureContext && crypto?.subtle && indexedDB);
+const encoder=new TextEncoder(),decoder=new TextDecoder();
+function ensure(){
+  if(!window.isSecureContext||!crypto?.subtle||!indexedDB)
+    throw Error('الأوفلاين يحتاج متصفحاً حديثاً واتصال HTTPS عند أول إعداد');
 }
 function openDb(){
   return new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB,1);
-    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE);};
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror=()=>reject(req.error||Error('تعذّر فتح مساحة التخزين على الجهاز'));
-    req.onblocked=()=>reject(Error('أغلق التبويبات الأخرى للتطبيق ثم حاول مرة ثانية'));
+    const request=indexedDB.open(DB,1);
+    request.onupgradeneeded=()=>{
+      if(!request.result.objectStoreNames.contains(STORE))request.result.createObjectStore(STORE);
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||Error('فشل فتح التخزين المحلي'));
+    request.onblocked=()=>reject(Error('أغلق تبويبات التطبيق الأخرى وأعد المحاولة'));
   });
 }
-async function transact(mode,work){
+async function read(key){
   const db=await openDb();
   try{
     return await new Promise((resolve,reject)=>{
-      const tx=db.transaction(STORE,mode),store=tx.objectStore(STORE);
-      let result;
-      tx.oncomplete=()=>resolve(result);
-      tx.onerror=()=>reject(tx.error||Error('فشل حفظ البيانات على هذا الجهاز'));
-      tx.onabort=()=>reject(tx.error||Error('تم إلغاء التخزين المحلي'));
-      try{result=work(store);}catch(error){tx.abort();reject(error);}
+      const tx=db.transaction(STORE,'readonly');
+      const request=tx.objectStore(STORE).get(key);
+      request.onsuccess=()=>resolve(request.result??null);
+      request.onerror=()=>reject(request.error||Error('تعذر قراءة البيانات المحلية'));
+      tx.onerror=()=>reject(tx.error||Error('تعذر قراءة التخزين المحلي'));
     });
   }finally{db.close();}
 }
-function read(key){
-  return new Promise(async(resolve,reject)=>{
-    let db;
-    try{
-      db=await openDb();
-      const tx=db.transaction(STORE,'readonly');
-      const req=tx.objectStore(STORE).get(key);
-      req.onsuccess=()=>resolve(req.result??null);
-      req.onerror=()=>reject(req.error||Error('تعذّر قراءة النسخة المحلية'));
-      tx.oncomplete=()=>db.close();
-      tx.onerror=()=>db.close();
-    }catch(error){db?.close();reject(error);}
-  });
-}
-function ensure(){
-  if(!supported())throw Error('التخزين المشفّر يتطلب سفاري أو متصفحاً حديثاً واتصال HTTPS عند الإعداد');
-}
-async function derive(passphrase,salt){
-  if(typeof passphrase!=='string'||passphrase.length<10||passphrase.length>256)
-    throw Error('اكتب عبارة حماية من 10 رموز على الأقل');
-  const original=await crypto.subtle.importKey('raw',encoder.encode(passphrase),'PBKDF2',false,['deriveKey']);
-  return crypto.subtle.deriveKey(
-    {name:'PBKDF2',hash:'SHA-256',salt,iterations:240000},
-    original,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+async function write(values){
+  const db=await openDb();
+  try{
+    return await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,'readwrite'),store=tx.objectStore(STORE);
+      tx.oncomplete=resolve;
+      tx.onabort=()=>reject(tx.error||Error('فشل حفظ النسخة المحلية'));
+      tx.onerror=()=>reject(tx.error||Error('فشل حفظ النسخة المحلية'));
+      for(const [name,value] of Object.entries(values)){
+        if(value===null)store.delete(name);
+        else store.put(value,name);
+      }
+    });
+  }finally{db.close();}
 }
 async function encrypt(key,value){
   const iv=crypto.getRandomValues(new Uint8Array(12));
-  const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encoder.encode(JSON.stringify(value)));
-  return {iv,encrypted};
+  return {iv,ciphertext:await crypto.subtle.encrypt(
+    {name:'AES-GCM',iv},key,encoder.encode(JSON.stringify(value)))};
 }
 async function decrypt(key,record){
-  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:record.iv},key,record.encrypted);
-  return JSON.parse(decoder.decode(plain));
+  const bytes=await crypto.subtle.decrypt(
+    {name:'AES-GCM',iv:record.iv},key,record.ciphertext);
+  return JSON.parse(decoder.decode(bytes));
+}
+function validateDraft(draft){
+  return (Array.isArray(draft)?draft:[]).filter(row=>
+    Number.isSafeInteger(row?.product_id)&&row.product_id>0&&
+    Number.isSafeInteger(row?.quantity)&&row.quantity>=1&&row.quantity<=100000000
+  ).slice(0,500).map(row=>({product_id:row.product_id,quantity:row.quantity}));
+}
+function validSnapshot(data,portal){
+  return data?.portal===portal&&data?.user?.id>0&&
+    Array.isArray(data.products)&&typeof data.generation==='string'&&data.generation.length>0&&
+    Number.isFinite(data.updatedAt)&&Date.now()-data.updatedAt<=TTL_MS&&
+    data.updatedAt<=Date.now()+60000;
 }
 export function makeOfflineVault(portal){
   if(!['admin','staff'].includes(portal))throw Error('Invalid vault');
   const prefix=portal+':';
-  let key=null,owner=null,pending=Promise.resolve(),lastDraft=null;
-  async function writeBatch(values){
-    await transact('readwrite',store=>{
-      for(const [name,value] of Object.entries(values))store.put(value,prefix+name);
-    });
-  }
+  let key=null,owner=null,generation=null,pending=Promise.resolve(),lastDraft=null;
+  const lock=()=>{key=null;owner=null;generation=null;lastDraft=null;};
   return {
     get unlocked(){return Boolean(key);},
     get accountId(){return owner;},
+    get generation(){return generation;},
     async hasSnapshot(){ensure();return Boolean(await read(prefix+'snapshot'));},
-    async enable(passphrase,payload,draft=[]){
+    async enable(payload,draft=[],serverGeneration){
       ensure();
-      if(!navigator.serviceWorker)throw Error('المتصفح لا يدعم تشغيل الواجهة دون إنترنت');
-      const registration=await navigator.serviceWorker.getRegistration('/');
-      if(!registration?.active)throw Error('أعد تحميل التطبيق بالإنترنت أولاً حتى تكتمل ملفات الأوفلاين');
-      if(!payload?.user?.id||!Array.isArray(payload.products))throw Error('يلزم الدخول إلى الحساب وتحميل الايتمات أولاً');
-      const salt=crypto.getRandomValues(new Uint8Array(16));
-      const nextKey=await derive(passphrase,salt);
+      if(typeof serverGeneration!=='string'||!serverGeneration)
+        throw Error('لم تفعّل الإدارة الأوفلاين');
+      if(!navigator.serviceWorker)throw Error('المتصفح لا يدعم الأوفلاين');
+      // Login can complete before the service worker finishes installing.
+      // Wait for activation, but never hang the normal online application.
+      const registration=await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_,reject)=>setTimeout(()=>reject(
+          Error('تعذّر تجهيز أوفلاين على هذا الجهاز؛ افتح التطبيق بالإنترنت مجدداً')),6500))
+      ]);
+      if(!registration?.active)throw Error('أعد فتح التطبيق بالإنترنت حتى تكتمل ملفات الأوفلاين');
+      if(!payload?.user?.id||!Array.isArray(payload.products))
+        throw Error('يلزم تسجيل الدخول وتحميل الايتمات أولاً');
+      // Reuse the browser-bound key for the same account; do not overwrite
+      // an existing pending draft on subsequent online refreshes.
+      if(!key||owner!==payload.user.id||generation!==serverGeneration){
+        try{
+          const existing=await this.unlock();
+          if(existing.user.id!==payload.user.id||existing.generation!==serverGeneration)lock();
+        }catch{lock();}
+      }
+      if(!key){
+        key=await crypto.subtle.generateKey(
+          {name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+      }
+      owner=payload.user.id;
+      generation=serverGeneration;
       const updatedAt=Date.now();
-      const snapshot=await encrypt(nextKey,{...payload,portal,updatedAt});
-      const draftRecord=await encrypt(nextKey,{draft,updatedAt});
-      await writeBatch({snapshot:{...snapshot,salt,updatedAt},draft:draftRecord});
-      key=nextKey;owner=payload.user.id;lastDraft=JSON.stringify(draft);
+      const normalized=validateDraft(draft);
+      const snapshot=await encrypt(key,{...payload,portal,generation,updatedAt});
+      const previous=await read(prefix+'draft');
+      const draftValue=previous&&lastDraft!==null?previous:
+        await encrypt(key,{draft:normalized,updatedAt});
+      await write({[prefix+'snapshot']:{...snapshot,key},
+        [prefix+'draft']:draftValue});
+      lastDraft=previous&&lastDraft!==null?lastDraft:JSON.stringify(normalized);
       return updatedAt;
     },
-    async unlock(passphrase){
+    async unlock(){
       ensure();
-      const snapshotRecord=await read(prefix+'snapshot');
-      if(!snapshotRecord)throw Error('لا توجد بيانات أوفلاين محفوظة. فعّلها أولاً أثناء اتصال الإنترنت');
-      try{
-        const nextKey=await derive(passphrase,snapshotRecord.salt);
-        const data=await decrypt(nextKey,snapshotRecord);
-        if(data.portal!==portal||!data.user?.id||!Array.isArray(data.products))
-          throw Error('النسخة المحلية غير صالحة');
-        if(!Number.isFinite(data.updatedAt)||Date.now()-data.updatedAt>TTL_MS||data.updatedAt>Date.now()+60000)
-          throw Error('انتهت صلاحية النسخة المحلية؛ سجّل الدخول بالإنترنت وحدّثها');
-        const draftRecord=await read(prefix+'draft');
-        const draftData=draftRecord?await decrypt(nextKey,draftRecord):null;
-        const draft=Array.isArray(draftData?.draft)?draftData.draft.filter(row=>
-          Number.isSafeInteger(row.product_id)&&Number.isSafeInteger(row.quantity)&&
-          row.quantity>=1&&row.quantity<=100000000).slice(0,4000):[];
-        key=nextKey;owner=data.user.id;lastDraft=JSON.stringify(draft);
-        return {...data,draft};
-      }catch(error){
-        this.lock();
-        if(error?.name==='OperationError')throw Error('عبارة الحماية غير صحيحة أو النسخة المحلية تالفة');
-        throw error;
-      }
+      const snapshot=await read(prefix+'snapshot');
+      if(!snapshot)throw Error('ماكو نسخة أوفلاين محفوظة على هذا الجهاز');
+      const data=await decrypt(snapshot.key,snapshot);
+      if(!validSnapshot(data,portal))
+        throw Error('انتهت صلاحية النسخة المحلية أو صارت غير صالحة؛ اتصل بالإنترنت');
+      const record=await read(prefix+'draft');
+      const draftValue=record?await decrypt(snapshot.key,record):{};
+      const draft=validateDraft(draftValue.draft);
+      key=snapshot.key;owner=data.user.id;generation=data.generation;
+      lastDraft=JSON.stringify(draft);
+      return {...data,draft};
     },
     async saveDraft(draft){
       if(!key)return;
-      const normalized=draft.map(row=>({product_id:Number(row.product_id),quantity:Number(row.quantity)}))
-        .filter(row=>Number.isSafeInteger(row.product_id)&&Number.isSafeInteger(row.quantity)&&row.quantity>=1&&row.quantity<=100000000)
-        .slice(0,4000);
-      const signature=JSON.stringify(normalized);
-      if(signature===lastDraft)return;
+      const normalized=validateDraft(draft),signature=JSON.stringify(normalized);
+      if(signature===lastDraft)return pending;
+      const ownedKey=key;
       pending=pending.catch(()=>{}).then(async()=>{
-        const record=await encrypt(key,{draft:normalized,updatedAt:Date.now()});
-        await writeBatch({draft:record});
+        if(!key||key!==ownedKey)return;
+        const record=await encrypt(ownedKey,{draft:normalized,updatedAt:Date.now()});
+        await write({[prefix+'draft']:record});
         lastDraft=signature;
       });
       return pending;
     },
-    async refreshSnapshot(payload){
-      if(!key||!payload?.user?.id||payload.user.id!==owner)return;
+    async refreshSnapshot(payload,serverGeneration){
+      if(!key||owner!==payload?.user?.id||generation!==serverGeneration)return;
+      const ownedKey=key;
       pending=pending.catch(()=>{}).then(async()=>{
-        const existing=await read(prefix+'snapshot');
-        if(!existing)return;
+        if(!key||key!==ownedKey)return;
         const updatedAt=Date.now();
-        const record=await encrypt(key,{...payload,portal,updatedAt});
-        await writeBatch({snapshot:{...record,salt:existing.salt,updatedAt}});
+        const record=await encrypt(ownedKey,{...payload,portal,generation,updatedAt});
+        await write({[prefix+'snapshot']:{...record,key:ownedKey}});
       });
       return pending;
     },
-    lock(){key=null;owner=null;lastDraft=null;},
+    lock,
     async clear(){
-      this.lock();
-      await transact('readwrite',store=>{store.delete(prefix+'snapshot');store.delete(prefix+'draft');});
+      lock();
+      await pending.catch(()=>{});
+      await write({[prefix+'snapshot']:null,[prefix+'draft']:null});
     }
   };
 }

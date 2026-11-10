@@ -9,7 +9,7 @@ import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
 
 const app=document.getElementById('app');
-const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0};
+const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:''};
 const vault=makeOfflineVault('staff');
 const photos=new Map();
 function clearPhotos(){for(const p of photos.values())p.then(u=>URL.revokeObjectURL(u)).catch(()=>{});photos.clear();}
@@ -116,11 +116,6 @@ function loginView(){
       '<label>كلمة المرور<input class="form-control" name="password" type="password" required autocomplete="current-password" dir="ltr"></label>'+
       '<button type="submit" class="btn primary btn-primary full">تسجيل الدخول '+icon('arrow',18)+'</button>'+
       '<p id="staff-login-feedback" class="login-feedback" role="alert" aria-live="assertive" hidden></p>'+
-      '</form><form id="staff-offline-unlock" class="af-offline-login">'+
-      '<strong>فتح البيانات المحفوظة بدون إنترنت</strong>'+
-      '<label>عبارة الحماية المحلية<input name="passphrase" type="password" required minlength="10" autocomplete="off"></label>'+
-      '<button type="submit" class="btn quiet">فتح أوفلاين</button>'+
-      '<p>يجب تجهيز النسخة مسبقاً وأنت متصل بالإنترنت. الكميات والأسعار قديمة.</p>'+
       '</form></div></section></div><div id="staff-toast" class="toast" role="status"></div>';
 }
 const sections=[['home','الرئيسية','home'],['products','الايتمات','package'],['inventory','الجرد','clipboard'],['alerts','التنبيهات','bell'],['prepare','جهّز قائمة','table'],['account','بيانات الدخول','shield']];
@@ -347,12 +342,7 @@ function account(){
  '<label>تأكيد كلمة المرور الجديدة<input class="form-control" name="confirm_password" type="password" autocomplete="new-password" dir="ltr"></label>'+
  '<p class="account-hint">إذا تريد تغير اسم الدخول فقط، اترك خانة كلمة المرور الجديدة فارغة.</p>'+
  '<p id="staff-account-feedback" class="login-feedback" role="alert" hidden></p>'+
- '<button class="btn primary" type="submit">'+icon('save',18)+' حفظ بيانات الدخول</button></form></section>'+
- '<section class="panel card af-offline-setup"><div class="panel-head"><h2>النسخة دون إنترنت</h2></div>'+
- '<p>تُحفظ الايتمات والقوائم مشفّرة على هذا الجهاز باختيارك. لا يتم إرسال الجرد أو الأسعار بدون اتصال.</p>'+
- (state.offlineMode?'':'<form id="staff-offline-enable" class="af-offline-form"><label>عبارة حماية محلية (10 رموز على الأقل)<input type="password" name="passphrase" minlength="10" maxlength="256" autocomplete="new-password" required></label><button type="submit" class="btn primary">تجهيز الأوفلاين</button></form>')+
- '<form id="staff-offline-restore" class="af-offline-form"><label>استعادة مسودة (عبارة الحماية)<input type="password" name="passphrase" minlength="10" autocomplete="off" required></label><button type="submit" class="btn quiet">استعادة المسودة</button></form>'+
- '<button type="button" class="btn quiet" id="staff-offline-clear">مسح النسخة المحلية</button></section>';
+ '<button class="btn primary" type="submit">'+icon('save',18)+' حفظ بيانات الدخول</button></form></section>';
 }
 function workspace(){
  const root=document.getElementById('staff-workspace');
@@ -369,14 +359,23 @@ function render(){
  if(state.user)workspace();
 }
 async function refresh(){
- const [products,alerts,executionLists]=await Promise.all([api('/products'),api('/alerts'),api('/execution-lists')]);
- state.products=products;
- state.alerts=alerts;
- state.executionLists=executionLists;
- if(vault.unlocked&&!state.offlineMode)void vault.refreshSnapshot({user:state.user,products,alerts,executionLists}).catch(()=>{});
+ const [products,alerts,executionLists,policy]=await Promise.all([
+  api('/products'),api('/alerts'),api('/execution-lists'),api('/offline-mode')
+ ]);
+ state.products=products;state.alerts=alerts;state.executionLists=executionLists;
+ state.offlineEnabled=policy.enabled===true;state.offlineGeneration=policy.generation||'';
+ if(state.offlineEnabled){
+  try{
+   await vault.enable({user:state.user,products,alerts,executionLists},state.draft,state.offlineGeneration);
+   const snapshot=await vault.unlock();
+   if(!state.draft.length&&snapshot.user.id===state.user.id)state.draft=snapshot.draft;
+  }catch(error){console.warn('Offline device copy unavailable',error?.message);}
+ }else{
+  await vault.clear().catch(()=>{});
+ }
 }
 function reset(){
- state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;
+ state.user=null;state.products=[];state.alerts=[];state.draft=[];state.prepareQuery='';state.executionLists=[];state.offlineMode=false;state.offlineUpdatedAt=0;state.offlineEnabled=false;state.offlineGeneration='';
  vault.lock();
  setAccessToken(null);setCsrf(null);clearPhotos();render();
 }
@@ -386,41 +385,25 @@ async function boot(){
   const self=await api('/me');
   if(!['staff','admin'].includes(self.user?.role))throw Error('Invalid role');
   state.user=self.user;setCsrf(self.csrf);state.offlineMode=false;await refresh();
- } catch {setAccessToken(null);setCsrf(null);state.user=null;}
+ } catch(error){
+  setAccessToken(null);setCsrf(null);state.user=null;
+  if(error?.status===401||error?.status===403)await vault.clear().catch(()=>{});
+  else{
+   try{
+    const snapshot=await vault.unlock();
+    if(['staff','admin'].includes(snapshot.user?.role)){
+     state.user=snapshot.user;state.products=snapshot.products;
+     state.alerts=snapshot.alerts||[];state.executionLists=snapshot.executionLists||[];
+     state.draft=snapshot.draft;state.offlineMode=true;state.offlineEnabled=true;
+     state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
+     state.section='home';
+    }
+   }catch{}
+  }
+ }
  render();
 }
 document.addEventListener('submit',async e=>{
- const offlineForm=e.target.closest('#staff-offline-enable,#staff-offline-unlock,#staff-offline-restore');
- if(offlineForm){
-  e.preventDefault();
-  const button=offlineForm.querySelector('button[type="submit"]');
-  if(button)button.disabled=true;
-  try{
-   const phrase=String(new FormData(offlineForm).get('passphrase')||'');
-   if(offlineForm.id==='staff-offline-enable'){
-    if(state.offlineMode||!state.user)throw Error('سجّل دخولاً مباشراً أولاً');
-    await vault.enable(phrase,{user:state.user,products:state.products,alerts:state.alerts,executionLists:state.executionLists},state.draft);
-    message('جهزنا نسخة مشفّرة لهذا الجهاز. يمكن الآن فتحها عند انقطاع الإنترنت',false);
-   }else{
-    const snapshot=await vault.unlock(phrase);
-    if(!['staff','admin'].includes(snapshot.user?.role))throw Error('الصلاحيات المحلية غير صالحة');
-    if(offlineForm.id==='staff-offline-restore'){
-     if(!state.user||state.offlineMode||snapshot.user.id!==state.user.id)
-      throw Error('لا يمكن استعادة مسودة حساب آخر؛ سجّل دخولاً بالحساب نفسه');
-     state.draft=snapshot.draft;state.section='prepare';workspace();
-     message('استُعيدت المسودة المحلية. راجعها قبل حفظها على الخادم',false);
-    }else{
-     setAccessToken(null);setCsrf(null);
-     state.user=snapshot.user;state.products=snapshot.products;state.alerts=snapshot.alerts||[];
-     state.executionLists=snapshot.executionLists||[];state.draft=snapshot.draft;
-     state.offlineMode=true;state.offlineUpdatedAt=snapshot.updatedAt;
-     state.sidebarOpen=innerWidth>=950;state.section='home';render();
-    }
-   }
-  }catch(err){message(err.message||'تعذّر فتح النسخة المحلية');}
-  finally{if(button?.isConnected)button.disabled=false;}
-  return;
- }
  if(e.target.id==='staff-account-form'){
   e.preventDefault();
   if(state.offlineMode){message('تغيير بيانات الدخول يحتاج اتصال بالخادم');return;}
@@ -465,22 +448,16 @@ document.addEventListener('submit',async e=>{
  } finally {submit.disabled=false;submit.innerHTML='تسجيل الدخول '+icon('arrow',18);}
 });
 document.addEventListener('click',async e=>{
- if(e.target.closest('#staff-offline-clear')){
-  if(confirm('مسح كل بيانات الأوفلاين والمسودات المشفّرة على هذا الجهاز؟')){
-   try{await vault.clear();message('تم مسح البيانات المحلية',false);}catch(err){message(err.message);}
-  }
-  return;
- }
  if(e.target.closest('#staff-reconnect')){
   try{
    const self=await api('/me');
    if(!self?.user||self.user.id!==state.user?.id||self.user.role!==state.user?.role)
     throw Error('سجّل دخولاً مباشراً بالحساب نفسه لإكمال العمل');
-   const oldUser=state.user,oldProducts=state.products,oldAlerts=state.alerts,oldLists=state.executionLists;
    const draft=state.draft;
    state.user=self.user;setCsrf(self.csrf);
-   await refresh();state.offlineMode=false;state.draft=draft;
-   await vault.refreshSnapshot({user:state.user,products:state.products,alerts:state.alerts,executionLists:state.executionLists});
+   state.offlineMode=false;
+   await refresh();state.draft=draft;
+   if(state.offlineEnabled)await vault.saveDraft(draft);
    workspace();
    message('اتصلنا بالخادم. راجع المسودة ثم احفظها',false);
   }catch(err){message(err.message||'تعذّر الاتصال؛ المسودة ما زالت محلية');}
@@ -522,7 +499,7 @@ document.addEventListener('click',async e=>{
   render();scrollTo(0,0);return;
  }
  if(el.dataset.logout){
-  if(state.offlineMode){reset();return;}
+  if(state.offlineMode){await vault.clear().catch(()=>{});reset();return;}
   try{await api('/auth/logout',{method:'POST'});}catch(err){message(err?.message||'لم يتأكد تسجيل الخروج؛ تحقق من الاتصال وأعد المحاولة');return;}
   await vault.clear().catch(()=>{});reset();
  }
