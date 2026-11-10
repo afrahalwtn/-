@@ -859,3 +859,153 @@ body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
   border-radius:10px;background:#f1f9f3;color:#274b31;
   font-weight:700;font-size:13px;line-height:1.7;
 }
+
+
+/* Preparation workspace: independent, non-overlapping sections at every breakpoint.
+   Constrain Tabulator horizontally inside the sheet instead of widening the page.
+   Shared by administration and employee portals; no theme or behavior changes. */
+.shell.shell-v6.page .workspace:has(> .af-prep),
+.shell.shell-v6.page .workspace:has(> .af-offline-banner + .af-prep){
+  min-width:0;
+  max-width:100%;
+}
+.shell .workspace .af-prep{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.shell .workspace .af-prep > :is(.af-prep-heading,.af-prep-search-card,.af-prep-sheet,.af-offline-outbox,.staff-execution-history){
+  position:relative;
+  flex:0 0 auto;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  margin:0!important;
+  box-sizing:border-box;
+}
+.shell .workspace .af-prep :is(.card-body,.af-prep-sheet-header,.af-prep-footer,.staff-prep-footer,.staff-prep-actions){
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.shell .workspace .af-prep .af-prep-sheet-header{
+  flex-wrap:wrap;
+  align-items:flex-start;
+}
+.shell .workspace .af-prep .af-prep-sheet-header > div{
+  flex:1 1 215px;
+  min-width:0;
+}
+.shell .workspace .af-prep .af-prep-sheet-title{
+  max-width:100%;
+  min-width:0;
+  white-space:normal;
+}
+.shell .workspace .af-prep .af-prep-sheet-title h2{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.shell .workspace .af-prep .af-prep-search-card .af-search-results{
+  position:static;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.shell .workspace .af-prep .search-product,
+.shell .workspace .af-prep .search-product-info{
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.shell .workspace .af-prep .search-product-info :is(strong,span,small){
+  overflow-wrap:anywhere;
+}
+.shell .workspace .af-prep .af-tabulator-wrap{
+  display:block;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  box-sizing:border-box;
+  overscroll-behavior-inline:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.shell .workspace .af-prep :is(#prepare-grid,#staff-grid){
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+.shell .workspace .af-prep .tabulator{
+  direction:rtl;
+  max-width:100%;
+}
+.shell .workspace .af-prep :is(.af-prep-footer,.staff-prep-footer){
+  flex-wrap:wrap;
+}
+.shell .workspace .af-prep .staff-prep-actions .btn{
+  max-width:100%;
+  white-space:normal;
+}
+@media(max-width:700px){
+  .shell .workspace .af-prep{gap:14px}
+  .shell .workspace .af-prep .af-prep-heading{margin-bottom:0!important}
+  .shell .workspace .af-prep .af-prep-search-card .card-body{padding:15px 14px}
+  .shell .workspace .af-prep .search-product{
+    display:grid;
+    grid-template-columns:52px minmax(0,1fr);
+    align-items:start;
+    gap:8px;
+  }
+  .shell .workspace .af-prep .search-product .staff-result-side{
+    grid-column:2;
+    min-width:0;
+    max-width:100%;
+    display:flex;
+    align-items:stretch;
+    flex-direction:column;
+    gap:7px;
+  }
+  .shell .workspace .af-prep .search-product .btn{
+    grid-column:2;
+    max-width:100%;
+    white-space:normal;
+    text-align:center;
+    overflow-wrap:anywhere;
+  }
+  .shell .workspace .af-prep .af-prep-sheet-header{
+    gap:10px;
+    padding:15px 14px;
+  }
+  .shell .workspace .af-prep .af-prep-count{
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .shell .workspace .af-prep .af-tabulator-wrap{
+    padding-inline:8px;
+    padding-bottom:10px;
+  }
+  .shell .workspace .af-prep .staff-prep-footer,
+  .shell .workspace .af-prep .af-prep-footer{
+    flex-direction:column;
+    align-items:stretch;
+    gap:12px;
+  }
+  .shell .workspace .af-prep .staff-prep-actions{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    width:100%;
+  }
+  .shell .workspace .af-prep .staff-prep-actions .btn{
+    width:100%;
+    min-width:0;
+  }
+}
