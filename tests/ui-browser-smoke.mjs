@@ -271,7 +271,7 @@ try {
   assert.equal(await staff.locator('.nav-link[data-nav="prepare"]').count(),1,'Prepare List must exist for staff');
   assert.equal(await staff.locator('[data-action="new-user"],[data-action="new-product"]').count(),0,'Admin controls must be absent');
   await staff.locator('#staff-home-search').fill('رول');
-  await staff.locator('.staff-add-to-list').first().click();
+  await staff.locator('.staff-add-to-list[data-add="1"]').click();
   await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor({timeout:15000});
   assert.equal(await staff.locator('#staff-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,"Employee's first item appears in list");
   await staff.locator('#staff-prepare-search').fill('علب');
@@ -290,6 +290,13 @@ try {
    await assertPreparationPanels(staff,'Employee mobile');
    await assertReadableGrid(staff,'Employee mobile');
   assert.equal(await staff.locator('#staff-print-list:enabled').count(),1,'Prepared list should be printable by staff');
+   const listedBeforePreview=await staff.locator('.staff-history-entry').count();
+   await staff.locator('#staff-print-list').click();
+   await staff.locator('#staff-preview-layer [role=dialog]').waitFor();
+   assert.equal(await staff.locator('#staff-preview-layer .af-preview-table tbody tr').count(),2);
+   await staff.locator('#staff-preview-close').click();
+   assert.equal(await staff.locator('.staff-history-entry').count(),listedBeforePreview,
+     'Preview must not save or deduct inventory');
   const previousCount=await staff.locator('.staff-history-entry').count();
   let listSaveRequests=0;
   const countListSaves=req=>{
