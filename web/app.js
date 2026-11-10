@@ -6,7 +6,7 @@ import {quantityEditor} from './numeric-input.js?v=20261110-safari-1';
 import {makeOfflineVault} from './offline-vault.js?v=20261110-outbox-2';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
-import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
+import {resumePortal,switchPortal,switchPortalOffline,consumeOfflinePortal} from './portal-handoff.js?v=20261110-offline-portals-1';
 
 const app=document.getElementById('app');
 const state={user:null,products:[],alerts:[],section:'home',query:'',prepareQuery:'',draft:[],executionLists:[],pendingLists:[],sidebarOpen:innerWidth>=950,catalogLimit:100,offlineMode:false,offlineUpdatedAt:0,offlineEnabled:false,offlineGeneration:'',offlineReady:false};
@@ -435,6 +435,16 @@ function reset(){
 }
 async function boot(){
  try {
+  if(consumeOfflinePortal('/')){
+    const snapshot=await vault.unlock();
+    if(snapshot.user?.role!=='admin')throw Error('صلاحية الانتقال أوفلاين للإدارة فقط');
+    state.user=snapshot.user;state.products=snapshot.products;state.alerts=snapshot.alerts||[];
+    state.executionLists=snapshot.executionLists||[];state.draft=snapshot.draft;
+    state.pendingLists=snapshot.pendingLists||[];state.offlineMode=true;state.offlineEnabled=true;
+    state.offlineGeneration=snapshot.generation;state.offlineUpdatedAt=snapshot.updatedAt;
+    state.offlineReady=true;state.section='home';
+    render();return;
+  }
   await resumePortal(api,setAccessToken,setCsrf);
   const self=await api('/me');
   if(!['staff','admin'].includes(self.user?.role))throw Error('Invalid role');
@@ -545,8 +555,16 @@ document.addEventListener('click',async e=>{
  }
  const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
  if(el?.dataset.switch==='admin'&&state.user?.role==='admin'){
-  if(state.offlineMode){message('تبديل البوابات يتطلب اتصالاً بالخادم');return;}
-   try{await switchPortal(api,'/admin');}catch(err){message(err?.message||'تعذر الانتقال للإدارة');}
+  try{
+     if(state.offlineMode||!navigator.onLine){
+       await switchPortalOffline('/admin',async()=>{
+         await vault.saveDraft(state.draft);
+         const adminSnapshot=await makeOfflineVault('admin').unlock();
+         if(adminSnapshot.user?.id!==state.user.id||adminSnapshot.user.role!=='admin')
+           throw Error('نسخة الإدارة المحلية غير متاحة لهذا الحساب');
+       });
+     }else await switchPortal(api,'/admin');
+   }catch(err){message(err?.message||'تعذر الانتقال للإدارة');}
    return;
  }
  if(el?.hasAttribute('data-add') && state.user){
