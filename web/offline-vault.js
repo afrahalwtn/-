@@ -118,12 +118,13 @@ export function makeOfflineVault(portal){
       const draftValue=previous&&lastDraft!==null?previous:
         await encrypt(key,{draft:normalized,updatedAt});
       await write({[prefix+'snapshot']:{...snapshot,key},
-        [prefix+'draft']:draftValue});
+        [prefix+'draft']:draftValue,[prefix+'blocked']:null});
       lastDraft=previous&&lastDraft!==null?lastDraft:JSON.stringify(normalized);
       return updatedAt;
     },
     async unlock(){
       ensure();
+      if(await read(prefix+'blocked'))throw Error('أوقفت الإدارة الأوفلاين على هذا الجهاز؛ يلزم الاتصال بالخادم');
       const snapshot=await read(prefix+'snapshot');
       if(!snapshot)throw Error('ماكو نسخة أوفلاين محفوظة على هذا الجهاز');
       const data=await decrypt(snapshot.key,snapshot);
@@ -155,6 +156,10 @@ export function makeOfflineVault(portal){
       return pending;
     },
 
+    async blockOffline(){
+      // Keep the encrypted pending outbox until the server acknowledges it.
+      await write({[prefix+'blocked']:true});
+    },
     async listPending(){
       if(!key)return [];
       await pending.catch(()=>{});
@@ -214,7 +219,7 @@ export function makeOfflineVault(portal){
     async clear(){
       lock();
       await pending.catch(()=>{});
-      await write({[prefix+'snapshot']:null,[prefix+'draft']:null,[prefix+'outbox']:null});
+      await write({[prefix+'snapshot']:null,[prefix+'draft']:null,[prefix+'outbox']:null,[prefix+'blocked']:null});
     }
   };
 }
