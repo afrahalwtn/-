@@ -66,6 +66,13 @@ try{
   'Staff must never see offline unlock or setup controls');
  await page.evaluate(async()=>navigator.serviceWorker.ready);
  assert(await page.evaluate(()=>Boolean(navigator.serviceWorker.controller)));
+ // Verify the company-wide setting created this device's snapshot before disconnecting.
+ await page.waitForFunction(async()=>{
+  try{
+   const {makeOfflineVault}=await import('/web/offline-vault.js');
+   return await makeOfflineVault('staff').hasSnapshot();
+  }catch{return false;}
+ },null,{timeout:15000});
  await page.locator('[data-nav=prepare]').click();
  await page.locator('#staff-prepare-search').fill('رول');
  await page.locator('.staff-add-to-list').first().click();
