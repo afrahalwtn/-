@@ -106,7 +106,10 @@ export function makeOfflineVault(portal){
             if(existing.pendingLists.length)throw Error('قوائم مستخدم آخر غير مرسلة؛ لا يمكن استبدالها');
             lock();
           }
-        }catch{lock();}
+        }catch(error){
+          if(error?.message?.includes('قوائم مستخدم آخر'))throw error;
+          lock();
+        }
       }
       if(!key){
         key=await crypto.subtle.generateKey(
@@ -181,7 +184,7 @@ export function makeOfflineVault(portal){
         if(!key||key!==ownedKey)throw Error('تم قفل النسخة المحلية قبل الحفظ');
         const old=await read(prefix+'outbox');
         const lists=old?(await decrypt(ownedKey,old))?.lists||[]:[];
-        if(!Array.isArray(lists)||lists.length>=250)
+        if(!Array.isArray(lists)||lists.length>=2000)
           throw Error('وصل الجهاز إلى حد القوائم غير المزامنة. وصّله بالإنترنت أولاً');
         const now=Date.now();
         const outbox=await encrypt(ownedKey,{lists:[...lists,item]});
