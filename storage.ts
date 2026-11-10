@@ -358,11 +358,14 @@ export interface ExecutionList {
  created_by_id:number;
  created_at:string;
  items:ExecutionLine[];
+ stock_deducted?:boolean;
 }
 function shapeExecution(row:any):ExecutionList {
+ const raw=JSON.parse(String(row.payload)) as ExecutionLine[]|{items:ExecutionLine[];stock_deducted:boolean};
  return {
   id:Number(row.id),created_by_id:Number(row.created_by_id),created_at:String(row.created_at),
-  items:JSON.parse(String(row.payload)) as ExecutionLine[],
+  items:Array.isArray(raw)?raw:raw.items,
+  stock_deducted:!Array.isArray(raw)&&raw.stock_deducted===true,
  };
 }
 export async function createExecutionList(createdById:number,items:ExecutionLine[]):Promise<ExecutionList>{
@@ -383,6 +386,69 @@ export function listExecutionLists(userId:number|null):ExecutionList[] {
  return (userId===null?allExecutions.all():ownExecutions.all(userId)).map(shapeExecution);
 }
 
+
+
+/** SQLite implementation of an atomic dispatch: checking every balance,
+ * subtracting every quantity, and creating the historical list are one
+ * BEGIN IMMEDIATE transaction. A retry with the same request UUID is read-only. */
+db.exec(`CREATE TABLE IF NOT EXISTS stock_dispatch_requests(
+  actor_id INTEGER NOT NULL,request_id TEXT NOT NULL,digest TEXT NOT NULL,
+  execution_list_id INTEGER NOT NULL,PRIMARY KEY(actor_id,request_id)
+) STRICT;`);
+const getDispatchRequest=db.prepare(
+ 'SELECT digest,execution_list_id FROM stock_dispatch_requests WHERE actor_id=? AND request_id=?');
+const putDispatchRequest=db.prepare(
+ 'INSERT INTO stock_dispatch_requests(actor_id,request_id,digest,execution_list_id) VALUES(?,?,?,?)');
+const findProductForDispatch=db.prepare(
+ 'SELECT payload FROM app_records WHERE kind=\'products\' AND id=?');
+const writeDispatchProduct=db.prepare(
+ 'UPDATE app_records SET payload=? WHERE kind=\'products\' AND id=?');
+export function commitLocalStockDispatch(
+ actorId:number,items:ExecutionLine[],requestId:string,
+ selected:Array<{product_id:number;quantity:number}>
+):{record:ExecutionList;products:Array<{id:number;quantity:number;updated_at:string}>}{
+ if(cloudEnabled)throw Error('This transaction must run on Supabase in cloud mode');
+ const normalized=requestId.toLowerCase();
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized))
+   throw Error('معرّف عملية الخصم غير صالح');
+ const digest=crypto.createHash('sha256').update(JSON.stringify(selected)).digest('hex');
+ const changed:Array<{id:number;quantity:number;updated_at:string}>=[];
+ db.exec('BEGIN IMMEDIATE');
+ try{
+   const existing=getDispatchRequest.get(actorId,normalized) as
+     {digest:string;execution_list_id:number}|undefined;
+   if(existing){
+     if(existing.digest!==digest)throw Error('تعارض في طلب الخصم المحفوظ');
+     const list=oneExecution.get(existing.execution_list_id);
+     if(!list)throw Error('توجد عملية خصم دون سجل تجهيز مطابق');
+     const record=shapeExecution(list);
+     if(!record.stock_deducted)throw Error('توجد عملية خصم غير مؤمنة');
+     db.exec('COMMIT');
+     return {record,products:[]};
+   }
+   for(const line of [...selected].sort((a,b)=>a.product_id-b.product_id)){
+     const dbRow=findProductForDispatch.get(line.product_id) as {payload:string}|undefined;
+     if(!dbRow)throw Error('الأيتم غير موجود في الجرد: '+line.product_id);
+     const old=JSON.parse(dbRow.payload) as {quantity:number;updated_at:string};
+     if(!Number.isSafeInteger(old.quantity)||old.quantity<line.quantity)
+       throw Error('الكمية المتوفرة لا تكفي للأيتم رقم '+line.product_id+'؛ المتوفر '+(old.quantity??0));
+     const updatedAt=new Date().toISOString();
+     const quantity=old.quantity-line.quantity;
+     writeDispatchProduct.run(JSON.stringify({...old,quantity,updated_at:updatedAt}),line.product_id);
+     changed.push({id:line.product_id,quantity,updated_at:updatedAt});
+   }
+   const createdAt=new Date().toISOString();
+   const inserted=saveExecution.run(actorId,createdAt,JSON.stringify({items,stock_deducted:true}));
+   const listId=Number(inserted.lastInsertRowid);
+   putDispatchRequest.run(actorId,normalized,digest,listId);
+   db.exec('COMMIT');
+   return {record:{id:listId,created_by_id:actorId,created_at:createdAt,items,stock_deducted:true},
+     products:changed};
+ }catch(error){
+   db.exec('ROLLBACK');
+   throw error;
+ }
+}
 
 // Idempotent submissions: a lost response must not insert the same local list twice.
 // Claim a durable receipt first; on retry finish the same allocated list record.
