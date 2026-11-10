@@ -173,12 +173,12 @@ export function makeOfflineVault(portal){
       const data=record?await decrypt(key,record):{lists:[]};
       return Array.isArray(data?.lists)?data.lists:[];
     },
-    async enqueueExecutionList(draft){
+    async enqueueExecutionList(draft,{deductStock=false}={}){
       if(!key||!owner)throw Error('يلزم فتح نسخة الأوفلاين على هذا الجهاز');
       const items=validateDraft(draft);
       if(items.length<1||items.length>500||items.length!==draft.length)
         throw Error('القائمة تحتاج من 1 إلى 500 أيتم بأعداد صحيحة');
-      const item={client_request_id:crypto.randomUUID(),items,created_at:new Date().toISOString()};
+      const item={client_request_id:crypto.randomUUID(),items,created_at:new Date().toISOString(),deduct_stock:deductStock===true};
       const ownedKey=key;
       pending=pending.catch(()=>{}).then(async()=>{
         if(!key||key!==ownedKey)throw Error('تم قفل النسخة المحلية قبل الحفظ');
