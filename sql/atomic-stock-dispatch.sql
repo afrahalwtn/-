@@ -62,7 +62,7 @@ BEGIN
   -- Lock every material in ascending order, so concurrent dispatches cannot
   -- double-subtract and a shortage aborts the entire PostgreSQL transaction.
   FOR v_entry IN
-    SELECT element AS item FROM jsonb_array_elements(p_items) AS element
+    SELECT value AS item FROM jsonb_array_elements(p_items) AS t(value)
     ORDER BY CASE WHEN element->>'product_id' ~ '^[0-9]{1,9}$'
       THEN (element->>'product_id')::integer ELSE 2147483647 END
   LOOP
@@ -95,7 +95,7 @@ BEGIN
   END LOOP;
 
   -- Build the historical, immutable list in the original user-selected order.
-  FOR v_entry IN SELECT element AS item FROM jsonb_array_elements(p_items) AS element LOOP
+  FOR v_entry IN SELECT value AS item FROM jsonb_array_elements(p_items) AS t(value) LOOP
     v_id := (v_entry.item->>'product_id')::integer;
     v_qty := (v_entry.item->>'quantity')::integer;
     SELECT payload INTO v_product FROM public.app_records WHERE kind='products' AND id=v_id;
