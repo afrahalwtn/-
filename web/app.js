@@ -521,7 +521,16 @@ document.addEventListener('click',async e=>{
    workspace();
    void syncPendingLists();
    message('اتصلنا بالخادم، وسنرسل القوائم المحلية مع التأكد من عدم تكرارها',false);
-  }catch(err){message(err.message||'تعذّر الاتصال؛ المسودة ما زالت محلية');}
+  }catch(err){
+   if(err?.status===401||err?.status===403){
+    if(state.pendingLists.length)await vault.blockOffline().catch(()=>{});
+    else await vault.clear().catch(()=>{});
+    state.user=null;state.products=[];state.alerts=[];state.executionLists=[];
+    state.offlineMode=false;state.draft=[];vault.lock();
+    setCsrf(null);setAccessToken(null);render();
+    message('انتهت صلاحية الحساب أو أُلغيت؛ قوائم الجهاز غير المرسلة محفوظة لحين معالجة الدخول');
+   }else message(err.message||'تعذّر الاتصال؛ القوائم ما زالت محلية');
+  }
   return;
  }
  const el=e.target.closest('[data-switch],[data-add],[data-remove],[data-nav],[data-logout],[data-toggle],[data-more],#staff-print-list,#staff-save-list');
