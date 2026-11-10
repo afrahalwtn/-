@@ -23,6 +23,7 @@ function status(product) {
 }
 function placeholder() { return `<div class="product-no-image">${icon('package',24)}</div>`; }
 function image(product, cssClass='product-thumb') {
+  if(state.offlineMode)return placeholder();
   return product.image_url ?
     '<img class="'+safe(cssClass)+'" data-private-image="'+safe(product.image_url)+'" alt="صورة '+safe(product.name||product.product_name)+'" loading="lazy">' :
     placeholder();
