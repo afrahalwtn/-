@@ -1,4 +1,5 @@
 import {api, apiMedia, setCsrf, setAccessToken, money, number, safe} from './api.js?v=20261109-media-pool-3';
+import {parseLocalizedNumber, quantityEditor} from './numeric-input.js?v=20261110-safari-1';
 import {icon} from './icons.js?v=20261109-nudaui-5';
 import {filterArabicProducts} from './arabic-search.js?v=20261106-ar-v1';
 import {resumePortal,switchPortal} from './portal-handoff.js?v=20261106-login-v2';
@@ -429,7 +430,7 @@ function drawPreparedGrid() {
       {title:'اسم الايتم',field:'name',width:188,minWidth:170,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>'}},
       {title:'الوصف',field:'description',width:200,minWidth:170,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>'},variableHeight:true},
       {title:'الصنع',field:'manufacture',width:135,minWidth:110,formatter(cell){return safe(cell.getValue()||'—')}},
-      {title:'العدد',field:'quantity',width:99,hozAlign:'center',editor:'number',editorParams:{min:1,max:100000000,step:1},validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>'}},
+      {title:'العدد',field:'quantity',width:99,hozAlign:'center',editor:quantityEditor,validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>'}},
       {title:'سعر الوحدة',field:'unit_price',width:142,hozAlign:'left',formatter(cell){return '<span class="af-grid-currency">'+money(cell.getValue())+'</span>'}},
       {title:'الإجمالي',field:'total',width:152,hozAlign:'left',formatter(cell){return '<b class="af-grid-currency">'+money(cell.getValue())+'</b>'},bottomCalc:'sum',bottomCalcFormatter(cell){return '<strong class="af-grid-total">'+money(cell.getValue()||0)+'</strong>'}},
       {title:'حذف',width:71,hozAlign:'center',headerSort:false,formatter(cell){return '<button class="af-grid-remove" type="button" data-action="quote-remove" data-idx="'+cell.getRow().getData().idx+'" aria-label="حذف الايتم">'+icon('x',17)+'</button>'}}
@@ -470,7 +471,7 @@ function extraAttributeRow(entry={label:'',value:''}){
 }
 function itemDecimal(v){return v===null||v===undefined?'':String(v);}
 function productModal(p) {
-  const field=(name,title,val)=>`<label>${title}<input type="number" name="${name}" min="0" max="1000000000000" step="0.01" inputmode="decimal" placeholder="اختياري" value="${itemDecimal(val)}"></label>`;
+  const field=(name,title,val)=>`<label>${title}<input type="text" name="${name}" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="اختياري" value="${itemDecimal(val)}"></label>`;
   return `<div class="modal-head"><div><p class="eyebrow">إدارة الايتمات</p><h2>${p?'تعديل الايتم':'إضافة ايتم جديد'}</h2></div>
     <button type="button" class="icon-btn" data-action="close-modal" aria-label="إغلاق">${icon('x',19)}</button></div>
     <form class="modal-form af-item-form" data-form="product" data-id="${p?.id||''}">
@@ -487,12 +488,12 @@ function productModal(p) {
         <label>وصف الايتم<textarea name="description" maxlength="1500" rows="3">${safe(p?.description||'')}</textarea></label>
       </section>
       <section class="af-item-section"><h3>المخزون والجرد</h3>
-        <div class="form-grid"><label>العدد المتوفر *<input type="number" name="quantity" min="0" step="1" required value="${p?.quantity??0}"></label>
-        <label>حد التنبيه *<input type="number" name="min_quantity" min="0" step="1" required value="${p?.min_quantity??5}"></label></div>
+        <div class="form-grid"><label>العدد المتوفر *<input type="text" name="quantity" inputmode="numeric" dir="ltr" autocomplete="off" required value="${p?.quantity??0}"></label>
+        <label>حد التنبيه *<input type="text" name="min_quantity" inputmode="numeric" dir="ltr" autocomplete="off" required value="${p?.min_quantity??5}"></label></div>
       </section>
       <section class="af-item-section"><h3>الأسعار بالدينار العراقي</h3>
-        <div class="form-grid"><label>سعر الشراء (د.ع) *<input type="number" name="purchase_price" min="0" step="0.01" required value="${p?.purchase_price??0}"></label>
-          <label>سعر المفرد (د.ع) *<input type="number" name="sale_price" min="0" step="0.01" required value="${p?.sale_price??0}"></label></div>
+        <div class="form-grid"><label>سعر الشراء (د.ع) *<input type="text" name="purchase_price" inputmode="decimal" dir="ltr" autocomplete="off" required value="${p?.purchase_price??0}"></label>
+          <label>سعر المفرد (د.ع) *<input type="text" name="sale_price" inputmode="decimal" dir="ltr" autocomplete="off" required value="${p?.sale_price??0}"></label></div>
         <div class="form-grid">${field('wholesale_price_iqd','سعر الجملة (د.ع)',p?.wholesale_price_iqd)}</div>
       </section>
       <section class="af-item-section"><h3>الأسعار بالدولار</h3>
@@ -525,7 +526,7 @@ function productModal(p) {
 }
 function stockModal(p) {
   return `<div class="modal-head"><h2>تحديث الجرد</h2><button class="icon-btn" data-action="close-modal">${icon('x')}</button></div>
-    <p class="muted">${safe(p.name)}</p><form data-form="stock" data-id="${p.id}" class="modal-form"><label>العدد الفعلي الموجود<input name="quantity" required type="number" step="1" min="0" value="${p.quantity}"></label><div class="modal-actions"><button type="button" class="btn quiet" data-action="close-modal">إلغاء</button><button type="submit" class="btn primary">حفظ الجرد</button></div></form>`;
+    <p class="muted">${safe(p.name)}</p><form data-form="stock" data-id="${p.id}" class="modal-form"><label>العدد الفعلي الموجود<input name="quantity" required type="text" inputmode="numeric" dir="ltr" autocomplete="off" value="${p.quantity}"></label><div class="modal-actions"><button type="button" class="btn quiet" data-action="close-modal">إلغاء</button><button type="submit" class="btn primary">حفظ الجرد</button></div></form>`;
 }
 function userModal(u) {
   return `<div class="modal-head"><div><p class="eyebrow">إدارة الصلاحيات</p><h2>${u?'إدارة حساب الموظف':'إنشاء حساب موظف'}</h2></div><button class="icon-btn" data-action="close-modal">${icon('x')}</button></div>
@@ -566,7 +567,8 @@ function renderModal() {
   if (type==='delete-user') content=deleteUserModal(state.users.find(u=>u.id===id));
   layer.innerHTML=`<div class="af-modal-backdrop" data-action="backdrop"><section class="af-dialog ${type==='product'?'af-item-dialog':''}" role="dialog" aria-modal="true">${content}</section></div>`;
   void hydrateImages(layer);
-  document.querySelector('.af-dialog input:not([disabled])')?.focus();
+  if(window.matchMedia('(pointer:fine)').matches && window.innerWidth>=951)
+    document.querySelector('.af-dialog input:not([disabled])')?.focus();
 }
 function closeModal() {state.modal=null;renderModal();}
 async function syncAndShow(message) {
@@ -644,11 +646,12 @@ async function handleForm(form) {
     }
     if (type==='product') {
       const values={name:String(fields.get('name')||''),description:String(fields.get('description')||''),manufacture:String(fields.get('manufacture')||'')};
-      for (const field of ['quantity','min_quantity','purchase_price','sale_price']) values[field]=Number(fields.get(field));
+      for (const field of ['quantity','min_quantity','purchase_price','sale_price'])
+        values[field]=parseLocalizedNumber(fields.get(field),{integer:field==='quantity'||field==='min_quantity',max:field==='quantity'||field==='min_quantity'?100000000:1000000000000});
       for(const field of ['sku','category','unit','item_type'])values[field]=String(fields.get(field)||'').trim();
       for(const field of ['length_cm','width_cm','height_cm','weight_g','purchase_price_usd','retail_price_usd','wholesale_price_iqd','wholesale_price_usd']){
         const raw=String(fields.get(field)||'').trim();
-        values[field]=raw===''?null:Number(raw);
+        values[field]=parseLocalizedNumber(raw,{optional:true,max:1000000000000});
       }
       values.custom_fields=Array.from(form.querySelectorAll('.af-extra-row')).map(node=>({
         label:String(node.querySelector('[name="extra_label"]')?.value||'').trim(),
@@ -667,7 +670,7 @@ async function handleForm(form) {
       await syncAndShow('تم حفظ الايتم بنجاح');
     }
     if (type==='stock') {
-      await api(`/products/${Number(form.dataset.id)}/stock`,{method:'PATCH',data:{quantity:Number(fields.get('quantity'))}});
+      await api(`/products/${Number(form.dataset.id)}/stock`,{method:'PATCH',data:{quantity:parseLocalizedNumber(fields.get('quantity'),{integer:true,max:100000000})}});
       await syncAndShow('تم تحديث الجرد');
     }
     if (type==='delete-user') {
@@ -800,7 +803,7 @@ async function handleAction(action, el) {
     }
     case 'quote-add': {
       const id=Number(document.getElementById('quote-product')?.value);
-      const qty=Number(document.getElementById('quote-qty')?.value);
+      let qty;try{qty=parseLocalizedNumber(document.getElementById('quote-qty')?.value,{integer:true,min:1,max:100000000});}catch{qty=NaN;}
       if (!id||!Number.isSafeInteger(qty)||qty<1||qty>100000000) {showToast('اختر ايتم وأدخل عدداً صحيحاً',true);return;}
       const found=state.draft.find(i=>i.product_id===id);
       if (found) found.quantity+=qty; else state.draft.push({product_id:id,quantity:qty});
@@ -896,7 +899,8 @@ document.addEventListener('change',e=>{
 document.addEventListener('change',(e)=>{
   const input=e.target.closest('.af-qty-input');
   if (!input) return;
-  const idx=Number(input.dataset.idx),row=state.draft[idx],qty=Number(input.value);
+  const idx=Number(input.dataset.idx),row=state.draft[idx];
+  let qty;try{qty=parseLocalizedNumber(input.value,{integer:true,min:1,max:100000000});}catch{qty=NaN;}
   if (!row) return;
   if(!Number.isSafeInteger(qty)||qty<1||qty>100000000) {
     input.value=String(row.quantity);
@@ -907,4 +911,8 @@ document.addEventListener('change',(e)=>{
   renderWorkspace();
 });
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&state.modal)closeModal();});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.af-account-menu'))
+    document.querySelectorAll('.af-account-menu[open]').forEach(menu=>menu.open=false);
+},true);
 boot();
