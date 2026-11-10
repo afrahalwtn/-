@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
@@ -221,6 +222,23 @@ export function storeAdminResetMarker(passwordHash:string):void {
   putCloud('metadata',107,{password_hash:passwordHash});
 }
 
+// One company-wide administration switch. Default OFF. Cloud record 108 is
+// private server-side metadata; SQLite uses app_metadata.
+export function getOfflinePolicy():{enabled:boolean;generation:string}{
+  const raw=cloudEnabled?cloudValue('metadata',108):
+    JSON.parse(String((metaGet.get('offline-policy-v1') as {value?:string}|undefined)?.value||'{}'));
+  return {enabled:raw?.enabled===true,
+    generation:typeof raw?.generation==='string'?raw.generation:''};
+}
+export function setOfflinePolicy(enabled:boolean):{enabled:boolean;generation:string}{
+  if(typeof enabled!=='boolean')throw Error('Invalid offline flag');
+  const old=getOfflinePolicy();
+  if(old.enabled===enabled)return old;
+  const next={enabled,generation:crypto.randomUUID()};
+  if(cloudEnabled)putCloud('metadata',108,next);
+  else metaSet.run('offline-policy-v1',JSON.stringify(next));
+  return next;
+}
 export function hasStoredKind(kind:RecordKind):boolean {
   if (cloudEnabled) return Boolean(cloudValue('metadata',seedIds[kind]) || cloudRows.get(kind)?.size);
   return Boolean(metaGet.get('seed:'+kind));
@@ -368,7 +386,7 @@ export function listExecutionLists(userId:number|null):ExecutionList[] {
 // Reconcile a complete collection from the remote source of truth, including
 // deletions. The HTTP middleware serializes catalogue mutations around this.
 const businessMaps=new Map<RecordKind,PersistentMap<any>>();
-export async function refreshCloudKind(kind:RecordKind|'execution_lists'|'account_audit'):Promise<void>{
+export async function refreshCloudKind(kind:RecordKind|'execution_lists'|'account_audit'|'metadata'):Promise<void>{
   if(!cloudEnabled)return;
   await flushCloudWrites();
   const latest=await loadCloudKind(kind);
