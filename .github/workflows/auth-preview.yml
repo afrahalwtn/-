@@ -94,7 +94,11 @@ jobs:
       - name: Security regression checks
         run: node tests/security-hardening.mjs
       - name: Verify homepage and multi-item receipt in Chrome
-        run: node tests/ui-browser-smoke.mjs
+        run: |
+          # Existing Chrome smoke test still targets the former number editor.
+          # Keep the same interactions while using the new Safari-safe selector.
+          sed -i 's/input\\[type="number"\\]/input[inputmode="numeric"]/g' tests/ui-browser-smoke.mjs
+          node tests/ui-browser-smoke.mjs
       - name: Attach mobile, iPad and desktop previews
         if: always()
         uses: actions/upload-artifact@v7.0.2
