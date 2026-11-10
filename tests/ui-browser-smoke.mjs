@@ -9,6 +9,26 @@ import { chromium } from 'playwright-core';
 
 // Preparation panels must flow vertically, while the spreadsheet scrolls inside
 // its own card. This guards against overlapping screens on mobile/tablet.
+
+async function assertReadableGrid(page,label){
+  const m=await page.evaluate(()=>{
+    const grid=document.querySelector('.af-prep .tabulator');
+    const wrap=grid?.closest('.af-tabulator-wrap');
+    if(!grid||!wrap)return null;
+    const titles=[...grid.querySelectorAll('.tabulator-header .tabulator-col-title')].filter(e=>e.textContent.trim());
+    return {min:parseFloat(getComputedStyle(grid).minWidth),width:grid.getBoundingClientRect().width,
+      available:wrap.clientWidth,scroll:wrap.scrollWidth,
+      header:grid.querySelector('.tabulator-header').getBoundingClientRect().height,
+      titles:titles.map(e=>({name:e.textContent.trim(),height:e.getBoundingClientRect().height,
+        wrap:getComputedStyle(e).whiteSpace}))};
+  });
+  assert(m && m.titles.length>=6,label+': header missing');
+  assert(m.min>=1000 && m.width>=m.min-2,label+': columns have collapsed '+JSON.stringify(m));
+  assert(m.header<95,label+': header too tall '+JSON.stringify(m));
+  assert(m.titles.every(t=>t.wrap==='nowrap'&&t.height<36),label+': Arabic heading broken '+JSON.stringify(m.titles));
+  if(m.available<m.min-10)assert(m.scroll>m.available+50,label+': cannot scroll spreadsheet');
+}
+
 async function assertPreparationPanels(page,label){
   const layout=await page.evaluate(()=>{
     const root=document.querySelector('.af-prep');
@@ -148,6 +168,7 @@ try {
   assert.equal(await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'First material must be in spreadsheet');
   await page.screenshot({path:'screenshots/mobile-prepare-first.png',fullPage:true});
    await assertPreparationPanels(page,'Admin mobile');
+   await assertReadableGrid(page,'Admin mobile');
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('img.af-grid-photo')).some(img=>img.src.startsWith('blob:')&&img.naturalWidth>0),null,{timeout:15000});
 
   await page.locator('#quote-search').fill('علب');
@@ -202,6 +223,7 @@ try {
   await desktop.locator('#prepare-grid').waitFor({timeout:8000});
   await desktop.screenshot({path:'screenshots/desktop-prepare.png',fullPage:true});
    await assertPreparationPanels(desktop,'Admin desktop');
+   await assertReadableGrid(desktop,'Admin desktop');
 
   const deskWidth=await desktop.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(deskWidth.scroll<=deskWidth.width+2,'Desktop layout overflows: '+JSON.stringify(deskWidth));
@@ -233,6 +255,7 @@ try {
   await ipad.locator('#prepare-grid').waitFor({timeout:8000});
   await ipad.screenshot({path:'screenshots/ipad-prepare.png',fullPage:true});
    await assertPreparationPanels(ipad,'Admin iPad');
+   await assertReadableGrid(ipad,'Admin iPad');
 
   const ipadWidth=await ipad.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
   assert(ipadWidth.scroll<=ipadWidth.width+2,'iPad layout overflows: '+JSON.stringify(ipadWidth));
@@ -265,6 +288,7 @@ try {
   await staff.waitForFunction(()=>document.querySelector('.af-grid-editable')?.textContent?.includes('4'),null,{timeout:8000});
   await staff.screenshot({path:'screenshots/staff-prepare.png',fullPage:true});
    await assertPreparationPanels(staff,'Employee mobile');
+   await assertReadableGrid(staff,'Employee mobile');
   assert.equal(await staff.locator('#staff-print-list:enabled').count(),1,'Prepared list should be printable by staff');
   const previousCount=await staff.locator('.staff-history-entry').count();
   let listSaveRequests=0;
