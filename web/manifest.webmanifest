@@ -1,0 +1,20 @@
+{
+  "name": "أفراح الوطن | نظام المخزون",
+  "short_name": "أفراح الوطن",
+  "description": "نظام جرد وتجهيز قوائم أفراح الوطن",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#202d63",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/assets/afrah-alwatan.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
