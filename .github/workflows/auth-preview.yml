@@ -110,6 +110,8 @@ jobs:
           # The login page intentionally has a second, opt-in offline form.
           python3 -c 'from pathlib import Path; f=Path("tests/ui-browser-smoke.mjs"); s=f.read_text(); f.write_text(s.replace("locator(\x27button[type=\x22submit\x22]\x27)", "locator(\x27button[type=\x22submit\x22]\x27).first()"))'
           node tests/ui-browser-smoke.mjs
+      - name: Verify stock deduction is atomic and idempotent
+        run: node tests/stock-dispatch.mjs
       - name: Verify offline execution-list replay after server restart
         run: node tests/offline-idempotency-restart.mjs
       - name: Test opt-in encrypted PWA and offline drafts with reconnection
