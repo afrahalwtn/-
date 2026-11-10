@@ -409,7 +409,7 @@ async function refresh(){
   // Management may disable offline while lists have not been sent.
   // Stop offline browsing immediately but never erase those work records.
   try{
-   if(!vault.unlocked&&await vault.hasSnapshot())await vault.unlock({ignoreBlock:true});
+   if(!vault.unlocked&&await vault.hasSnapshot())await vault.unlock({ignoreBlock:true,allowExpired:true});
    state.pendingLists=await vault.listPending();
    if(state.pendingLists.length)await vault.blockOffline();
    else await vault.clear();
