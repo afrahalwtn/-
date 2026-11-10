@@ -80,11 +80,11 @@ BEGIN
     SELECT payload INTO v_product FROM public.app_records
       WHERE kind='products' AND id=v_id FOR UPDATE;
     IF v_product IS NULL OR COALESCE(v_product->>'quantity','') !~ '^[0-9]{1,9}$' THEN
-      RAISE EXCEPTION 'STOCK_ITEM_MISSING:' || v_id USING ERRCODE='P0001';
+      RAISE EXCEPTION 'STOCK_ITEM_MISSING:%',v_id USING ERRCODE='P0001';
     END IF;
     v_available := (v_product->>'quantity')::integer;
     IF v_available < v_qty THEN
-      RAISE EXCEPTION 'STOCK_INSUFFICIENT:' || v_id || ':' || v_available USING ERRCODE='P0001';
+      RAISE EXCEPTION 'STOCK_INSUFFICIENT:%:%',v_id,v_available USING ERRCODE='P0001';
     END IF;
     UPDATE public.app_records SET
       payload=jsonb_set(
