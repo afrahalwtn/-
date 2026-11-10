@@ -261,25 +261,27 @@ function renderPreparedGrid(){
  if(!host)return;
  if(typeof window.Tabulator!=='function'){host.textContent='مكتبة الجدول غير متاحة. أعد تشغيل الخادم.';return;}
  const columns=[
-  {title:'ت',formatter:'rownum',width:50,hozAlign:'center',headerSort:false},
-  {title:'الصورة',field:'image_url',width:88,headerSort:false,formatter(cell){return asset(cell.getRow().getData()).replace('class="product-thumb"','class="af-grid-photo"');}},
-  {title:'اسم المنتج',field:'name',width:190,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>';}},
-  {title:'الوصف',field:'description',width:200,variableHeight:true,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>';}},
-  {title:'الصنع',field:'manufacture',width:130,formatter(cell){return safe(cell.getValue()||'—');}},
-  {title:'العدد',field:'quantity',width:108,hozAlign:'center',editor:quantityEditor,
+  {title:'ت',formatter:'rownum',width:56,minWidth:56,hozAlign:'center',headerSort:false},
+  {title:'الصورة',field:'image_url',width:90,minWidth:90,headerSort:false,formatter(cell){return asset(cell.getRow().getData()).replace('class="product-thumb"','class="af-grid-photo"');}},
+  {title:'اسم المنتج',field:'name',width:230,minWidth:230,variableHeight:true,formatter(cell){return '<strong class="af-grid-name">'+safe(cell.getValue())+'</strong>';}},
+  {title:'الوصف',field:'description',width:235,minWidth:235,variableHeight:true,formatter(cell){return '<span class="af-grid-description">'+safe(cell.getValue()||'—')+'</span>';}},
+  {title:'الصنع',field:'manufacture',width:145,minWidth:145,formatter(cell){return safe(cell.getValue()||'—');}},
+  {title:'العدد',field:'quantity',width:120,minWidth:120,hozAlign:'center',editor:quantityEditor,
    validator:['integer','min:1','max:100000000'],formatter(cell){return '<span class="af-grid-editable">'+number(cell.getValue())+' '+icon('edit',13)+'</span>';}},
  ];
- if(state.user?.can_view_purchase)columns.push({title:'سعر الشراء',field:'purchase_price',width:145,formatter(cell){return money(cell.getValue());}});
+ if(state.user?.can_view_purchase)columns.push({title:'سعر الشراء',field:'purchase_price',width:154,minWidth:154,formatter(cell){return money(cell.getValue());}});
  if(state.user?.can_view_sale){
-  columns.push({title:'سعر البيع',field:'sale_price',width:145,formatter(cell){return money(cell.getValue());}});
-  columns.push({title:'إجمالي البيع',field:'sale_total',width:160,bottomCalc:'sum',
+  columns.push({title:'سعر البيع',field:'sale_price',width:154,minWidth:154,formatter(cell){return money(cell.getValue());}});
+  columns.push({title:'إجمالي البيع',field:'sale_total',width:170,minWidth:170,bottomCalc:'sum',
     formatter(cell){return money(cell.getValue());},bottomCalcFormatter(cell){return money(cell.getValue()||0);}});
  }
- columns.push({title:'حذف',width:70,hozAlign:'center',headerSort:false,formatter(cell){
+ columns.push({title:'حذف',width:80,minWidth:80,hozAlign:'center',headerSort:false,formatter(cell){
   return '<button type="button" class="af-grid-remove" data-remove="'+cell.getRow().getData().id+'" aria-label="حذف الايتم">'+icon('x',16)+'</button>';
  }});
- prepareGrid=new window.Tabulator(host,{data:selectedRows(),index:'id',layout:'fitDataStretch',textDirection:'rtl',
-  editTriggerEvent:'click',placeholder:'القائمة فارغة. ابحث عن ايتم وأضفها.',columns,
+ // Set the spreadsheet width from the columns actually visible to this employee.
+ host.style.setProperty('--af-grid-min-width',columns.reduce((sum,col)=>sum+(col.minWidth||col.width||0),0)+'px');
+ prepareGrid=new window.Tabulator(host,{data:selectedRows(),index:'id',layout:'fitDataStretch',responsiveLayout:false,
+  columnDefaults:{headerWordWrap:false},textDirection:'rtl',editTriggerEvent:'click',placeholder:'القائمة فارغة. ابحث عن ايتم وأضفها.',columns,
   rowFormatter:()=>queueMicrotask(()=>{void paintPhotos(host);})
  });
  prepareGrid.on('renderComplete',()=>{void paintPhotos(host)});
