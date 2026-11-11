@@ -1437,8 +1437,10 @@ app.delete('/api/users/:id',requireAuth,requireCsrf,requireAdmin,(req,res)=>{
  * transaction, local mode one SQLite BEGIN IMMEDIATE transaction. */
 app.post('/api/execution-lists/dispatch', requireAuth, requireCsrf, asyncRoute(async (req,res)=>{
   const ctx=(req as any).auth as AuthContext;
-  if(ctx.user.role!=='staff'){
-    res.status(403).json({detail:'خصم المخزون عند التجهيز مخصص لبوابة الموظفين'});return;
+  // An administrator viewing the employee portal may dispatch stock without
+  // signing in with a separate staff account. Roles remain server-verified.
+  if(ctx.user.role!=='staff'&&ctx.user.role!=='admin'){
+    res.status(403).json({detail:'ليس لديك صلاحية خصم المخزون'});return;
   }
   const entries=req.body?.items,requestId=req.body?.client_request_id;
   if(typeof requestId!=='string'||
