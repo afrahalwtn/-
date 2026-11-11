@@ -1,5 +1,5 @@
 /* Offline shell only; NEVER cache /api, account data, or protected images. */
-const CACHE='afrah-static-20261111-v8';
+const CACHE='afrah-static-20261111-v9';
 const CORE=[
   '/','/admin','/web/styles.css','/web/tabler-afrah.css','/web/koa-theme.css',
   '/web/afrah-clean.css','/web/afrah-layout-v5.css','/web/account-portal.css',
