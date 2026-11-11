@@ -164,6 +164,7 @@ try {
   await page.locator('#quote-search').waitFor();
   await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').first().waitFor({timeout:15000});
   assert.equal(await page.locator('.nav-link[data-section="prepare"]').count(),1,'Dedicated Prepare List section is required');
+  assert.equal(await page.locator('.af-prep-employee-hint [data-action="switch-staff"]').count(),1,'Admin preparation should link to dispatch workspace');
   assert(await page.evaluate(()=>typeof window.Tabulator==='function'),'Real MIT Tabulator library must initialize');
   assert.equal(await page.locator('#prepare-grid .tabulator-tableholder .tabulator-table .tabulator-row').count(),1,'First material must be in spreadsheet');
   await page.screenshot({path:'screenshots/mobile-prepare-first.png',fullPage:true});
@@ -339,6 +340,11 @@ try {
   await desktop.locator('.portal-switch-btn[data-switch="admin"]').waitFor({state:'attached',timeout:15000});
   assert.equal(await desktop.locator('[data-nav="prepare"]').count(),1);
   assert.equal(await desktop.locator('[data-nav="users"]').count(),0);
+  await desktop.locator('[data-nav="prepare"]').click();
+  assert.equal(await desktop.locator('#staff-print-list').count(),1,'Admin should see preview in employee portal');
+  assert((await desktop.locator('#staff-print-list').textContent()).includes('معاينة فقط'));
+  assert.equal(await desktop.locator('#staff-save-list').count(),1,'Admin should see save-and-deduct in employee portal');
+  assert((await desktop.locator('#staff-save-list').textContent()).includes('حفظ وخصم من الجرد'));
   await desktop.screenshot({path:'screenshots/admin-viewing-staff.png',fullPage:true});
   await desktop.locator('.af-account-trigger').click();
   await desktop.locator('.portal-switch-btn[data-switch="admin"]').click();
