@@ -416,6 +416,10 @@ function prepareView(){
         <div class="af-prep-sum"><span>إجمالي عرض الأسعار</span><strong id="prepare-total">${money(sum)}</strong></div>
         <button type="button" class="btn primary af-prep-save" data-action="quote-create" ${rows.length?'':'disabled'}>${icon('save',18)} ${state.offlineMode?'حفظ مسودة محلية':'حفظ عرض الأسعار'}</button>
       </footer>
+      <div class="af-prep-employee-hint">
+        <span>تريد تجهيز مواد وخصم أعدادها من الجرد؟ افتح بوابة الموظفين، وهناك خيارا «معاينة فقط» و«حفظ وخصم من الجرد».</span>
+        <button type="button" class="btn quiet" data-action="switch-staff">${icon('arrow',17)} فتح بوابة الموظفين</button>
+      </div>
     </section>
   </div>`;
 }
