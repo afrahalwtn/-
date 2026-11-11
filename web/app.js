@@ -235,7 +235,7 @@ function prepare(){
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
   '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('eye',18)+' معاينة فقط</button>'+
-  ((state.user.role==='staff'||state.user.role==='admin')?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ طلب خصم للمزامنة':' حفظ وخصم من الجرد')+'</button>':'')+'</div></footer></section>'+
+  ((state.user.role==='staff'||state.user.role==='admin')?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ وخصم من الجرد (عند المزامنة)':' حفظ وخصم من الجرد')+'</button>':'')+'</div></footer></section>'+
   (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
    '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
    '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
