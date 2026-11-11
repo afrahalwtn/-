@@ -40,6 +40,14 @@ async function login(){
  assert.equal(r.status,200);
  return r.json();
 }
+async function loginAdmin(){
+ const r=await fetch(base+'/staff/auth/login',{method:'POST',
+  headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin123456'})});
+ assert.equal(r.status,200,'Owner must be able to enter employee portal');
+ const auth=await r.json();
+ assert.equal(auth.user.role,'admin');
+ return auth;
+}
 async function fetchProducts(auth){
  const r=await fetch(base+'/products',{headers:{Authorization:'Bearer '+auth.access_token}});
  assert.equal(r.status,200);return r.json();
@@ -90,11 +98,26 @@ try{
  const afterHistorical=await fetchProducts(auth);
  assert.equal(afterHistorical.find(p=>p.id===suitable[0].id).quantity,suitable[0].quantity-2,
   'Historical non-deducting list changed inventory');
+ // Administrators operating from the staff-facing portal may also dispatch.
+ const manager=await loginAdmin();
+ const beforeOwner=await fetchProducts(manager);
+ const managerTarget=beforeOwner.find(p=>p.id===suitable[0].id);
+ assert(managerTarget.quantity>=1);
+ const managerRequest={client_request_id:crypto.randomUUID(),
+  items:[{product_id:managerTarget.id,quantity:1}]};
+ const ownerSave=await submit(manager,'/execution-lists/dispatch',managerRequest);
+ assert.equal(ownerSave.status,201,JSON.stringify(ownerSave.body));
+ assert.equal(ownerSave.body.stock_deducted,true);
+ const afterOwner=await fetchProducts(manager);
+ assert.equal(afterOwner.find(p=>p.id===managerTarget.id).quantity,managerTarget.quantity-1);
+ const ownerRetry=await submit(manager,'/execution-lists/dispatch',managerRequest);
+ assert.equal(ownerRetry.body.id,ownerSave.body.id);
  await stop();await start();auth=await login();
  const replay=await submit(auth,'/execution-lists/dispatch',request);
  assert.equal(replay.status,201);
  assert.equal(replay.body.id,first.body.id,'Stock was recorded twice after restart');
  const last=await fetchProducts(auth);
- for(const before of suitable)assert.equal(last.find(p=>p.id===before.id).quantity,before.quantity-2);
+ for(const before of suitable)assert.equal(last.find(p=>p.id===before.id).quantity,
+    before.quantity-2-(before.id===managerTarget.id?1:0));
  console.log('PASS: 2-item atomic decrement, idempotency, rollback on shortage, no-op preview, restart replay');
 }finally{await stop();rmSync(folder,{recursive:true,force:true});}
