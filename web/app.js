@@ -235,7 +235,7 @@ function prepare(){
   '<div class="af-tabulator-wrap"><div id="staff-grid" aria-label="جدول تجهيز القائمة"></div></div>'+
   '<footer class="staff-prep-footer"><div class="staff-prep-total" id="staff-prep-total">'+preparedTotals()+'</div>'+
   '<div class="staff-prep-actions"><button class="btn quiet" type="button" id="staff-print-list" '+(state.draft.length?'':'disabled')+'>'+icon('eye',18)+' معاينة فقط</button>'+
-  (state.user.role==='staff'?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ طلب خصم للمزامنة':' حفظ وخصم من الجرد')+'</button>':'')+'</div></footer></section>'+
+  ((state.user.role==='staff'||state.user.role==='admin')?'<button class="btn primary" type="button" id="staff-save-list" '+(state.draft.length?'':'disabled')+'>'+icon('save',18)+(state.offlineMode?' حفظ طلب خصم للمزامنة':' حفظ وخصم من الجرد')+'</button>':'')+'</div></footer></section>'+
   (state.pendingLists.length?'<section class="card af-offline-outbox"><div class="staff-history-heading"><h2>قوائم محفوظة على الجهاز ولم تُرسل</h2><span>'+number(state.pendingLists.length)+' قائمة</span></div>'+
    '<p class="af-offline-outbox-note">كل قائمة محفوظة مستقلة، وتبقى حتى تتأكد مزامنتها مع الشركة.</p>'+
    '<div class="staff-history-body">'+state.pendingLists.map((entry,index)=>
@@ -301,7 +301,7 @@ function renderPreparedGrid(){
 }
 let pendingSyncInFlight=false;
 async function syncPendingLists(){
- if(pendingSyncInFlight||state.offlineMode||state.user?.role!=='staff'||!state.pendingLists.length)return;
+ if(pendingSyncInFlight||state.offlineMode||!['staff','admin'].includes(state.user?.role)||!state.pendingLists.length)return;
  pendingSyncInFlight=true;
  let synced=0,failed=null,needsReview=0;
  try{
@@ -329,7 +329,7 @@ async function syncPendingLists(){
 let executionSaveInFlight=false;
 let pendingDispatch=null;
 async function saveExecutionList(){
- if(!state.draft.length||executionSaveInFlight||state.user?.role!=='staff')return;
+ if(!state.draft.length||executionSaveInFlight||!['staff','admin'].includes(state.user?.role))return;
  executionSaveInFlight=true;
  const button=document.getElementById('staff-save-list');
  const previous=button?.innerHTML;
@@ -462,7 +462,7 @@ async function refresh(){
    else await vault.clear();
   }catch(error){console.warn('Pending list preservation failed',error?.message);}
  }
- if(state.pendingLists.length&&state.user?.role==='staff'&&!state.offlineMode)
+ if(state.pendingLists.length&&['staff','admin'].includes(state.user?.role)&&!state.offlineMode)
    setTimeout(()=>{void syncPendingLists();},0);
 }
 function reset(){
