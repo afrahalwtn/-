@@ -1108,3 +1108,16 @@ body :is(p,small,label,.muted,.subtext,.product-name,.af-item-meta,
     font-size:13px!important;
   }
 }
+
+/* Manager-facing entrance to dispatch preparation; quotation workflow stays separate. */
+.af-prep .af-prep-employee-hint{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:12px;padding:16px 18px;border-top:1px solid #dae3f1;
+  color:#3b5277;font-size:13px;line-height:1.8;box-sizing:border-box;
+}
+.af-prep .af-prep-employee-hint span{flex:1 1 230px;min-width:0}
+.af-prep .af-prep-employee-hint .btn{flex:0 0 auto;white-space:normal}
+@media(max-width:700px){
+ .af-prep .af-prep-employee-hint{padding:14px;flex-direction:column;align-items:stretch}
+ .af-prep .af-prep-employee-hint .btn{width:100%;justify-content:center}
+}
